@@ -14,3 +14,7 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - B01–B06 · idempotent connection/discovery, generation correction, persisted disconnect intent, removal/restoration with retained history, honest live HR/coverage/contact/source dashboard, separate sync timestamps and foreground freshness policy · e428748 · 72 core /9 simulator tests plus final focused dashboard rerun, unsigned iPhone build, ten real captures, read-only reviews; physical C01/C03/C04/S01 remain open.
 
 - UX10 · prominent Today live/collection panel, shared pull/manual refresh with honest local/cloud outcome and timestamps, compact sleep timing with retained correction and repeat-session entry · b5caf7b · 73 core /11 simulator tests, unsigned iPhone build, ten fresh real captures and read-only review; D01 rendering/physical investigation remains open.
+
+- UX11 · focused Activity selection/live timer/pause/resume, explicit Cancel/Finish alert and timer accessibility · 6d38142 · 74 core /12 UI tests plus final band-status rerun, unsigned iPhone build, ten fresh simulator captures.
+- W01 · wear-not-reported copy and firmware-bounded body-status research, with no speculative device commands · 6d38142 · parser/presentation tests and final status UI test; physical C01/C04 remain open.
+- WIDGET01 · absent/out-of-range widget readiness remains unavailable · 6d38142 · app/extension build; physical cross-process delivery remains D02/V01.
