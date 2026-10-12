@@ -4,6 +4,7 @@ import TempoCore
 
 struct ActivityView: View {
   @Environment(AppModel.self) var model
+  var title = "Activity"
   @State private var selected: TempoCore.Activity = .padel
   var body: some View {
     List {
@@ -12,17 +13,27 @@ struct ActivityView: View {
           TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(alignment: .leading, spacing: 12) {
               Text(workout.activity.rawValue.capitalized).font(.title2.weight(.semibold))
-              Text(durationText(workout.activeDuration(at: context.date))).font(.largeTitle)
+              Text(
+                Duration.seconds(workout.activeDuration(at: context.date)).formatted(
+                  .time(pattern: .hourMinuteSecond))
+              ).font(.largeTitle)
                 .monospacedDigit()
-              Text(workout.pausedAt == nil ? "Recording elapsed time" : "Paused").foregroundStyle(
+              Text(workout.pausedAt == nil ? "Recording" : "Paused").foregroundStyle(
                 .secondary)
               if let sample = model.lastSample,
-                context.date.timeIntervalSince(sample.timestamp) < 90
+                SampleFreshness(timestamp: sample.timestamp, now: context.date) == .fresh
               {
                 Text("\(Int(sample.value)) bpm").font(.title)
-                Text("Source: \(model.activeDevice?.name ?? "Uncertain")").font(.caption)
+                Text(
+                  sample.value < model.maxHeartRate * 0.5
+                    ? "Below training zones"
+                    : "Zone \(max(1, min(5, Int(floor((sample.value / model.maxHeartRate - 0.5) * 10)) + 1)))"
+                ).font(.subheadline).foregroundStyle(.secondary)
+                Text(
+                  "Source: \(model.devices.first { $0.id == sample.deviceID }?.name ?? "Recorded band")"
+                ).font(.caption)
               } else {
-                Text("Heart rate unavailable · gaps remain visible").foregroundStyle(.secondary)
+                Text("Waiting for heart rate").foregroundStyle(.secondary)
               }
             }
           }
@@ -38,7 +49,7 @@ struct ActivityView: View {
       } else {
         Section("Start a workout") {
           Picker("Activity", selection: $selected) {
-            ForEach(TempoCore.Activity.allCases, id: \.self) {
+            ForEach(WorkoutPresentation.orderedActivities(model.workouts), id: \.self) {
               Text($0.rawValue.capitalized).tag($0)
             }
           }
@@ -101,18 +112,22 @@ struct ActivityView: View {
         }
         if model.workouts.isEmpty {
           Text(
-            "Your sessions will appear here. Workouts survive app relaunch; disconnected periods have no invented heart rate."
+            "Start a workout to begin your activity history."
           ).foregroundStyle(.secondary)
         }
       }
-    }.navigationTitle("Activity")
+    }.navigationTitle(title).onAppear {
+      selected = WorkoutPresentation.orderedActivities(model.workouts).first ?? .padel
+    }
   }
 }
 struct WorkoutDetailView: View {
   @Environment(AppModel.self) var model
   let workout: Workout
+  var title: String? = nil
   @State private var note = ""
   @State private var effort = 5
+  @State private var effortEnabled = false
   @State private var historical: [TempoCore.Measurement] = []
   var observations: [TempoCore.Measurement] {
     (workout.end == nil ? model.canonical : historical).filter {
@@ -167,11 +182,13 @@ struct WorkoutDetailView: View {
       }
       Section("Time in zones") {
         if let load = CardiovascularLoad.calculate(
-          observations, maxHeartRate: model.maxHeartRate, workout: workout)
+          observations, maxHeartRate: model.maxHeartRate, workout: workout), load.coveredSeconds > 0
         {
           ForEach(0..<5, id: \.self) { i in
             MetricRow(label: "Zone \(i+1)", value: durationText(load.zones[i]))
           }
+        } else {
+          Text("Zone totals need recorded heart rate.").foregroundStyle(.secondary)
         }
       }
       Section("Sources") {
@@ -183,12 +200,13 @@ struct WorkoutDetailView: View {
       }
       Section("Your experience") {
         TextField("Notes", text: $note, axis: .vertical)
-        Stepper("Perceived exertion: \(effort)/10", value: $effort, in: 1...10)
+        Toggle("Record perceived exertion", isOn: $effortEnabled)
+        if effortEnabled { Stepper("Perceived exertion: \(effort)/10", value: $effort, in: 1...10) }
         Button("Save notes") {
           model.mutate {
             var w = model.workouts.first(where: { $0.id == workout.id }) ?? workout
             w.note = note
-            w.perceivedExertion = effort
+            w.perceivedExertion = effortEnabled ? effort : nil
             try await model.save(w, kind: "workout")
           }
         }
@@ -197,9 +215,10 @@ struct WorkoutDetailView: View {
             .foregroundStyle(.secondary)
         }
       }
-    }.navigationTitle(workout.activity.rawValue.capitalized).onAppear {
+    }.navigationTitle(title ?? workout.activity.rawValue.capitalized).onAppear {
       note = workout.note
       effort = workout.perceivedExertion ?? 5
+      effortEnabled = workout.perceivedExertion != nil
     }.task(id: workout.id) {
       do {
         let samples =

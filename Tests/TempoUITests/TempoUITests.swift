@@ -6,7 +6,7 @@ final class TempoUITests: XCTestCase {
     app.launchArguments = ["--ui-testing"]
     app.launch()
     XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 10))
-    XCTAssertTrue(app.staticTexts["Your baseline is still building."].exists)
+    XCTAssertTrue(app.staticTexts["Building your baseline"].exists)
     XCTAssertTrue(app.staticTexts["tempo-brand-name"].exists)
     app.tabBars.buttons["Activity"].tap()
     XCTAssertTrue(app.buttons["Start Padel"].waitForExistence(timeout: 5))
@@ -15,6 +15,8 @@ final class TempoUITests: XCTestCase {
     app.buttons["Pause"].tap()
     XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
     app.buttons["Finish"].tap()
+    XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
+    app.buttons["Done"].tap()
     app.tabBars.buttons["Trends"].tap()
     XCTAssertTrue(app.staticTexts["No qualifying measurements"].waitForExistence(timeout: 5))
   }
@@ -54,6 +56,9 @@ extension TempoUITests {
     XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
     capture("workout-demo")
     app.buttons["Finish"].tap()
+    XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
+    capture("workout-summary-demo")
+    app.buttons["Done"].tap()
     app.tabBars.buttons["Trends"].tap()
     XCTAssertTrue(app.staticTexts["Personal patterns"].waitForExistence(timeout: 5))
     capture("trends-demo")
@@ -119,5 +124,72 @@ extension TempoUITests {
     XCTAssertTrue(app.staticTexts["Underwear / WHOOP Body"].firstMatch.waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Wrist"].exists)
     XCTAssertTrue(app.staticTexts["Upper arm / bicep"].exists)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testCompactTodayAndCrossTabWorkoutControls() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    XCTAssertTrue(app.buttons["band-status-control"].waitForExistence(timeout: 20))
+    XCTAssertTrue(app.staticTexts["today-sleep-summary"].exists)
+    XCTAssertTrue(app.staticTexts["today-movement-summary"].exists)
+    XCTAssertLessThan(
+      app.staticTexts["today-movement-summary"].frame.maxY, app.tabBars.firstMatch.frame.minY)
+    XCTAssertFalse(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'confidence'")).firstMatch
+        .exists)
+    app.tabBars.buttons["Activity"].tap()
+    app.buttons["Start Padel"].tap()
+    XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+    app.tabBars.buttons["Trends"].tap()
+    XCTAssertTrue(app.buttons["Pause workout"].waitForExistence(timeout: 5))
+    app.buttons["Pause workout"].tap()
+    XCTAssertTrue(app.buttons["Resume workout"].waitForExistence(timeout: 5))
+    app.buttons["Open active workout"].tap()
+    XCTAssertTrue(app.navigationBars["Active workout"].waitForExistence(timeout: 5))
+    app.buttons["Finish"].tap()
+    XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testLargeTextDarkModeKeepsPrimaryActionsAccessible() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--large-text", "--dark"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    let attachment = XCTAttachment(screenshot: app.screenshot())
+    attachment.name = "today-dark-large-text-demo"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+    XCTAssertTrue(app.staticTexts["Readiness"].exists)
+    for _ in 0..<5 where !app.buttons["band-status-control"].isHittable { app.swipeUp() }
+    XCTAssertTrue(app.buttons["band-status-control"].exists)
+    app.buttons["band-status-control"].tap()
+    XCTAssertTrue(app.navigationBars["Band status"].waitForExistence(timeout: 5))
+    for _ in 0..<3 where !app.buttons["Manage and reconnect bands"].exists { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Manage and reconnect bands"].exists)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testOlderSleepDoesNotPresentCurrentReadiness() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--stale-sleep-demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    XCTAssertTrue(app.staticTexts["More overnight data needed"].exists)
+    XCTAssertTrue(app.staticTexts["Latest sleep"].exists)
+    XCTAssertFalse(app.staticTexts["Close to your usual range"].exists)
   }
 }

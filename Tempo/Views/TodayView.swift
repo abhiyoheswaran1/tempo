@@ -5,102 +5,91 @@ struct TodayView: View {
   @Environment(AppModel.self) var model
   @State private var journal = false
   @State private var sleep = false
+  @ScaledMetric(relativeTo: .largeTitle) private var scoreSize = 48
   var body: some View {
     let readiness = model.readiness
+    let lastSleep = SleepPresentation(sessions: model.sleeps, now: Date())
+    let today = model.canonical.filter { Calendar.current.isDateInToday($0.timestamp) }
+    let load = CardiovascularLoad.calculate(today, maxHeartRate: model.maxHeartRate)
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
-        HStack(spacing: 8) {
-          Image("TempoMark").resizable().scaledToFit().foregroundStyle(.teal)
-            .frame(width: 44, height: 44).accessibilityHidden(true)
-          VStack(alignment: .leading, spacing: 2) {
-            Text("Tempo").font(.headline).accessibilityIdentifier("tempo-brand-name")
-            Text(Date(), format: .dateTime.weekday(.wide).month().day()).font(.subheadline)
-              .foregroundStyle(.secondary)
-          }
-        }
-        Text(readiness.headline).font(.largeTitle.weight(.semibold)).fixedSize(
-          horizontal: false, vertical: true)
-        ContentSection(
-          "Readiness", subtitle: "Tempo estimate · \(readiness.algorithmVersion)"
-        ) {
-          HStack(alignment: .firstTextBaseline) {
-            Text(readiness.score.map { String($0) } ?? "—").font(
-              .system(size: 56, weight: .semibold, design: .rounded)
-            ).accessibilityLabel(
-              readiness.score.map { "Readiness \($0)" } ?? "Readiness unavailable")
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 8) {
+            brand
             Spacer()
-            VStack(alignment: .trailing) {
-              Text(
-                readiness.baselineDays < 7
-                  ? "Building baseline"
-                  : (readiness.baselineDays < 21 ? "Provisional" : "Personal baseline"))
-              Text("\(Int(readiness.confidence*100))% confidence").font(.caption)
-                .foregroundStyle(.secondary)
+            dateLabel.fixedSize()
+          }
+          VStack(alignment: .leading, spacing: 6) {
+            brand
+            dateLabel
+          }
+        }
+        Text(headline(readiness)).font(.title2.weight(.semibold)).fixedSize(
+          horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 12) {
+          ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline) {
+              Text("Readiness").font(.headline).fixedSize()
+              Spacer()
+              Text("Tempo estimate").font(.caption).foregroundStyle(.secondary).fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 4) {
+              Text("Readiness").font(.headline)
+              Text("Tempo estimate").font(.caption).foregroundStyle(.secondary)
             }
           }
-          NavigationLink("See inputs and calculation") { ReadinessDetailView() }
-        }
-        ContentSection(
-          "Last night",
-          subtitle:
-            "Sleep is entered or imported; automatic detection is unavailable without validated inputs."
-        ) {
-          if let last = model.sleeps.first {
+          ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 20) {
+              score(readiness)
+              evidence(readiness).fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 8) {
+              score(readiness)
+              evidence(readiness)
+            }
+          }
+          NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
+        }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(
+          Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+        VStack(spacing: 16) {
+          VStack(alignment: .leading, spacing: 6) {
+            Text(lastSleep.title).font(.headline).accessibilityIdentifier("today-sleep-summary")
+            if let last = lastSleep.session {
+              NavigationLink {
+                SleepDetailView(sleep: last)
+              } label: {
+                MetricRow(
+                  label: "Sleep", value: durationText(last.duration),
+                  detail:
+                    "\(last.end.formatted(date: .abbreviated, time: .omitted)) · \(last.origin == .manual ? "Entered" : last.origin.rawValue.capitalized)"
+                )
+              }.tint(.primary)
+            } else {
+              Text("Add sleep to begin your overnight history.").font(.subheadline).foregroundStyle(
+                .secondary)
+            }
+            Button(lastSleep.session == nil ? "Add sleep" : "Add or correct sleep") { sleep = true }
+              .font(.subheadline)
+          }.frame(maxWidth: .infinity, alignment: .leading)
+          Divider()
+          VStack(alignment: .leading, spacing: 6) {
+            Text("Today's movement").font(.headline).accessibilityIdentifier(
+              "today-movement-summary")
             MetricRow(
-              label: "Sleep", value: durationText(last.duration),
-              detail: last.origin == .manual
-                ? "Manually entered / corrected" : "\(last.origin.rawValue.capitalized) measurement"
+              label: "Cardiovascular load",
+              value: (load?.coveredSeconds ?? 0) > 60
+                ? String(format: "%.0f", load?.points ?? 0) : "Not enough data",
+              detail:
+                "\(model.workouts.filter { Calendar.current.isDateInToday($0.start) }.count) workouts · HR-based estimate"
             )
-            Text(
-              "\(last.start.formatted(date:.omitted,time:.shortened)) – \(last.end.formatted(date:.omitted,time:.shortened))"
-            ).foregroundStyle(.secondary)
-            NavigationLink("Inspect sleep") { SleepDetailView(sleep: last) }
-          } else {
-            Label("No sleep session yet", systemImage: "moon.zzz").foregroundStyle(.secondary)
-          }
-          Button("Add or correct sleep") { sleep = true }
+          }.frame(maxWidth: .infinity, alignment: .leading)
         }
-        ContentSection(
-          "Today's movement", subtitle: "Derived cardiovascular load · Edwards zone minutes"
-        ) {
-          let today = model.canonical.filter { Calendar.current.isDateInToday($0.timestamp) }
-          let load = CardiovascularLoad.calculate(today, maxHeartRate: model.maxHeartRate)
-          MetricRow(
-            label: "Cardiovascular load",
-            value: (load?.coveredSeconds ?? 0) > 60
-              ? String(format: "%.0f", load?.points ?? 0) : "Unavailable",
-            detail: "Requires measured heart rate; gaps are excluded")
-          MetricRow(
-            label: "Recorded workouts",
-            value: String(model.workouts.filter { Calendar.current.isDateInToday($0.start) }.count))
-        }
-        ContentSection("Your band") {
-          Text(model.activeDevice?.name ?? "No active band").font(.headline)
-          Text(model.demo ? "Synthetic demonstration" : model.bluetooth.status).font(.subheadline)
-            .foregroundStyle(.secondary)
-          if let sample = model.lastSample {
-            TimelineView(.periodic(from: .now, by: 15)) { context in
-              MetricRow(
-                label: "Last heart rate",
-                value: context.date.timeIntervalSince(sample.timestamp) > 90
-                  ? "Stale" : "\(Int(sample.value)) bpm",
-                detail:
-                  "\(sample.timestamp.formatted(date:.abbreviated,time:.standard)) · \(sample.origin.rawValue)"
-              )
-            }
-          } else {
-            Text("Pair a band to begin collecting your own measurements.").foregroundStyle(
-              .secondary)
-          }
-          MetricRow(
-            label: "Battery", value: "Unavailable",
-            detail: "Authoritative battery reading has not been validated")
-        }
+        BandStatusControl()
         Button {
           journal = true
         } label: {
           Label("How do you feel?", systemImage: "square.and.pencil").frame(maxWidth: .infinity)
-            .padding(12)
+            .padding(.vertical, 8)
         }.buttonStyle(.bordered)
       }.padding(20)
     }.background(Color(uiColor: .systemGroupedBackground)).navigationTitle("Today")
@@ -108,29 +97,78 @@ struct TodayView: View {
       .sheet(isPresented: $journal) { NavigationStack { JournalEditor() } }
       .sheet(isPresented: $sleep) { NavigationStack { SleepEditor() } }
   }
+  var brand: some View {
+    HStack(spacing: 8) {
+      Image("TempoMark").resizable().scaledToFit().foregroundStyle(.teal).frame(
+        width: 24, height: 24
+      ).accessibilityHidden(true)
+      Text("Tempo").font(.subheadline.weight(.semibold)).accessibilityIdentifier("tempo-brand-name")
+    }.fixedSize()
+  }
+  var dateLabel: some View {
+    Text(Date(), format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(
+      .subheadline
+    ).foregroundStyle(.secondary)
+  }
+  func headline(_ result: ReadinessResult) -> String {
+    if result.baselineDays < 7 { return "Building your baseline" }
+    guard let score = result.score else { return "More overnight data needed" }
+    return score < 50 ? "A lighter day may suit you" : "Close to your usual range"
+  }
+  func score(_ result: ReadinessResult) -> some View {
+    Text(result.score.map(String.init) ?? "—").font(
+      .system(size: scoreSize, weight: .semibold, design: .rounded)
+    ).monospacedDigit().accessibilityLabel(
+      result.score.map { "Readiness \($0)" } ?? "Readiness unavailable")
+  }
+  func evidence(_ result: ReadinessResult) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(EvidenceLevel(confidence: result.confidence).title).font(.subheadline.weight(.medium))
+      Text(
+        result.baselineDays < 7
+          ? "\(result.baselineDays) of 7 nights to begin"
+          : "\(result.baselineDays) personal baseline nights"
+      ).font(.caption).foregroundStyle(.secondary)
+    }
+  }
 }
 struct ReadinessDetailView: View {
   @Environment(AppModel.self) var model
   var body: some View {
     let readiness = model.readiness
     List {
+      Section("Evidence") {
+        Text(EvidenceLevel(confidence: readiness.confidence).title).font(.headline)
+        Text(
+          "Evidence categories describe available inputs and comparability. They are conservative heuristics, not a calibrated probability of accuracy."
+        )
+        LabeledContent("Baseline nights", value: String(readiness.baselineDays))
+        if let sleep = model.readinessSleep {
+          LabeledContent("Sleep used", value: sleep.end.formatted())
+        } else {
+          Text(
+            "No qualifying sleep within the last 36 hours. Older inputs remain in your history but do not supply today’s score."
+          )
+        }
+      }
       Section("Your inputs") {
         ForEach(readiness.factors, id: \.self) { Text($0) }
-        if readiness.factors.isEmpty { Text("No qualifying overnight inputs yet.") }
+        if readiness.factors.isEmpty {
+          Text("Collect overnight measurements to build your personal baseline.")
+        }
       }
       Section("How Tempo calculates it") {
         Text(
           "A 28-night personal window compares log RMSSD, resting heart rate and sleep duration against median and robust deviation. At least 7 prior nights and 2 available inputs are required. Scores are rounded to 5 points; 21 nights establish the baseline."
         )
         Text(
-          "Resting heart rate here is the overnight 10th percentile estimate and requires 70% sample coverage. HRV requires a contiguous five-minute RR window with at least 240 accepted intervals and under 10% rejection."
+          "Resting heart rate is an overnight estimate requiring 70% sample coverage. HRV requires valid beat-to-beat intervals in a sufficiently covered window. Missing measurements are not filled in."
         )
         Text(
-          "Changing bands may change measurement distributions. This version does not calibrate device offsets; compare source history before treating a change as physiological."
+          "Band and reported placement changes can reduce evidence strength. Uncalibrated offsets are not applied to your measurements. This is personal training guidance, without medical validation."
         )
-        Text("This is personal training guidance, without medical validation.")
       }
-      Section("Version") { Text(readiness.algorithmVersion) }
+      Section("Algorithm") { Text(readiness.algorithmVersion) }
     }.navigationTitle("Readiness explained")
   }
 }

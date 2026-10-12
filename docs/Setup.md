@@ -1,3 +1,7 @@
+# Open the runnable iPhone app
+
+Open `Tempo.xcworkspace` or `Tempo.xcodeproj`; select **Tempo**, not **TempoCore**, as the scheme. The repository root/Package.swift opens the non-executable core library. `Scripts/Open-Tempo.command` opens the app workspace explicitly. Choose an iPhone/iPhone simulator running iOS26+, then configure signing for Tempo and TempoWidgets. Native Run → Info → Executable is `Tempo.app`. The app binary is created during build and is not a checked-in source file.
+
 # Build and install Tempo
 
 ## Tools

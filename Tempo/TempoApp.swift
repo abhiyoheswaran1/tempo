@@ -4,7 +4,7 @@ import SwiftUI
   @State private var model = AppModel()
   var body: some Scene {
     WindowGroup {
-      RootView().environment(model).task {
+      RootView().environment(model).modifier(TestAppearance()).task {
         await model.start()
         if ProcessInfo.processInfo.arguments.contains("--demo") {
           await model.setDemo(true)
@@ -13,6 +13,19 @@ import SwiftUI
           }
         }
       }
+    }
+  }
+}
+
+private struct TestAppearance: ViewModifier {
+  @ViewBuilder func body(content: Content) -> some View {
+    if ProcessInfo.processInfo.arguments.contains("--ui-testing")
+      && ProcessInfo.processInfo.arguments.contains("--large-text")
+    {
+      content.environment(\.dynamicTypeSize, .accessibility5).preferredColorScheme(
+        ProcessInfo.processInfo.arguments.contains("--dark") ? .dark : nil)
+    } else {
+      content
     }
   }
 }

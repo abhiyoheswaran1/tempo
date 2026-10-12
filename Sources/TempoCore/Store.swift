@@ -174,6 +174,42 @@ public actor TempoStore {
       now: to, sourceSegments: sourceSegments, existingWorkouts: existingWorkouts,
       allowSynthetic: allowSynthetic && self.allowSynthetic)
   }
+  public func dailySummaries(
+    kind: MetricKind, from: Date, to: Date, calendar: Calendar = .current,
+    sourceSegments: [SourceSegment] = []
+  ) async throws -> [DailyTrendSummary] {
+    guard from < to, to.timeIntervalSince(from) <= 367 * 86400 else { return [] }
+    let deleted = Set(
+      try revisions(kind: "measurementDeletion").compactMap {
+        String(data: $0.payload, encoding: .utf8)
+      })
+    var day = calendar.startOfDay(for: from)
+    var result: [DailyTrendSummary] = []
+    while day < to {
+      try Task.checkCancellation()
+      await Task.yield()
+      guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { break }
+      let data = try rows(
+        "SELECT payload FROM observations WHERE kind=? AND time>=? AND time<? ORDER BY time,id LIMIT 200001",
+        [
+          .text(kind.rawValue),
+          .number(max(from, day.addingTimeInterval(-10)).timeIntervalSince1970),
+          .number(min(to, next.addingTimeInterval(10)).timeIntervalSince1970),
+        ])
+      let samples = try data.prefix(200000).map {
+        try JSONDecoder().decode(Measurement.self, from: $0)
+      }.filter { !deleted.contains($0.id) }
+      if var summary = DailyTrendSummary.calculate(
+        samples, kind: kind, calendar: calendar, sourceSegments: sourceSegments,
+        allowSynthetic: allowSynthetic
+      ).first(where: { $0.date == day }) {
+        summary.truncated = data.count > 200000
+        result.append(summary)
+      }
+      day = next
+    }
+    return result
+  }
   public func dailyRepresentatives(kind: MetricKind, from: Date, to: Date) throws -> [Measurement] {
     let deleted = Set(
       try revisions(kind: "measurementDeletion").compactMap {

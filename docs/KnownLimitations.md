@@ -50,3 +50,7 @@ Opt-in heart-rate-based potential workouts support confirmation, timing/type edi
 ## Wearing placement
 
 Wrist, upper-arm and underwear reports are implemented per band with effective timestamps and revision-backed corrections. They are user context, not device-detected location. Placement-specific offsets, full baseline-window comparability auditing, motion classification and raw optical calibration remain unimplemented/unvalidated. Conflicting reports project to unknown. See [WearingPlacement.md](WearingPlacement.md).
+
+## UI refinement verification boundary
+
+Compact Today/evidence categories, band/placement sheet, native cross-tab workout controls, finish summaries and daily trend aggregation are implemented. Maximum Dynamic Type/dark-mode simulator checks and nine actual screenshots accompany this pass. Signed installation, physical VoiceOver/contrast/transparency/battery behavior and iOS26 runtime checks remain open in the improvement tracker. A native app target/workspace is included; the root Swift package is a non-executable library.

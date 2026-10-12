@@ -26,6 +26,7 @@ import WidgetKit
   var errorMessage: String?
   var transitioningDataset = false
   private var loadGeneration = 0
+  var historyGeneration = 0
   var demo = false
   var syncEnabled = false
   var maxHeartRate: Double = 190
@@ -43,12 +44,19 @@ import WidgetKit
     CanonicalTimeline.select(measurements, sourceSegments: sourceSegments)
   }
   var lastSample: TempoCore.Measurement? {
-    (bluetooth.lastSamples[selector.activeID ?? UUID()].flatMap { $0.valid ? $0 : nil })
-      ?? canonical.last
+    LiveSampleSelection.latest(
+      Array(bluetooth.lastSamples.values) + measurements, selectedDeviceID: selector.activeID,
+      now: Date(), allowSynthetic: demo)
+  }
+  var finishedWorkout: Workout?
+  var readinessSleep: SleepSession? {
+    SleepPresentation(sessions: sleeps, now: Date()).readinessSession
   }
   var readiness: ReadinessResult {
     let selectedMeasurements = canonical
-    let nights = sleeps.filter { !$0.isNap && $0.duration >= 4 * 3600 }.sorted { $0.end < $1.end }
+    let nights = sleeps.filter { !$0.isNap && $0.duration >= 4 * 3600 && $0.end <= Date() }.sorted {
+      $0.end < $1.end
+    }
     let baseline = nights.suffix(29).map { night in
       PersonalBaseline(
         date: night.end, values: nightInputs(night),
@@ -63,9 +71,10 @@ import WidgetKit
     }
     let locations = PlacementTimeline.locations(samples: overnightSamples, records: placements)
       .subtracting([.unknown])
-    let current = nights.last.map { nightInputs($0) } ?? [:]
+    let currentSleep = readinessSleep
+    let current = currentSleep.map { nightInputs($0) } ?? [:]
     return Readiness.calculate(
-      current: current, baseline: Array(baseline.dropLast()),
+      current: current, baseline: currentSleep == nil ? baseline : Array(baseline.dropLast()),
       deviceChange: Set(
         sourceSegments.filter { $0.start > Date().addingTimeInterval(-28 * 86400) }.map(\.deviceID)
       ).count > 1, placementChange: locations.count > 1)
@@ -257,6 +266,7 @@ import WidgetKit
       hideWidgetDetails = p.hideWidgetDetails
       automaticDetectionEnabled = p.automaticDetectionEnabled ?? false
     }
+    historyGeneration &+= 1
     writeWidget()
   }
   func save<T: Codable & Identifiable>(_ value: T, kind: String) async throws where T.ID == UUID {
@@ -316,6 +326,7 @@ import WidgetKit
     guard var w = activeWorkout else { return }
     w.finish(at: Date())
     try await save(w, kind: "workout")
+    finishedWorkout = w
     if !demo { await live.end() }
   }
   private func updateLive(_ w: Workout) async {
@@ -483,6 +494,7 @@ import WidgetKit
   }
   func setDemo(_ enabled: Bool) async {
     guard !transitioningDataset, enabled != demo else { return }
+    finishedWorkout = nil
     transitioningDataset = true
     defer { transitioningDataset = false }
     fallbackTask?.cancel()
@@ -509,7 +521,9 @@ import WidgetKit
         let sleep = SleepSession(
           start: end.addingTimeInterval(-7.5 * 3600), end: end,
           timeZoneID: TimeZone.current.identifier, origin: .synthetic)
-        try? await save(sleep, kind: "sleep")
+        if !ProcessInfo.processInfo.arguments.contains("--stale-sleep-demo") || day >= 3 {
+          try? await save(sleep, kind: "sleep")
+        }
         for i in 0..<300 {
           records.append(
             TempoCore.Measurement(

@@ -25,3 +25,7 @@ A pure core detector consumes canonical measured HR and outputs versioned candid
 ## Wearing placement context
 
 Placement reports are separate immutable revision entities keyed to portable device IDs and UTC effective instants. They are user-entered metadata; transport and measured values remain unchanged. A pure projection retains conflicted reports as unknown boundaries, avoiding fallback to a formerly known position. Session context joins actual valid measured samples to the per-device report timeline. Known overnight position changes reduce readiness confidence through an explicit versioned heuristic; placement-specific physiological or motion models are not claimed.
+
+## Refined presentation and launch
+
+The native app workspace references Tempo.xcodeproj; the root Swift package is only the shared core library. Pure presentation helpers enforce HR-only band-source selection, freshness and date-aware sleep/current-readiness eligibility. Shared SwiftUI band and workout controls avoid duplicating transport state. Workout completion uses the persisted session and does not fabricate coverage; exertion remains absent until explicitly enabled. A native tab accessory is guarded for26.1, with the26.0 content API fallback. Historical daily summaries run in the SQLite actor, yield between days, preserve input provenance, and use local calendar boundaries. Physical accessibility/runtime/collection validation remains separate.

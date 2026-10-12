@@ -4,12 +4,18 @@ import TempoCore
 struct RootView: View {
   @Environment(AppModel.self) var model
   @State private var settings = false
+  @State private var activeWorkoutSheet = false
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.dynamicTypeSize) private var textSize
   var body: some View {
     VStack(spacing: 0) {
       if model.demo {
-        Text("DEMO · Synthetic data · Cloud and Health disabled").font(.caption.weight(.semibold))
+        Text(
+          textSize.isAccessibilitySize
+            ? "DEMO · Synthetic data" : "DEMO · Synthetic data · Cloud and Health disabled"
+        ).font(.caption.weight(.semibold))
           .frame(maxWidth: .infinity).padding(8).background(.yellow.opacity(0.2))
+          .accessibilityLabel("DEMO · Synthetic data · Cloud and Health disabled")
       }
       TabView {
         Tab("Today", systemImage: "sun.max") {
@@ -21,11 +27,27 @@ struct RootView: View {
         Tab("Trends", systemImage: "chart.xyaxis.line") {
           NavigationStack { TrendsView().toolbar { statusControl } }
         }
-      }
+      }.modifier(
+        WorkoutAccessoryModifier(
+          enabled: model.activeWorkout != nil, open: { activeWorkoutSheet = true }))
     }
     .tint(.teal)
     .disabled(model.transitioningDataset)
     .sheet(isPresented: $settings) { NavigationStack { SettingsView() } }
+    .sheet(isPresented: $activeWorkoutSheet) { NavigationStack { ActiveWorkoutSheet() } }
+    .sheet(
+      item: Binding(
+        get: { activeWorkoutSheet ? nil : model.finishedWorkout },
+        set: { model.finishedWorkout = $0 })
+    ) { workout in
+      NavigationStack {
+        WorkoutDetailView(workout: workout, title: "Workout summary").toolbar {
+          ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { model.finishedWorkout = nil }
+          }
+        }
+      }
+    }
     .alert(
       "Tempo needs attention",
       isPresented: Binding(
@@ -76,17 +98,41 @@ struct MetricRow: View {
   var value: String
   var detail: String? = nil
   var body: some View {
-    HStack(alignment: .firstTextBaseline) {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(label)
-        if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+    ViewThatFits(in: .horizontal) {
+      HStack(alignment: .firstTextBaseline) {
+        labels
+        Spacer(minLength: 16)
+        Text(value).font(.headline).monospacedDigit().fixedSize()
       }
-      Spacer()
-      Text(value).font(.headline).monospacedDigit()
+      VStack(alignment: .leading, spacing: 4) {
+        labels
+        Text(value).font(.headline).monospacedDigit()
+      }
     }.accessibilityElement(children: .combine)
+  }
+  var labels: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(label)
+      if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+    }
   }
 }
 func durationText(_ seconds: Double) -> String {
-  let minutes = Int(max(0, seconds) / 60)
-  return "\(minutes/60)h \(minutes%60)m"
+  guard seconds.isFinite else { return "Unavailable" }
+  let total = Int(max(0, seconds))
+  if total < 60 { return "\(total)s" }
+  if total < 3600 { return "\(total/60)m" }
+  return "\(total/3600)h \((total%3600)/60)m"
+}
+
+private struct WorkoutAccessoryModifier: ViewModifier {
+  var enabled: Bool
+  var open: () -> Void
+  @ViewBuilder func body(content: Content) -> some View {
+    if #available(iOS 26.1, *) {
+      content.tabViewBottomAccessory(isEnabled: enabled) { ActiveWorkoutAccessory(open: open) }
+    } else {
+      content.tabViewBottomAccessory { if enabled { ActiveWorkoutAccessory(open: open) } }
+    }
+  }
 }
