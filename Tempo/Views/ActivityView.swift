@@ -314,8 +314,18 @@ struct WorkoutDetailView: View {
           value: "\(Int(min(1, (load?.coveredSeconds ?? 0) / max(1, activeDuration)) * 100))%",
           detail: "Of active workout time · pauses excluded")
         if observations.isEmpty {
-          Text("No measured heart rate during this workout. Heart rate averages, zones and cardiovascular load are unavailable.")
-            .font(.subheadline).foregroundStyle(.secondary)
+          Text(
+            "No measured heart rate during this workout. Heart rate averages, zones and cardiovascular load are unavailable."
+          )
+          .font(.subheadline).foregroundStyle(.secondary)
+        }
+      }
+      if observations.contains(where: { $0.qualityContext != nil }) {
+        Section {
+          Text(
+            "Experimental heart-rate records with unresolved quality are kept in the chart but excluded from this workout’s averages and cardiovascular load."
+          )
+          .font(.caption).foregroundStyle(.secondary)
         }
       }
       Section("Your experience") {

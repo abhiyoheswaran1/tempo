@@ -182,7 +182,8 @@ import TempoCore
     }
     var samples: [HKQuantitySample] = []
     var ids: [String] = []
-    for m in observations where m.origin == .measured && m.valid && m.kind == .heartRate {
+    for m in observations
+    where m.origin == .measured && m.permitsPhysiologicalAnalytics && m.kind == .heartRate {
       guard try await store.metadata("health.export.\(m.id)") == nil else { continue }
       samples.append(
         HKQuantitySample(

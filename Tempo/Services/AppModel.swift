@@ -182,12 +182,15 @@ import WidgetKit
     guard !demo, !transitioningDataset, let store,
       devices.contains(where: { $0.id == id })
     else { return }
+    guard let firmware = bluetooth.historyApplicationFirmware(id) else { return }
+    let generation = chunk.generation
     let preceding = collectionTask
     collectionTask = Task { [weak self] in
       await preceding?.value
       guard let self, !self.demo, !self.transitioningDataset, self.store === store else { return }
       let assertion = UIApplication.shared.beginBackgroundTask(withName: "Commit band history") {
-        self.bluetooth.historyChunkFailed(deviceID: id, session: session)
+        self.bluetooth.historyChunkFailed(
+          deviceID: id, session: session, attemptID: chunk.attemptID)
       }
       defer { if assertion != .invalid { UIApplication.shared.endBackgroundTask(assertion) } }
       do {
@@ -195,10 +198,13 @@ import WidgetKit
           var samples: [TempoCore.Measurement] = []
           var rejected: [Data] = []
           for raw in chunk.frames {
-            let frame = try WhoopFrame.parse(raw, generation: .whoop4)
+            let frame = try WhoopFrame.parse(raw, generation: generation)
             if frame.type == 47 {
               do {
-                samples += try Whoop4History.decode(frame, deviceID: id, firmware: "41.17.6.0")
+                samples +=
+                  try generation == .whoop4
+                  ? Whoop4History.decode(frame, deviceID: id, firmware: firmware)
+                  : Whoop5History.decode(frame, deviceID: id, firmware: firmware)
               } catch { rejected.append(raw) }
             }
           }
@@ -208,14 +214,15 @@ import WidgetKit
         let cursor = try JSONEncoder().encode(
           StoredHistoryCheckpoint(
             token: chunk.token,
-            committedAt: Date(), firmware: "41.17.6.0"))
+            committedAt: Date(), firmware: firmware))
         try await store.commitHistory(
           deviceID: id, samples: samples, cursor: cursor,
-          rejectedFrames: rejected, rawFrames: chunk.frames)
+          rejectedFrames: rejected, rawFrames: chunk.frames, generation: generation)
         guard !self.demo, !self.transitioningDataset, self.store === store else { return }
         // Normal transfer acknowledgement only after immutable samples, raw frames and checkpoint commit.
         self.bluetooth.historyChunkCommitted(
-          deviceID: id, session: session, token: chunk.token, count: samples.count)
+          deviceID: id, session: session, attemptID: chunk.attemptID, token: chunk.token,
+          count: samples.count)
         let cutoff = Date().addingTimeInterval(-2 * 86400)
         let existing = Set(self.measurements.map(\.id))
         self.measurements += samples.filter { $0.timestamp >= cutoff && !existing.contains($0.id) }
@@ -231,7 +238,8 @@ import WidgetKit
         self.refreshPresentedSummary()
         self.scheduleSnapshot()
       } catch {
-        self.bluetooth.historyChunkFailed(deviceID: id, session: session)
+        self.bluetooth.historyChunkFailed(
+          deviceID: id, session: session, attemptID: chunk.attemptID)
         self.errorMessage = "Retrieved history could not commit. The band was not acknowledged."
       }
     }

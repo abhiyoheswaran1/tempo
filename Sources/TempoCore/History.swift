@@ -78,3 +78,31 @@ public enum SensorCompression {
     return Data(output)
   }
 }
+
+public enum Whoop5History {
+  public static func decode(_ input: WhoopFrame, deviceID: UUID, firmware: String) throws
+    -> [Measurement]
+  {
+    guard firmware == "50.42.1.0", input.generation == .whoop5 else {
+      throw PacketError.unsupported
+    }
+    let frame = try WhoopFrame.parse(input.raw, generation: .whoop5)
+    guard frame.type == 47, frame.sequence == 18 else { throw PacketError.unsupported }
+    guard frame.raw.count == 124, frame.bodyEnd == 120 else { throw PacketError.malformed }
+    let b = Array(frame.raw)
+    let seconds = u32(b, 15)
+    guard seconds >= 1_577_836_800, Double(seconds) <= Date().timeIntervalSince1970 + 300,
+      (25...240).contains(Int(b[22]))
+    else { throw PacketError.implausible }
+    guard b[23] <= 4 else { throw PacketError.malformed }
+    // Primary HR is documented. Alternate-HR/quality flags are opaque; never choose another HR from them.
+    var sample = Measurement(
+      deviceID: deviceID, kind: .heartRate,
+      timestamp: Date(timeIntervalSince1970: Double(seconds)), value: Double(b[22]),
+      origin: .measured, transport: "whoop5-history-r18-experimental",
+      recordKey: "r18:\(u32(b,11)):\(seconds)", wear: .unknown)
+    sample.qualityContext = ["opaqueR18CardiacFlags": b[33], "opaqueR18QualityFlags": b[36]]
+    // Preserve RR in raw archive. Unresolved R18 quality is insufficient for overnight HRV inputs.
+    return [sample]
+  }
+}

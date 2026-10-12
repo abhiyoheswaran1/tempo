@@ -57,20 +57,35 @@ public enum WhoopReadProtocol {
   }
   public static func recordCountEstimate(_ body: Data) throws -> UInt32 {
     let b = Array(body)
-    guard b.count == 65, b[0] == 1, u32(b, 21) > 0 else { throw PacketError.malformed }
+    guard b.count == 65 || (b.count == 67 && b[65] == 0 && b[66] == 0), b[0] == 1, u32(b, 21) > 0
+    else { throw PacketError.malformed }
     return u32(b, 25)
   }
-  public static func canRetrieve(generation: DeviceGeneration, applicationFirmware: String?) -> Bool
-  {
-    generation == .whoop4 && applicationFirmware == "41.17.6.0"
+  public static func canRetrieve(
+    generation: DeviceGeneration, applicationFirmware: String?, storedRecordEstimate: UInt32? = nil
+  ) -> Bool {
+    switch generation {
+    case .whoop4: return applicationFirmware == "41.17.6.0"
+    case .whoop5: return applicationFirmware == "50.42.1.0" && (storedRecordEstimate ?? 0) > 0
+    }
   }
 }
 public struct HistoryChunk: Sendable {
   public let frames: [Data]
   public let token: Data
+  public let generation: DeviceGeneration
+  public let attemptID: UUID
+  public init(
+    frames: [Data], token: Data, generation: DeviceGeneration = .whoop4, attemptID: UUID = UUID()
+  ) {
+    self.frames = frames
+    self.token = token
+    self.generation = generation
+    self.attemptID = attemptID
+  }
 }
-/// Legacy transfer only. W5 metadata/initialization are never inferred by shifting W4 offsets.
-public struct Whoop4Transfer: Sendable {
+/// Shared durability lifecycle with independently evidenced per-generation metadata boundaries.
+public struct BandHistoryTransfer: Sendable {
   public enum Event: Sendable {
     case none
     case chunk(HistoryChunk)
@@ -82,19 +97,27 @@ public struct Whoop4Transfer: Sendable {
     case committing(Data)
     case complete, failed
   }
+  public let attemptID = UUID()
+  public var hasStarted: Bool {
+    switch state {
+    case .idle, .failed: false
+    case .receiving, .committing(_), .complete: true
+    }
+  }
   private var state = State.idle
   private var frames: [Data] = []
   private var bytes = 0
   private var lastCommitted: Data?
-  public init() {}
+  private let generation: DeviceGeneration
+  public init(generation: DeviceGeneration = .whoop4) { self.generation = generation }
   public mutating func interrupt() {
     state = .failed
     frames = []
     bytes = 0
   }
   public mutating func receive(_ input: WhoopFrame) throws -> Event {
-    let frame = try WhoopFrame.parse(input.raw, generation: .whoop4)
-    guard input.generation == .whoop4 else { throw PacketError.unsupported }
+    let frame = try WhoopFrame.parse(input.raw, generation: generation)
+    guard input.generation == generation else { throw PacketError.unsupported }
     if frame.type == 49 {
       switch frame.command {
       case 1:
@@ -105,8 +128,9 @@ public struct Whoop4Transfer: Sendable {
         }
         state = .receiving
       case 2:
-        guard frame.bodyEnd >= 25 else { throw PacketError.truncated }
-        let token = Data(frame.raw[17..<25])
+        let tokenStart = generation == .whoop4 ? 17 : 21
+        guard frame.bodyEnd >= tokenStart + 8 else { throw PacketError.truncated }
+        let token = Data(frame.raw[tokenStart..<(tokenStart + 8)])
         let word = u32(Array(token), 0)
         guard word != 0xfefe_fefe, word != 0xfdfd_fdfd, word != 0xffff_ffff else {
           throw PacketError.unsupported
@@ -117,14 +141,17 @@ public struct Whoop4Transfer: Sendable {
         guard !frames.isEmpty else { throw PacketError.malformed }
         frames.append(frame.raw)
         state = .committing(token)
-        return .chunk(HistoryChunk(frames: frames, token: token))
+        return .chunk(
+          HistoryChunk(frames: frames, token: token, generation: generation, attemptID: attemptID))
       case 3:
         guard case .receiving = state, frames.isEmpty else { throw PacketError.malformed }
         state = .complete
         return .complete
       default: throw PacketError.unsupported
       }
-    } else if [UInt8(47), 48, 52].contains(frame.type) {
+    } else if (generation == .whoop4 ? [UInt8(47), 48, 52] : [UInt8(47), 48, 52, 54]).contains(
+      frame.type)
+    {
       guard case .receiving = state, bytes + frame.raw.count <= 2 * 1024 * 1024,
         frames.count < 10_000
       else { throw PacketError.malformed }
@@ -132,6 +159,10 @@ public struct Whoop4Transfer: Sendable {
       bytes += frame.raw.count
     }
     return .none
+  }
+  public mutating func committed(token: Data, attemptID: UUID) throws -> Data {
+    guard self.attemptID == attemptID else { throw PacketError.unsupported }
+    return try committed(token: token)
   }
   public mutating func committed(token: Data) throws -> Data {
     guard case .committing(let pending) = state, pending == token else {
@@ -148,5 +179,14 @@ public struct Whoop4Transfer: Sendable {
 public enum HistoryAssemblyGate {
   public static func canClose(bufferedBytes: [Int]) -> Bool {
     bufferedBytes.allSatisfy { $0 == 0 }
+  }
+}
+
+/// Backward-compatible W4 default; native callers explicitly choose the generation.
+public typealias Whoop4Transfer = BandHistoryTransfer
+
+public enum HistoryRequestDeadline {
+  public static func shouldExpire(command: UInt8, streamStarted: Bool) -> Bool {
+    command != 22 || !streamStarted
   }
 }

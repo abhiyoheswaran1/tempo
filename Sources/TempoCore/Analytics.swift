@@ -45,7 +45,7 @@ public struct ReadinessResult: Sendable {
   public var headline: String
   public var factors: [String]
   public var baselineDays: Int
-  public var algorithmVersion = "readiness-1.1"
+  public var algorithmVersion = "readiness-1.2"
 }
 public enum Readiness {
   public static func calculate(
@@ -116,7 +116,7 @@ public enum CardiovascularLoad {
   ) -> LoadResult? {
     guard (100...240).contains(maxHeartRate) else { return nil }
     let hr = samples.filter {
-      $0.kind == .heartRate && $0.valid
+      $0.kind == .heartRate && $0.permitsPhysiologicalAnalytics
     }.sorted { $0.timestamp < $1.timestamp }
     var zones = Array(repeating: 0.0, count: 5)
     var weighted = 0.0

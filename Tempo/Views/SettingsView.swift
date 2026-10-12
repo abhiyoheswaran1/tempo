@@ -34,6 +34,7 @@ struct SettingsView: View {
         }.padding(.vertical, 4)
       }
       Section("Bands") {
+        NavigationLink("Band status and history") { BandStatusSheet() }
         NavigationLink("Manage and reconnect bands") { DevicesView() }
         Picker(
           "Source mode",
@@ -253,6 +254,16 @@ struct DeviceDetailView: View {
           "Hardware identifier",
           value: current.hardwareIdentityHash == nil ? "Unresolved" : "Serial hash retained")
       }
+      Section("History") {
+        Text(
+          model.demo
+            ? "Unavailable in demo"
+            : model.bluetooth.historyStatus[device.id] ?? "History connection not established"
+        )
+        .font(.subheadline).foregroundStyle(.secondary)
+        NavigationLink("Band status and history") { BandStatusSheet() }
+          .accessibilityIdentifier("device-history-status")
+      }
       Section("Generation") {
         Picker("Device generation", selection: $selectedGeneration) {
           Text("Whoop 4").tag(DeviceGeneration.whoop4)
@@ -292,7 +303,7 @@ struct DeviceDetailView: View {
       }
       Section("Capabilities · public evidence, instance validation separate") {
         ForEach(Capability.allCases, id: \.self) { c in
-          LabeledContent(c.rawValue, value: current.capabilities[c].rawValue)
+          LabeledContent(capabilityTitle(c), value: current.capabilities[c].rawValue.capitalized)
         }
       }
     }.navigationTitle(current.name).onAppear {
@@ -312,6 +323,24 @@ struct DeviceDetailView: View {
       }.accessibilityIdentifier("confirm-remove-band")
     }
   }
+  private func capabilityTitle(_ capability: Capability) -> String {
+    switch capability {
+    case .liveHeartRate: "Live heart rate"
+    case .rrIntervals: "Beat-to-beat intervals"
+    case .history: "Stored history"
+    case .motion: "Motion measurements"
+    case .wearDetection: "On-body detection"
+    case .battery: "Battery information"
+    case .temperature: "Skin temperature"
+    case .respiration: "Respiratory measurements"
+    case .spo2: "Blood oxygen"
+    case .haptics: "Band haptics"
+    case .firmwareAlarm: "Firmware alarm"
+    case .identity: "Hardware identity"
+    case .firmware: "Firmware information"
+    }
+  }
+
 }
 struct CollectionHealthView: View {
   @Environment(AppModel.self) var model
@@ -335,7 +364,7 @@ struct CollectionHealthView: View {
           "Live heart-rate notification collection uses Core Bluetooth background mode and state restoration. Force-quit, permission revocation, phone restart, broadcast settings or competing apps can interrupt collection."
         )
         Text(
-          "History adapters are version-gated. Full catch-up and concurrent-band wear detection remain unavailable until physical validation. Do not rely on this build for complete overnight coverage."
+          "History transfer is experimental on supported firmware and has not been physically validated. Concurrent-band wear detection is unavailable. Do not rely on this build for complete overnight coverage."
         )
         Text(
           "A connected band with plausible HR and unknown contact remains a source with uncertain wear. RSSI never establishes on-body status."

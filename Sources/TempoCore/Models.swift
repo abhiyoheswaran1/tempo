@@ -18,6 +18,7 @@ public struct Measurement: Codable, Sendable, Identifiable, Equatable {
   public var transport: String
   public var rrMilliseconds: [Double]
   public var quality: [String]
+  public var qualityContext: [String: UInt8]?
   public var wear: WearState
   public var algorithmVersion: String?
   public init(
@@ -43,6 +44,8 @@ public struct Measurement: Codable, Sendable, Identifiable, Equatable {
     transport.hasPrefix("whoop4-history-") || transport.hasPrefix("whoop5-history-")
   }
   public var valid: Bool { value.isFinite && quality.isEmpty && wear != .offBody }
+  /// Direct experimental readings remain inspectable; opaque signal quality is not an analytical validity claim.
+  public var permitsPhysiologicalAnalytics: Bool { valid && qualityContext == nil }
 }
 public struct SourceSegment: Codable, Sendable, Equatable, Identifiable {
   public var id = UUID()
@@ -220,7 +223,8 @@ public struct BackupArchive: Codable, Sendable {
     checksum = StableID.hash(payload)
   }
   public func validate() throws {
-    guard format == "tempo-backup", (1...2).contains(schemaVersion), payload.count <= 256 * 1024 * 1024,
+    guard format == "tempo-backup", (1...2).contains(schemaVersion),
+      payload.count <= 256 * 1024 * 1024,
       checksum == StableID.hash(payload)
     else { throw StoreError.invalidArchive }
   }

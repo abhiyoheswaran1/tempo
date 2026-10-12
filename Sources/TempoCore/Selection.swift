@@ -120,7 +120,8 @@ public enum CanonicalTimeline {
           }.max { $0.start < $1.start }
           let active = transition?.deviceID == m.deviceID
           return (m.deviceID == overrideID ? 100 : 0) + (active ? 40 : 0)
-            + (m.wear == .onBody ? 20 : 0) + (m.origin == .measured ? 5 : 0)
+            + (m.wear == .onBody ? 20 : 0) + (m.permitsPhysiologicalAnalytics ? 10 : 0)
+            + (m.origin == .measured ? 5 : 0)
         }
         return rank(a) == rank(b) ? a.id < b.id : rank(a) > rank(b)
       }.first

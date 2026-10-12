@@ -26,6 +26,7 @@ public struct LiveHistorySnapshot: Sendable {
   public let maximum: Double?
   public let sampleCount: Int
   public let sourceIDs: [UUID]
+  public let hasUnqualifiedReadings: Bool
   public init(
     samples: [Measurement], from: Date, to: Date, sourceSegments: [SourceSegment],
     maximumHeartRate: Double, allowSynthetic: Bool = false
@@ -36,9 +37,18 @@ public struct LiveHistorySnapshot: Sendable {
           && ($0.origin == .measured || (allowSynthetic && $0.origin == .synthetic))
           && $0.timestamp >= from && $0.timestamp <= to
       }, sourceSegments: sourceSegments)
-    let load = CardiovascularLoad.calculate(valid, maxHeartRate: maximumHeartRate)
-    coveredSeconds = load?.coveredSeconds ?? 0
-    average = load?.average
+    // Descriptive receipt coverage is separate from physiological/training-load eligibility.
+    var covered = 0.0
+    var weighted = 0.0
+    for pair in zip(valid, valid.dropFirst()) {
+      let delta = pair.1.timestamp.timeIntervalSince(pair.0.timestamp)
+      guard delta > 0, delta <= 10 else { continue }
+      covered += delta
+      weighted += pair.0.value * delta
+    }
+    coveredSeconds = covered
+    average = covered > 0 ? weighted / covered : nil
+    hasUnqualifiedReadings = valid.contains { !$0.permitsPhysiologicalAnalytics }
     minimum = valid.map(\.value).min()
     maximum = valid.map(\.value).max()
     sampleCount = valid.count

@@ -268,7 +268,7 @@ public actor TempoStore {
       sqlite3_step(countStatement) == SQLITE_ROW ? sqlite3_column_int(countStatement, 0) : 0
     sqlite3_finalize(countStatement)
     let key =
-      "night-v2-"
+      "night-v3-"
       + StableID.hash(
         "\(sleep.id)|\(sleep.start.timeIntervalSince1970)|\(sleep.end.timeIntervalSince1970)|\(count)|\(try revisions(kind:"measurementDeletion").count)|\(StableID.hash(try JSONEncoder().encode(sourceSegments)))"
       )
@@ -277,7 +277,8 @@ public actor TempoStore {
     }
     let samples = CanonicalTimeline.select(
       try measurements(from: sleep.start, to: sleep.end, kinds: [.heartRate]),
-      sourceSegments: sourceSegments)
+      sourceSegments: sourceSegments
+    ).filter(\.permitsPhysiologicalAnalytics)
     var inputs: [String: Double] = ["sleepHours": sleep.duration / 3600]
     let coverage = Double(samples.count) / max(1, sleep.duration)
     if coverage >= 0.7 {
@@ -318,13 +319,13 @@ public actor TempoStore {
   }
   public func commitHistory(
     deviceID: UUID, samples: [Measurement], cursor: Data, rejectedFrames: [Data] = [],
-    rawFrames: [Data] = []
+    rawFrames: [Data] = [], generation: DeviceGeneration = .whoop4
   ) throws {
     try transaction {
       guard samples.allSatisfy({ $0.deviceID == deviceID }) else { throw StoreError.invalidSample }
       for m in samples { try insertOne(m, enqueue: true) }
       for frame in rawFrames {
-        try retainHistoryFrame(deviceID: deviceID, generation: .whoop4, data: frame)
+        try retainHistoryFrame(deviceID: deviceID, generation: generation, data: frame)
       }
       for f in rejectedFrames {
         try run(
@@ -338,7 +339,10 @@ public actor TempoStore {
   }
   private func retainHistoryFrame(deviceID: UUID, generation: DeviceGeneration, data: Data) throws {
     let frame = try WhoopFrame.parse(data, generation: generation)
-    guard [UInt8(47), 48, 49, 52].contains(frame.type) else { throw StoreError.invalidSample }
+    guard
+      (generation == .whoop4 ? [UInt8(47), 48, 49, 52] : [UInt8(47), 48, 49, 52, 54]).contains(
+        frame.type)
+    else { throw StoreError.invalidSample }
     let id = StableID.hash(deviceID.uuidString + ":" + StableID.hash(data))
     try run(
       "INSERT OR IGNORE INTO history_frames VALUES(?,?,?,?)",

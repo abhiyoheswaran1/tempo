@@ -59,7 +59,7 @@ struct JournalEditor: View {
       LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 8)], spacing: 8) {
         ForEach(1...5, id: \.self) { level in
           Button { value.wrappedValue = level } label: {
-            Text("\(level)").font(.body.weight(.semibold))
+            Text("\(level)").font(.body.weight(.semibold)).foregroundStyle(.primary)
               .frame(maxWidth: .infinity, minHeight: 44)
           }
           .buttonStyle(.bordered)

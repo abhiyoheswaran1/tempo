@@ -70,7 +70,8 @@ public enum AutomaticActivityDetector {
     let samples = CanonicalTimeline.select(
       observations.filter {
         $0.kind == .heartRate
-          && ($0.origin == .measured || (allowSynthetic && $0.origin == .synthetic)) && $0.valid
+          && ($0.origin == .measured || (allowSynthetic && $0.origin == .synthetic))
+          && $0.permitsPhysiologicalAnalytics
           && (25...240).contains($0.value)
           && $0.timestamp <= now
       }, sourceSegments: sourceSegments)

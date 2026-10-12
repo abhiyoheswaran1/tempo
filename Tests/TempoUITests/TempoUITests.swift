@@ -51,6 +51,10 @@ extension TempoUITests {
       add(attachment)
     }
     capture("today-light-demo")
+    app.buttons["today-journal-check-in"].tap()
+    XCTAssertTrue(app.navigationBars["Your journal"].waitForExistence(timeout: 5))
+    capture("journal-demo")
+    app.buttons["Cancel"].tap()
     app.tabBars.buttons["Activity"].tap()
     XCTAssertTrue(app.buttons["Start Padel"].waitForExistence(timeout: 5))
     capture("activity-demo")
@@ -453,5 +457,95 @@ extension TempoUITests {
     evidence.tap()
     for _ in 0..<4 where !app.buttons["Manage bands"].isHittable { app.swipeUp() }
     XCTAssertTrue(app.buttons["Manage bands"].isHittable)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testSettingsProvidesExplicitBandHistoryEntry() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    settings.tap()
+    let entry = app.buttons["Band status and history"]
+    XCTAssertTrue(entry.waitForExistence(timeout: 3))
+    guard entry.exists else { return }
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "settings-demo"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
+    entry.tap()
+    XCTAssertTrue(app.navigationBars["Band status"].waitForExistence(timeout: 5))
+    app.swipeUp()
+    XCTAssertTrue(app.staticTexts["Band history retrieval"].exists)
+    XCTAssertTrue(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Unavailable in demo"))
+        .firstMatch.exists)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testJournalQuickRatingsAndTodayEditPreserveEntry() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    app.buttons["How do you feel?"].tap()
+    let rating = app.buttons["journal-energy-4"]
+    XCTAssertTrue(rating.waitForExistence(timeout: 3))
+    guard rating.exists else { return }
+    rating.tap()
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.staticTexts["Journal check-in saved"].waitForExistence(timeout: 5))
+    app.buttons["today-journal-check-in"].tap()
+    XCTAssertTrue(app.buttons["journal-energy-4"].isSelected)
+    app.buttons["Cancel"].tap()
+  }
+  @MainActor func testWorkoutNotesAreImmediatelyReachableWithoutHeartRate() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    app.tabBars.buttons["Activity"].tap()
+    app.buttons["Start Padel"].tap()
+    app.buttons["Finish"].tap()
+    app.buttons["confirm-finish-workout"].firstMatch.tap()
+    XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
+    XCTAssertTrue(
+      app.textFields["workout-notes-field"].isHittable
+        || app.textViews["workout-notes-field"].isHittable)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testDeviceDetailsProvideHistoryStatusAccess() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    settings.tap()
+    app.buttons["Manage and reconnect bands"].tap()
+    app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'registered-band-'")).firstMatch
+      .tap()
+    for _ in 0..<3 where !app.buttons["device-history-status"].isHittable { app.swipeUp() }
+    XCTAssertTrue(app.buttons["device-history-status"].isHittable)
+    app.buttons["device-history-status"].tap()
+    XCTAssertTrue(app.navigationBars["Band status"].waitForExistence(timeout: 5))
   }
 }

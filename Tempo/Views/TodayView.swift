@@ -15,15 +15,16 @@ struct TodayView: View {
     let latestSleep = SleepPresentation(sessions: model.sleeps, now: Date())
     return ScrollView {
       VStack(alignment: .leading, spacing: 18) {
-        let headerLayout = textSize.isAccessibilitySize
+        let headerLayout =
+          textSize.isAccessibilitySize
           ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
           : AnyLayout(HStackLayout())
         headerLayout {
           HStack {
-          Image("TempoMark").resizable().scaledToFit().frame(width: 22, height: 22)
-            .foregroundStyle(.teal).accessibilityHidden(true)
-          Text("Tempo").font(.subheadline.weight(.semibold)).accessibilityIdentifier(
-            "tempo-brand-name")
+            Image("TempoMark").resizable().scaledToFit().frame(width: 22, height: 22)
+              .foregroundStyle(.teal).accessibilityHidden(true)
+            Text("Tempo").font(.subheadline.weight(.semibold)).accessibilityIdentifier(
+              "tempo-brand-name")
           }
           if !textSize.isAccessibilitySize { Spacer() }
           Text(Date(), format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
@@ -33,7 +34,8 @@ struct TodayView: View {
           .font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
         if let score = readiness.score {
           VStack(alignment: .leading, spacing: 10) {
-            let readinessLayout = textSize.isAccessibilitySize
+            let readinessLayout =
+              textSize.isAccessibilitySize
               ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
               : AnyLayout(HStackLayout(alignment: .center, spacing: 16))
             readinessLayout {
@@ -145,7 +147,12 @@ struct TodayView: View {
         }
         Text("\(model.workouts.filter { Calendar.current.isDateInToday($0.start) }.count) workouts")
           .font(.caption).foregroundStyle(.secondary)
-        Text("HR-based estimate").font(.caption).foregroundStyle(.secondary)
+        if let load = model.todayLoad, load.coveredSeconds > 60 {
+          Text("From \(durationText(load.coveredSeconds)) of HR · estimate").font(.caption)
+            .foregroundStyle(.secondary)
+        } else {
+          Text("More HR needed").font(.caption).foregroundStyle(.secondary)
+        }
       }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
         .padding(16).background(cardBackground, in: RoundedRectangle(cornerRadius: 22))
     }.buttonStyle(.plain).tint(.primary)

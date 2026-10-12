@@ -471,6 +471,12 @@ struct LiveHistorySection: View {
             )
             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier(
               "live-history-coverage")
+            if snapshot.hasUnqualifiedReadings {
+              Text(
+                "Includes experimental historical HR with unresolved quality flags. Chart statistics describe received readings; these records are excluded from readiness, training load and Health export."
+              )
+              .font(.caption).foregroundStyle(.secondary)
+            }
             if snapshot.sampleCount > snapshot.points.count {
               Text(
                 "Chart retains recorded highs and lows. Average uses all covered readings, not plotted points."
