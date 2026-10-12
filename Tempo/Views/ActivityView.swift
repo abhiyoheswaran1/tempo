@@ -301,69 +301,27 @@ struct WorkoutDetailView: View {
   }
   var body: some View {
     let chartPoints = ChartProjection.points(observations)
+    let load = CardiovascularLoad.calculate(
+      observations, maxHeartRate: model.maxHeartRate, workout: workout)
+    let activeDuration = workout.activeDuration(at: workout.end ?? Date())
     return List {
-      Section {
-        if let version = workout.algorithmVersion {
-          MetricRow(label: "Provenance", value: "Confirmed estimate", detail: version)
-        }
+      Section("Session") {
+        Label(workout.activity.rawValue.capitalized, systemImage: workout.activity.symbol)
+          .font(.headline)
+        MetricRow(label: "Active duration", value: durationText(activeDuration))
         MetricRow(
-          label: "Reported placement",
-          value: PlacementTimeline.description(samples: observations, records: model.placements))
-        MetricRow(
-          label: "Duration", value: durationText(workout.activeDuration(at: workout.end ?? Date())))
-        let load = CardiovascularLoad.calculate(
-          observations, maxHeartRate: model.maxHeartRate, workout: workout)
-        MetricRow(
-          label: "Coverage",
-          value:
-            "\(Int(min(1,(load?.coveredSeconds ?? 0)/max(1,workout.activeDuration(at:workout.end ?? Date())))*100))%"
-        )
-        MetricRow(
-          label: "Average heart rate",
-          value: load?.average.map { String(format: "%.0f bpm", $0) } ?? "Unavailable")
-        MetricRow(
-          label: "Maximum heart rate",
-          value: load?.maximum.map { String(format: "%.0f bpm", $0) } ?? "Unavailable")
-        MetricRow(
-          label: "Cardiovascular load",
-          value: (load?.coveredSeconds ?? 0) > 60
-            ? String(format: "%.0f", load?.points ?? 0) : "Unavailable",
-          detail: "Estimate · Edwards zones · maximum HR \(Int(model.maxHeartRate))")
-      }
-      Section("Heart rate") {
+          label: "Heart rate coverage",
+          value: "\(Int(min(1, (load?.coveredSeconds ?? 0) / max(1, activeDuration)) * 100))%",
+          detail: "Of active workout time · pauses excluded")
         if observations.isEmpty {
-          Text("No measured heart rate during this workout.")
-        } else {
-          Chart(chartPoints) { point in
-            let m = point.sample
-            LineMark(
-              x: .value("Time", m.timestamp), y: .value("bpm", m.value),
-              series: .value("Coverage segment", point.segment)
-            ).foregroundStyle(.teal)
-          }.frame(height: 180).accessibilityLabel(
-            "Workout heart rate chart; gaps are not connected")
-        }
-      }
-      Section("Time in zones") {
-        if let load = CardiovascularLoad.calculate(
-          observations, maxHeartRate: model.maxHeartRate, workout: workout), load.coveredSeconds > 0
-        {
-          ForEach(0..<5, id: \.self) { i in
-            MetricRow(label: "Zone \(i+1)", value: durationText(load.zones[i]))
-          }
-        } else {
-          Text("Zone totals need recorded heart rate.").foregroundStyle(.secondary)
-        }
-      }
-      Section("Sources") {
-        ForEach(workout.sources) { s in
-          Text(
-            "\(model.devices.first{$0.id==s.deviceID}?.name ?? "Registered band") · \(s.start.formatted(date:.omitted,time:.shortened))\n\(s.reason)"
-          ).font(.subheadline)
+          Text("No measured heart rate during this workout. Heart rate averages, zones and cardiovascular load are unavailable.")
+            .font(.subheadline).foregroundStyle(.secondary)
         }
       }
       Section("Your experience") {
         TextField("Notes", text: $note, axis: .vertical)
+          .accessibilityLabel("Workout notes")
+          .accessibilityIdentifier("workout-notes-field")
         Toggle("Record perceived exertion", isOn: $effortEnabled)
         if effortEnabled { Stepper("Perceived exertion: \(effort)/10", value: $effort, in: 1...10) }
         Button("Save notes") {
@@ -374,9 +332,68 @@ struct WorkoutDetailView: View {
             try await model.save(w, kind: "workout")
           }
         }
+        .accessibilityIdentifier("workout-save-notes")
         if workout.activity == .strength {
           Text("Heart rate captures cardiovascular demand, not muscular load.").font(.caption)
             .foregroundStyle(.secondary)
+        }
+      }
+      Section("Recorded evidence") {
+        DisclosureGroup("Heart rate measurements") {
+          if observations.isEmpty {
+            Text("No measured heart rate during this workout.").foregroundStyle(.secondary)
+          } else {
+            MetricRow(
+              label: "Average heart rate",
+              value: load?.average.map { String(format: "%.0f bpm", $0) } ?? "Unavailable")
+            MetricRow(
+              label: "Maximum heart rate",
+              value: load?.maximum.map { String(format: "%.0f bpm", $0) } ?? "Unavailable")
+            Chart(chartPoints) { point in
+              let m = point.sample
+              LineMark(
+                x: .value("Time", m.timestamp), y: .value("bpm", m.value),
+                series: .value("Coverage segment", point.segment)
+              ).foregroundStyle(.teal)
+            }.frame(height: 180).accessibilityLabel(
+              "Workout heart rate chart; gaps are not connected")
+          }
+        }
+        DisclosureGroup("Time in zones") {
+          if let load, load.coveredSeconds > 0 {
+            ForEach(0..<5, id: \.self) { i in
+              MetricRow(label: "Zone \(i+1)", value: durationText(load.zones[i]))
+            }
+          } else {
+            Text("Zone totals need recorded heart rate.").foregroundStyle(.secondary)
+          }
+        }
+        DisclosureGroup("Cardiovascular load") {
+          MetricRow(
+            label: "Estimated load",
+            value: (load?.coveredSeconds ?? 0) > 60
+              ? String(format: "%.0f", load?.points ?? 0) : "Unavailable",
+            detail: "Estimate · Edwards zones · maximum HR \(Int(model.maxHeartRate))")
+          if (load?.coveredSeconds ?? 0) <= 60 {
+            Text("Load needs more than one minute of covered heart rate.")
+              .font(.subheadline).foregroundStyle(.secondary)
+          }
+          if let version = workout.algorithmVersion {
+            MetricRow(label: "Provenance", value: "Confirmed estimate", detail: version)
+          }
+        }
+        DisclosureGroup("Sources and placement") {
+          MetricRow(
+            label: "Reported placement",
+            value: PlacementTimeline.description(samples: observations, records: model.placements))
+          if workout.sources.isEmpty {
+            Text("No source segments recorded.").foregroundStyle(.secondary)
+          }
+          ForEach(workout.sources) { s in
+            Text(
+              "\(model.devices.first{$0.id==s.deviceID}?.name ?? "Registered band") · \(s.start.formatted(date:.omitted,time:.shortened))\n\(s.reason)"
+            ).font(.subheadline)
+          }
         }
       }
     }.navigationTitle(title ?? workout.activity.rawValue.capitalized).onAppear {
