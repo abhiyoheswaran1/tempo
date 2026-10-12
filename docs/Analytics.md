@@ -31,3 +31,7 @@ Edwards zone minutes:50–60,60–70,70–80,80–90 and≥90% of user-configure
 Pearson correlation requires≥30 finite paired observations and nonzero variance. Fisher-z95% interval communicates uncertainty. Missing/unanswered journal values are excluded. The present UI suppresses insights until an eligible analysis is connected; no fabricated patterns. Confounding and self-selection remain; correlations do not establish causation.
 
 Algorithm identifiers: readiness-1.0; night-v1 cache; backup tempo-1.0. Cached nightly inputs are local projections rebuilt from retained observations and sleep corrections. Export includes schema and algorithm version, observation origin/quality/source/transport/RR and revision ancestry.
+
+## Experimental activity suggestions
+
+The original heart-rate-only candidate model is documented in [AutomaticActivity.md](AutomaticActivity.md). It identifies sustained elevation, requires explicit user confirmation, and does not classify sports. Confirmed workouts retain estimated provenance and algorithm version; no medical or WHOOP-equivalence claim is made.

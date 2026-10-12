@@ -32,7 +32,11 @@ public enum SessionReconciliation {
   }
   public static func workouts(_ sessions: [Workout]) -> [Workout] {
     var chosen: [Workout] = []
-    for w in sessions.sorted(by: { rank($0.origin) > rank($1.origin) }) {
+    for w in sessions.sorted(by: {
+      let left = $0.detectionID != nil ? 5 : rank($0.origin)
+      let right = $1.detectionID != nil ? 5 : rank($1.origin)
+      return left == right ? $0.id.uuidString < $1.id.uuidString : left > right
+    }) {
       let end = w.end ?? .distantFuture
       let interval = DateInterval(start: w.start, end: end)
       if w.origin == .imported

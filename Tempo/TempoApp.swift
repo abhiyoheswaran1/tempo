@@ -6,7 +6,12 @@ import SwiftUI
     WindowGroup {
       RootView().environment(model).task {
         await model.start()
-        if ProcessInfo.processInfo.arguments.contains("--demo") { await model.setDemo(true) }
+        if ProcessInfo.processInfo.arguments.contains("--demo") {
+          await model.setDemo(true)
+          if ProcessInfo.processInfo.arguments.contains("--activity-detection-demo") {
+            model.mutate { try await model.setAutomaticDetectionEnabled(true) }
+          }
+        }
       }
     }
   }

@@ -165,6 +165,15 @@ public actor TempoStore {
       [.text(externalID)]
     ).map { try JSONDecoder().decode(Measurement.self, from: $0) }
   }
+  public func detectedActivities(
+    from: Date, to: Date, maxHeartRate: Double, sourceSegments: [SourceSegment],
+    existingWorkouts: [Workout], allowSynthetic: Bool = false
+  ) throws -> [DetectedActivityCandidate] {
+    AutomaticActivityDetector.detect(
+      try measurements(from: from, to: to, kinds: [.heartRate]), maxHeartRate: maxHeartRate,
+      now: to, sourceSegments: sourceSegments, existingWorkouts: existingWorkouts,
+      allowSynthetic: allowSynthetic && self.allowSynthetic)
+  }
   public func dailyRepresentatives(kind: MetricKind, from: Date, to: Date) throws -> [Measurement] {
     let deleted = Set(
       try revisions(kind: "measurementDeletion").compactMap {
@@ -241,15 +250,31 @@ public actor TempoStore {
   public func checkpoint(deviceID: UUID) throws -> Data? {
     try rows("SELECT cursor FROM checkpoints WHERE device=?", [.text(deviceID.uuidString)]).first
   }
-  public func saveRevision(
-    _ revision: Revision, enqueue: Bool = true, expectedParentIDs: [UUID]? = nil
-  ) throws {
+  private func validateRevision(_ revision: Revision) throws {
     if !allowSynthetic, revision.kind == "sleep",
       let s = try? JSONDecoder().decode(SleepSession.self, from: revision.payload),
       s.origin == .synthetic
     {
       throw StoreError.invalidSample
     }
+    if !allowSynthetic, revision.kind == "workout",
+      let workout = try? JSONDecoder().decode(Workout.self, from: revision.payload),
+      workout.origin == .synthetic
+    {
+      throw StoreError.invalidSample
+    }
+    if !allowSynthetic, revision.kind == "detectedActivity",
+      let decision = try? JSONDecoder().decode(
+        DetectedActivityDecision.self, from: revision.payload),
+      decision.candidate.origin == .synthetic
+    {
+      throw StoreError.invalidSample
+    }
+  }
+  public func saveRevision(
+    _ revision: Revision, enqueue: Bool = true, expectedParentIDs: [UUID]? = nil
+  ) throws {
+    try validateRevision(revision)
     let data = try JSONEncoder().encode(revision)
     try transaction {
       if let expectedParentIDs {
@@ -403,6 +428,7 @@ public actor TempoStore {
     try transaction {
       for m in content.measurements { try insertOne(m, enqueue: true) }
       for r in content.revisions {
+        try validateRevision(r)
         let data = try JSONEncoder().encode(r)
         if let old = try rows("SELECT payload FROM revisions WHERE id=?", [.text(r.id.uuidString)])
           .first

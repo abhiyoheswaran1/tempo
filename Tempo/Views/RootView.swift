@@ -36,7 +36,7 @@ struct RootView: View {
       Text(model.errorMessage ?? "")
     }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active && model.syncEnabled { Task { await model.sync() } }
+      if phase == .active { Task { await model.onForegroundActive() } }
     }
   }
   @ToolbarContentBuilder var statusControl: some ToolbarContent {

@@ -19,6 +19,8 @@ In CloudKit Console select the configured container and Development environment.
 
 15-minute UTC sensor buckets per portable device, bounded by4MiB decompressed and800KiB compressed upload maximum. No per-sample CloudKit records. Dirty manifests are in SQLite; sample writes and dirtiness commit atomically. Upload merges existing remote batch observations by immutable ID, retaining conflicts as errors rather than silently overwriting values. CK save policy checks server change tags. An upload only acknowledges the queued payload version it read, preventing loss of samples arriving during upload.
 
+Activity candidates and their confirmation/dismissal decisions use the same revision transport as workouts; no separate cloud schema is required. Synthetic revisions are rejected by real-store ingestion.
+
 Manual edits are separate immutable revision records, parent IDs define ancestry. Concurrent heads are retained and shown in Settings. Logical deletions are tombstone revisions and propagate through normal uploads. Raw observations are retained for audit/export; Health-deleted observations are excluded from analytical reads. Physical remote record deletion and zone purge are not app operations; deletion made directly in CloudKit Console is not interpreted as a user health-history deletion.
 
 Downloads use persisted zone-change tokens, advancing only after all page records commit. Expired token triggers a fresh replay once. Interrupted pages replay idempotently. Durable retries use exponential delay capped6h or server retry-after. Quota/network failures preserve local outbox entries. Sync currently runs on explicit action and app activation; silent push/BGTask scheduling is not implemented, and background mode alone does not guarantee sync.

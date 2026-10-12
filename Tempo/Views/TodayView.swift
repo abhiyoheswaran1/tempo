@@ -6,6 +6,7 @@ struct TodayView: View {
   @State private var journal = false
   @State private var sleep = false
   var body: some View {
+    let readiness = model.readiness
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
         HStack(spacing: 8) {
@@ -17,23 +18,23 @@ struct TodayView: View {
               .foregroundStyle(.secondary)
           }
         }
-        Text(model.readiness.headline).font(.largeTitle.weight(.semibold)).fixedSize(
+        Text(readiness.headline).font(.largeTitle.weight(.semibold)).fixedSize(
           horizontal: false, vertical: true)
         ContentSection(
-          "Readiness", subtitle: "Tempo estimate · \(model.readiness.algorithmVersion)"
+          "Readiness", subtitle: "Tempo estimate · \(readiness.algorithmVersion)"
         ) {
           HStack(alignment: .firstTextBaseline) {
-            Text(model.readiness.score.map { String($0) } ?? "—").font(
+            Text(readiness.score.map { String($0) } ?? "—").font(
               .system(size: 56, weight: .semibold, design: .rounded)
             ).accessibilityLabel(
-              model.readiness.score.map { "Readiness \($0)" } ?? "Readiness unavailable")
+              readiness.score.map { "Readiness \($0)" } ?? "Readiness unavailable")
             Spacer()
             VStack(alignment: .trailing) {
               Text(
-                model.readiness.baselineDays < 7
+                readiness.baselineDays < 7
                   ? "Building baseline"
-                  : (model.readiness.baselineDays < 21 ? "Provisional" : "Personal baseline"))
-              Text("\(Int(model.readiness.confidence*100))% confidence").font(.caption)
+                  : (readiness.baselineDays < 21 ? "Provisional" : "Personal baseline"))
+              Text("\(Int(readiness.confidence*100))% confidence").font(.caption)
                 .foregroundStyle(.secondary)
             }
           }
@@ -111,10 +112,11 @@ struct TodayView: View {
 struct ReadinessDetailView: View {
   @Environment(AppModel.self) var model
   var body: some View {
+    let readiness = model.readiness
     List {
       Section("Your inputs") {
-        ForEach(model.readiness.factors, id: \.self) { Text($0) }
-        if model.readiness.factors.isEmpty { Text("No qualifying overnight inputs yet.") }
+        ForEach(readiness.factors, id: \.self) { Text($0) }
+        if readiness.factors.isEmpty { Text("No qualifying overnight inputs yet.") }
       }
       Section("How Tempo calculates it") {
         Text(
@@ -128,7 +130,7 @@ struct ReadinessDetailView: View {
         )
         Text("This is personal training guidance, without medical validation.")
       }
-      Section("Version") { Text(model.readiness.algorithmVersion) }
+      Section("Version") { Text(readiness.algorithmVersion) }
     }.navigationTitle("Readiness explained")
   }
 }

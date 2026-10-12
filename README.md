@@ -27,6 +27,7 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 | Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop 4 history decoder | Constructed fixtures; complete history transfer is disabled |
 | Multiple bands | Portable device identities, separate phone peripheral mappings, preferences/temporary override, hysteresis selector, sequential fallback | One connection maintained; unconnected-band wear cannot be observed |
 | Local persistence | SQLite WAL/FULL transactions, immutable observations, revision ancestry, tombstones, checkpoints and durable sync outbox | Integrity/replay/rollback tests pass |
+| Automatic activity | Opt-in sustained-HR candidates, review/type/timing edits, confirmation and dismissal | Experimental HR-only rules; physical accuracy unverified |
 | Workouts | Padel, cycling, running, strength, walking and other; start/pause/resume/finish; persisted state, source segments, HR chart, zones, load, notes and exertion | Domain and simulator tests pass; physical continuity pending |
 | Sleep and journal | Entered/imported sleep, naps flag, timezone retention, manual corrections; optional energy, mood, soreness and behaviours | Automatic sleep detection and staging unavailable |
 | Analytics | Quality-gated RMSSD/SDNN, conservative personal readiness, Edwards cardiovascular load, source-change confidence reduction | Transparent rules tested; no medical or proprietary-algorithm validation |
@@ -94,7 +95,7 @@ Only one band connection is maintained by default. Automatic selection software 
 
 Enable **Settings → Simulator demo**, or add `--demo` to the scheme's launch arguments. A visible banner identifies every demonstration as synthetic. Demo mode uses a separate in-memory store and suspends real collection; CloudKit, Health exports and normal backup export are disabled. Turning it off reopens the real local dataset.
 
-UI tests additionally use `--ui-testing` for an isolated in-memory dataset. These arguments never establish physical Bluetooth support.
+UI tests additionally use `--ui-testing` for an isolated in-memory dataset. Add `--activity-detection-demo` alongside both arguments to exercise a clearly synthetic potential-workout review. These arguments never establish physical Bluetooth support.
 
 ## Screenshots
 
@@ -107,6 +108,10 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 | Workout | Readiness explanation | Settings |
 |---|---|---|
 | [<img src="docs/screenshots/workout-demo.png" width="240" alt="A demo workout with unavailable live heart rate">](docs/screenshots/workout-demo.png) | [<img src="docs/screenshots/readiness-demo.png" width="240" alt="Tempo readiness inputs and methodology">](docs/screenshots/readiness-demo.png) | [<img src="docs/screenshots/settings-demo.png" width="240" alt="Tempo settings with the new logo">](docs/screenshots/settings-demo.png) |
+
+[<img src="docs/screenshots/detected-activity-demo.png" width="240" alt="Tempo experimental activity review using synthetic measurements">](docs/screenshots/detected-activity-demo.png)
+
+The additional capture shows the experimental activity review.
 
 ## Logo and Xcode assets
 
@@ -140,7 +145,7 @@ Follow the [schema, encryption and restore instructions](docs/CloudKit.md).
 Choose individual import/export types in Tempo's Health settings before requesting permissions. Denying permissions must not prevent local band collection or manual entries.
 
 - Imports include selected HR, resting HR, SDNN, sleep, workouts and weight.
-- Exports include supported measured HR, manually entered sleep as asleep-unspecified, and recorded workouts. Padel uses Health's Other activity with Tempo metadata rather than being mislabeled as another sport.
+- Exports include supported measured HR, manually entered sleep as asleep-unspecified, and manual or explicitly confirmed estimated workouts, with provenance. Padel uses Health's Other activity with Tempo metadata rather than being mislabeled as another sport.
 - Tempo excludes its own source from imports and preserves external sample UUID provenance.
 - **RMSSD is never written into HealthKit's SDNN field.**
 
@@ -193,7 +198,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **33 core tests passed. The updated simulator suite passes all 3 tests, including the six-screen capture flow; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **43 core tests passed. The updated simulator suite passes all 4 tests, including seven real screen captures and activity confirmation/repeated-scan checks; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 
@@ -219,6 +224,12 @@ The core owns storage through a Swift actor; iOS services own their mutable stat
 
 After adding native source/resource files, regenerate the committed project with `python3 Scripts/generate_project.py`. The script preserves your identifier settings in `Configuration.xcconfig`. `python3 Scripts/create_icon.py` rebuilds the original geometric icon.
 
+## Automatic activity detection
+
+Enable **Settings → Activity → Automatic activity detection** to find potential workouts from sustained, sufficiently covered band heart rate. This experimental feature starts disabled. Review suggestions in Activity, choose the sport and correct timing, then confirm or dismiss. Unconfirmed suggestions do not count toward workout totals or export to Apple Health.
+
+Tempo does not identify padel from heart rate or reproduce WHOOP's automatic classifier. Stress can cause false positives; low-heart-rate walking and strength sessions can be missed. Gaps are preserved, overlapping band samples are reconciled, and decisions survive restore and repeated scans. Confirmed sessions retain their estimated origin and algorithm version. See [rules, thresholds and limitations](docs/AutomaticActivity.md). Physical-band accuracy still needs validation.
+
 ## Remaining work
 
 The full requested product is not complete. Major unfinished areas include:
@@ -226,7 +237,7 @@ The full requested product is not complete. Major unfinished areas include:
 - Safe, firmware-specific historical transfer and interrupted catch-up.
 - Dependable physical automatic switching, deeper Whoop 5 inputs, authoritative battery and validated haptic/alarm controls.
 - Automatic sleep detection, richer nightly aggregation, sleep consistency and device-offset calibration.
-- Full trend catalogue/custom ranges, journal-to-metric insights, route recording, notifications, automatic workout confirmation and breathing/haptic sessions.
+- Full trend catalogue/custom ranges, journal-to-metric insights, route recording, notifications and breathing/haptic sessions.
 - Background sync scheduling, fuller Health source/deletion policies, high-volume local compaction and streaming backups.
 - Signed two-phone testing, iOS 26 runtime testing and a full accessibility/background reliability audit.
 
@@ -234,7 +245,7 @@ The [acceptance-status document](docs/KnownLimitations.md) distinguishes impleme
 
 ## Protocol research, attribution and licence
 
-Tempo is an original implementation, not a fork of [Noop](https://github.com/ryanbr/noop). Public interoperability facts informed the separate firmware-bounded parsers; no Noop source implementation or documentation prose was copied. Noop's original code/documentation uses PolyForm Noncommercial 1.0.0 and explicitly distinguishes factual wire information. It credits `johnmiddleton12/my-whoop` and `b-nnett/goose` for earlier interoperability work.
+Tempo's independent protocol research references [Noop](https://github.com/ryanbr/noop) and its credited community interoperability work. No Noop implementation code or documentation prose was copied. Evidence, licence assessment and attribution are recorded in [Protocol research](docs/ProtocolResearch.md).
 
 See [research, evidence boundaries and attribution](docs/ProtocolResearch.md) and the [runtime capability matrix](docs/CapabilityMatrix.md). Future code reuse requires a fresh licence assessment and any required notices. Tempo's own repository licence is [MIT](LICENSE).
 
@@ -248,6 +259,7 @@ Tempo is independent and is not affiliated with or endorsed by WHOOP. Use only h
 - [Capability matrix](docs/CapabilityMatrix.md)
 - [Private CloudKit schema and restore](docs/CloudKit.md)
 - [Analytics methodology](docs/Analytics.md)
+- [Automatic activity rules and validation](docs/AutomaticActivity.md)
 - [Independent export format](docs/ExportFormat.md)
 - [Physical validation checklist](docs/HardwareValidation.md)
 - [Known limitations and acceptance status](docs/KnownLimitations.md)

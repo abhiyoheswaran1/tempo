@@ -69,6 +69,8 @@ public struct Workout: Codable, Sendable, Identifiable, Equatable {
   public var perceivedExertion: Int?
   public var soreness: Int?
   public var origin: Origin = .manual
+  public var detectionID: UUID?
+  public var algorithmVersion: String?
   public init(activity: Activity, start: Date) {
     self.activity = activity
     self.start = start

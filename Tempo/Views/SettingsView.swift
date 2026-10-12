@@ -90,6 +90,9 @@ struct SettingsView: View {
           "No Whoop account, custom server, analytics SDK or routine health-payload logging. CloudKit uses encrypted payload fields in your private database; this app does not assert end-to-end encryption."
         ).font(.caption).foregroundStyle(.secondary)
       }
+      Section("Activity") {
+        NavigationLink("Automatic activity detection") { ActivityDetectionSettingsView() }
+      }
       Section("Analytics") {
         Stepper(
           "Maximum heart rate: \(Int(model.maxHeartRate)) bpm", value: $m.maxHeartRate,

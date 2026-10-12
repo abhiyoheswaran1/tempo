@@ -47,6 +47,37 @@ struct ActivityView: View {
           }.buttonStyle(.borderedProminent)
         }
       }
+      if !model.pendingDetectedActivities.isEmpty {
+        Section("Potential workouts · review required") {
+          ForEach(model.pendingDetectedActivities) { decision in
+            NavigationLink {
+              DetectedActivityReviewView(decision: decision)
+            } label: {
+              VStack(alignment: .leading, spacing: 4) {
+                Text("Potential workout").font(.headline)
+                Text(
+                  "\(decision.candidate.start.formatted(date:.abbreviated,time:.shortened)) · \(durationText(decision.candidate.end.timeIntervalSince(decision.candidate.start)))"
+                ).font(.caption).foregroundStyle(.secondary)
+                Text("Heart-rate estimate · \(Int(decision.candidate.coverage*100))% coverage")
+                  .font(.caption).foregroundStyle(.secondary)
+              }
+            }
+          }
+        }
+      }
+      Section("Automatic detection") {
+        NavigationLink(
+          model.automaticDetectionEnabled
+            ? "Experimental detection is on" : "Set up automatic detection"
+        ) { ActivityDetectionSettingsView() }
+        if model.automaticDetectionEnabled {
+          Button("Scan recent measurements") {
+            model.mutate { try await model.scanAutomaticActivities() }
+          }.disabled(model.activityScanning)
+          Text("Suggestions need confirmation. Activity type is not inferred from heart rate.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+      }
       Section("History") {
         ForEach(model.workouts.filter { $0.end != nil }) { w in
           NavigationLink {
@@ -54,6 +85,9 @@ struct ActivityView: View {
           } label: {
             VStack(alignment: .leading) {
               Text(w.activity.rawValue.capitalized).font(.headline)
+              if w.detectionID != nil {
+                Text("Confirmed activity estimate").font(.caption).foregroundStyle(.secondary)
+              }
               Text(
                 "\(w.start.formatted(date:.abbreviated,time:.shortened)) · \(durationText(w.activeDuration(at:w.end ?? Date())))"
               ).font(.caption).foregroundStyle(.secondary)
@@ -90,6 +124,9 @@ struct WorkoutDetailView: View {
     let chartPoints = ChartProjection.points(observations)
     return List {
       Section {
+        if let version = workout.algorithmVersion {
+          MetricRow(label: "Provenance", value: "Confirmed estimate", detail: version)
+        }
         MetricRow(
           label: "Duration", value: durationText(workout.activeDuration(at: workout.end ?? Date())))
         let load = CardiovascularLoad.calculate(

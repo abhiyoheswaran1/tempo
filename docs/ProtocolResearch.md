@@ -12,6 +12,8 @@ Sources inspected:
 - https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_COMMANDS.md — version-specific read contracts and negative space.
 - https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0/ — standard Heart Rate Service.
 
+Licence source: [Noop LICENSE](https://github.com/ryanbr/noop/blob/main/LICENSE); upstream credits: [Noop ATTRIBUTION](https://github.com/ryanbr/noop/blob/main/ATTRIBUTION.md).
+
 Noop credits johnmiddleton12/my-whoop for Whoop 4 and b-nnett/goose for Whoop 5. Tempo is an original codebase, not a fork. No source implementation or prose from Noop has been copied. Noop's original code/documentation uses PolyForm Noncommercial 1.0.0 (Copyright 2026 NoopApp). Its licence explicitly excludes factual wire identifiers/layouts/CRC parameters from copyright claims. Tempo reuses those interoperability facts and independently implements parsers. Any future copying requires separate licence assessment and notices; the existing Tempo licence does not relicense third-party material.
 
 ## Implemented facts

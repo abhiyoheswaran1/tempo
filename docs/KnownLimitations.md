@@ -28,7 +28,7 @@ Portable preferences sync as revisions; Bluetooth connection state stays local. 
 - Device-specific distribution offsets and calibrated confidence models; source changes conservatively halve readiness confidence.
 - Rich nightly aggregation/stage-interval merging; imported sleep intervals are retained, but conservative overlap projection can exclude an overlapping interval rather than reconstruct a full night.
 - Custom trend ranges and full trend catalogue; current charts cover measured/imported metrics and entered sleep over7/28/90days. Personal association engine exists, but journal-to-metric pairing/insight presentation is not connected.
-- Optional route recording, notifications/quiet-hours policies, automatic activity confirmation, breathing sessions and haptic timers/cues. These were not substituted with mock functions.
+- Optional route recording, notifications/quiet-hours policies, breathing sessions and haptic timers/cues. These were not substituted with mock functions.
 - Background CloudKit scheduling/push subscription; sync currently runs on activation/manual action. Health imports are bounded1000-record pages per type; repeat import to continue. HR export is bounded500 samples per action. Health export deletion/update reconciliation remains limited; app history deletion does not automatically delete Health exports.
 - Large-volume optimization: sample rows are durable JSON and may reach30–80MB/day; compressed sensor buckets apply to cloud traffic. Local high-frequency compaction, streaming multi-gigabyte backups and richer cached analytical summaries are required before multi-year ingestion. UI range reads are bounded and unknown raw streams are not collected.
 
@@ -42,3 +42,7 @@ Portable preferences sync as revisions; Bluetooth connection state stays local. 
 13: native adaptive layout and simulator interaction tests; full accessibility/device audit pending.
 14: no required Whoop/cloud/backend account path.
 15: limitations and validation procedure documented.
+
+## Experimental automatic activity
+
+Opt-in heart-rate-based potential workouts support confirmation, timing/type edits, dismissal and durable decisions. They do not classify sports or match WHOOP detection. Rules are software-tested; physical accuracy and background input coverage are unverified. See [methodology](AutomaticActivity.md).

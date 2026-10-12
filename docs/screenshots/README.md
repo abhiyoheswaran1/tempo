@@ -4,7 +4,7 @@ These PNGs are actual screen captures from the running Tempo iOS app on the iPho
 
 Captured through `TempoUITests.testCaptureProductScreenshots` with `--ui-testing --demo`. The test waits for the isolated demo dataset to finish loading, navigates the native screens and attaches each screenshot to its Xcode result bundle. Files are copied directly from those attachments without cropping, overlays or other postprocessing. `capture-manifest.json` records the source test, capture timestamps, dimensions and SHA-256 checksums.
 
-Screens: Today, activity selection, active workout, trends, readiness explanation, settings.
+Screens: Today, activity selection, active workout, trends, readiness explanation, settings, and experimental activity review. The seventh capture comes from `testDetectedActivityRequiresConfirmationAndDoesNotRepeat` with `--activity-detection-demo` added; it is also explicitly synthetic.
 
 To reproduce, run the Tempo scheme's UI tests with an installed iPhone simulator. Export attachments from the resulting `.xcresult` bundle:
 

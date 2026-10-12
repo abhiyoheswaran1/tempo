@@ -12,3 +12,14 @@ Record generation, serial hash, full firmware versions, iPhone/iOS, Tempo commit
 8. Inspect Dynamic Type accessibility sizes, VoiceOver order/labels, light/dark, increased contrast, reduced transparency/motion, stale widgets and stale Live Activity. Verify Live Activity does not conceal stopped collection.
 
 Haptics, alarms, motion-based sleep, calibrated temperature/respiration/SpO2, concurrent connections and full historical catch-up are not production-enabled. Parser tests and simulator UI tests prove none of those hardware behaviors.
+
+## Experimental activity suggestions
+
+1. Enable Activity detection, verify configured maximum HR, then collect a sustained activity with the phone connected. Keep an independent start/finish record.
+2. After recovery, open Activity. Verify the suggested interval, source bands and coverage against collected HR; record false positives and missed activity. No sport should be inferred.
+3. Correct the sport/times and confirm. Verify exactly one workout, estimated provenance and sensible coverage. Repeat scans and relaunch: no duplicate suggestion or workout.
+4. Dismiss another suggestion; rescan and restore on the second phone. Verify dismissal persists. Record a manual overlapping workout and verify its suggestion disappears.
+5. Repeat with a Bluetooth gap and a supported band switch; inspect disclosed gaps and source segments. No duration or load should be created from uncollected samples.
+6. With explicit Health workout export permission, export a confirmed session twice: verify one Health workout with Tempo provenance, and verify Health import excludes Tempo's own export. Demo suggestions must never export or sync.
+
+These steps validate behavior on owned devices; passing simulator tests does not establish detection sensitivity or accuracy.

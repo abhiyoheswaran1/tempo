@@ -67,3 +67,31 @@ extension TempoUITests {
     capture("settings-demo")
   }
 }
+
+extension TempoUITests {
+  @MainActor func testDetectedActivityRequiresConfirmationAndDoesNotRepeat() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--activity-detection-demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 15))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    app.tabBars.buttons["Activity"].tap()
+    XCTAssertTrue(app.staticTexts["Potential workout"].waitForExistence(timeout: 20))
+    app.staticTexts["Potential workout"].tap()
+    XCTAssertTrue(app.navigationBars["Review activity"].waitForExistence(timeout: 5))
+    let attachment = XCTAttachment(screenshot: app.screenshot())
+    attachment.name = "detected-activity-demo"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+    for _ in 0..<3 where !app.buttons["Confirm workout"].exists { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Confirm workout"].waitForExistence(timeout: 5))
+    app.buttons["Confirm workout"].tap()
+    XCTAssertTrue(app.staticTexts["Confirmed activity estimate"].waitForExistence(timeout: 10))
+    XCTAssertFalse(app.staticTexts["Potential workout"].exists)
+    app.buttons["Scan recent measurements"].tap()
+    XCTAssertFalse(app.staticTexts["Potential workout"].exists)
+  }
+}

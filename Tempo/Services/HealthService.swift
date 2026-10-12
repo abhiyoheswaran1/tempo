@@ -234,7 +234,9 @@ extension HealthService {
     if options.exportWorkouts,
       health.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized
     {
-      for w in workouts where w.origin == .manual && w.end != nil {
+      for w in workouts
+      where w.end != nil && (w.origin == .manual || (w.origin == .derived && w.detectionID != nil))
+      {
         let key = "tempo:workout:\(w.id.uuidString)"
         guard try await store.metadata("health.export.\(key)") == nil else { continue }
         let config = HKWorkoutConfiguration()
@@ -252,6 +254,8 @@ extension HealthService {
           HKMetadataKeySyncIdentifier: key, HKMetadataKeySyncVersion: 1,
           HKMetadataKeyWorkoutBrandName: "Tempo", HKMetadataKeyWasUserEntered: true,
           "TempoActivity": w.activity.rawValue,
+          "TempoProvenance": w.detectionID == nil ? "manual" : "confirmed-heart-rate-estimate",
+          "TempoAlgorithmVersion": w.algorithmVersion ?? "manual",
         ])
         let events = w.pauses.flatMap {
           [

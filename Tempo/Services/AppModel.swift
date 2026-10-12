@@ -13,6 +13,11 @@ import WidgetKit
   var measurements: [TempoCore.Measurement] = []
   var nightMetrics: [UUID: [String: Double]] = [:]
   var workouts: [Workout] = []
+  var detectedActivities: [DetectedActivityDecision] = []
+  var automaticDetectionEnabled = false
+  var activityScanning = false
+  var activityLastScan: Date?
+  private var lastActivityScanRequest: Date?
   var sleeps: [SleepSession] = []
   var journals: [JournalEntry] = []
   var sourceSegments: [SourceSegment] = []
@@ -41,14 +46,16 @@ import WidgetKit
       ?? canonical.last
   }
   var readiness: ReadinessResult {
+    let selectedMeasurements = canonical
     let nights = sleeps.filter { !$0.isNap && $0.duration >= 4 * 3600 }.sorted { $0.end < $1.end }
     let baseline = nights.suffix(29).map { night in
       PersonalBaseline(
         date: night.end, values: nightInputs(night),
         sourceIDs: Array(
           Set(
-            canonical.filter { $0.timestamp >= night.start && $0.timestamp < night.end }.map(
-              \.deviceID))))
+            selectedMeasurements.filter { $0.timestamp >= night.start && $0.timestamp < night.end }
+              .map(
+                \.deviceID))))
     }
     let current = nights.last.map { nightInputs($0) } ?? [:]
     return Readiness.calculate(
@@ -93,6 +100,7 @@ import WidgetKit
       bluetooth.configure(devices)
       if let id = devices.first?.id { bluetooth.connect(deviceID: id) }
       if syncEnabled { await sync() }
+      scheduleAutomaticScan(force: true)
     } catch {
       errorMessage =
         "Local storage could not open. Collection is paused: \(error.localizedDescription)"
@@ -132,6 +140,7 @@ import WidgetKit
         }
         if let w = self.activeWorkout { await self.updateLive(w) }
         self.scheduleSnapshot()
+        self.scheduleAutomaticScan()
         if m.wear == .offBody { self.scheduleFallback(immediate: true) }
       } catch {
         self.errorMessage =
@@ -201,6 +210,9 @@ import WidgetKit
       }
     ).sorted { $0.start > $1.start }
     activeWorkout = workouts.first { $0.end == nil }
+    detectedActivities = unique.filter { $0.kind == "detectedActivity" }.compactMap {
+      try? decoder.decode(DetectedActivityDecision.self, from: $0.payload)
+    }.sorted { $0.candidate.start > $1.candidate.start }
     sleeps = SessionReconciliation.sleep(
       unique.filter { $0.kind == "sleep" }.compactMap {
         try? decoder.decode(SleepSession.self, from: $0.payload)
@@ -226,6 +238,7 @@ import WidgetKit
       selector.preference = p.preference
       maxHeartRate = p.maxHeartRate
       hideWidgetDetails = p.hideWidgetDetails
+      automaticDetectionEnabled = p.automaticDetectionEnabled ?? false
       syncEnabled = p.syncEnabled
     }
     if let revision = unique.first(where: { $0.kind == "preferences" }),
@@ -235,6 +248,7 @@ import WidgetKit
       selector.preference = p.preference
       maxHeartRate = p.maxHeartRate
       hideWidgetDetails = p.hideWidgetDetails
+      automaticDetectionEnabled = p.automaticDetectionEnabled ?? false
     }
     writeWidget()
   }
@@ -306,6 +320,105 @@ import WidgetKit
           Date().timeIntervalSince($0.timestamp) < 90 ? Int($0.value) : nil
         }, paused: w.pausedAt != nil, updatedAt: Date(), source: activeDevice?.name ?? "No source"))
   }
+  var pendingDetectedActivities: [DetectedActivityDecision] {
+    detectedActivities.filter { decision in
+      decision.status == .pending
+        && !workouts.contains(where: { workout in
+          workout.detectionID == decision.id
+            || (workout.start < decision.candidate.end
+              && (workout.end ?? .distantFuture) > decision.candidate.start)
+        })
+    }
+  }
+  private func scheduleAutomaticScan(force: Bool = false) {
+    guard automaticDetectionEnabled, !transitioningDataset else { return }
+    let now = Date()
+    if !force, let previous = lastActivityScanRequest, now.timeIntervalSince(previous) < 60 {
+      return
+    }
+    lastActivityScanRequest = now
+    mutate { [weak self] in try await self?.scanAutomaticActivities() }
+  }
+  func onForegroundActive() async {
+    if syncEnabled { await sync() }
+    scheduleAutomaticScan(force: true)
+  }
+  func setAutomaticDetectionEnabled(_ enabled: Bool) async throws {
+    automaticDetectionEnabled = enabled
+    try await persistPreferences()
+    if enabled { try await scanAutomaticActivities() }
+  }
+  func scanAutomaticActivities() async throws {
+    guard automaticDetectionEnabled, !transitioningDataset, let store else { return }
+    guard !activityScanning else { return }
+    activityScanning = true
+    defer { activityScanning = false }
+    for decision in detectedActivities
+    where decision.status == .pending
+      && workouts.contains(where: { $0.id == decision.candidate.workoutID })
+    {
+      var recovered = decision
+      recovered.status = .confirmed
+      try await save(recovered, kind: "detectedActivity")
+    }
+    let now = Date()
+    let candidates = try await store.detectedActivities(
+      from: now.addingTimeInterval(-12 * 3600), to: now, maxHeartRate: maxHeartRate,
+      sourceSegments: sourceSegments, existingWorkouts: workouts, allowSynthetic: demo)
+    for candidate in candidates {
+      // Suppress earlier decisions by interval too, so threshold/algorithm changes do not resurrect dismissals.
+      guard
+        !detectedActivities.contains(where: {
+          $0.candidate.start < candidate.end && $0.candidate.end > candidate.start
+        }),
+        !workouts.contains(where: {
+          $0.start < candidate.end && ($0.end ?? .distantFuture) > candidate.start
+        })
+      else { continue }
+      try await save(DetectedActivityDecision(candidate: candidate), kind: "detectedActivity")
+    }
+    activityLastScan = now
+    try await store.setMetadata("activity.lastScan", value: JSONEncoder().encode(now))
+  }
+  func dismissDetectedActivity(_ decision: DetectedActivityDecision) async throws {
+    guard let latest = detectedActivities.first(where: { $0.id == decision.id }),
+      latest.status == .pending
+    else { return }
+    var updated = latest
+    updated.status = .dismissed
+    try await save(updated, kind: "detectedActivity")
+  }
+  func confirmDetectedActivity(
+    _ decision: DetectedActivityDecision, activity: TempoCore.Activity, start: Date, end: Date
+  ) async throws {
+    guard start < end, end.timeIntervalSince(start) <= 24 * 3600, end <= Date(),
+      let latest = detectedActivities.first(where: { $0.id == decision.id }),
+      latest.status == .pending
+    else { throw ModelError.invalidDetectedTiming }
+    if !workouts.contains(where: { $0.id == latest.candidate.workoutID }) {
+      guard !workouts.contains(where: { $0.start < end && ($0.end ?? .distantFuture) > start })
+      else { throw ModelError.overlappingWorkout }
+      var w = Workout(activity: activity, start: start)
+      w.id = latest.candidate.workoutID
+      w.end = end
+      w.origin = latest.candidate.origin
+      w.detectionID = latest.id
+      w.algorithmVersion = latest.candidate.algorithmVersion
+      w.note = "Confirmed heart-rate-only activity estimate; timing reviewed by user."
+      w.sources = sourceSegments.compactMap { s in
+        let from = max(s.start, start)
+        let until = min(s.end ?? end, end)
+        guard from < until else { return nil }
+        return SourceSegment(
+          deviceID: s.deviceID, start: from, end: until, reason: "Confirmed detection; \(s.reason)")
+      }
+      try await save(w, kind: "workout")
+    }
+    // A crash between these writes cannot duplicate the deterministic workout ID.
+    var updated = latest
+    updated.status = .confirmed
+    try await save(updated, kind: "detectedActivity")
+  }
   func setPreference(_ preference: SourcePreference) async throws {
     selector.preference = preference
     selector.overrideID = nil
@@ -324,12 +437,14 @@ import WidgetKit
     guard let store else { return }
     let p = Preferences(
       preference: selector.preference, maxHeartRate: maxHeartRate,
-      hideWidgetDetails: hideWidgetDetails, syncEnabled: syncEnabled)
+      hideWidgetDetails: hideWidgetDetails, syncEnabled: syncEnabled,
+      automaticDetectionEnabled: automaticDetectionEnabled)
     try await store.setMetadata("preferences.local", value: JSONEncoder().encode(p))
     try await save(
       PortablePreferences(
         preference: selector.preference, maxHeartRate: maxHeartRate,
-        hideWidgetDetails: hideWidgetDetails), kind: "preferences")
+        hideWidgetDetails: hideWidgetDetails, automaticDetectionEnabled: automaticDetectionEnabled),
+      kind: "preferences")
     writeWidget()
   }
   func sync(forceRetry: Bool = false) async {
@@ -356,6 +471,8 @@ import WidgetKit
       fallbackTask?.cancel()
       bluetooth.suspend()
       selector = SourceSelector()
+      automaticDetectionEnabled = false
+      detectedActivities = []
       store = try? TempoStore(path: ":memory:", allowSynthetic: true)
       demo = true
       cloud = nil
@@ -377,6 +494,16 @@ import WidgetKit
               deviceID: d.id, kind: .heartRate, timestamp: end.addingTimeInterval(Double(i - 300)),
               value: Double(58 + day % 6) + sin(Double(i) / 20) * 3, origin: .synthetic,
               transport: "demo", rrMilliseconds: [980, 1000, 1020]))
+        }
+      }
+      if ProcessInfo.processInfo.arguments.contains("--activity-detection-demo") {
+        let end = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970 / 60) * 60 - 300)
+        let start = end.addingTimeInterval(-900)
+        for i in 0..<1200 {
+          records.append(
+            TempoCore.Measurement(
+              deviceID: d.id, kind: .heartRate, timestamp: start.addingTimeInterval(Double(i)),
+              value: i < 900 ? 140 : 70, origin: .synthetic, transport: "demo"))
         }
       }
       try? await store?.insert(records)
@@ -407,17 +534,26 @@ import WidgetKit
     var preference: SourcePreference
     var maxHeartRate: Double
     var hideWidgetDetails: Bool
+    var automaticDetectionEnabled: Bool? = nil
   }
   struct Preferences: Codable {
     var preference: SourcePreference
     var maxHeartRate: Double
     var hideWidgetDetails: Bool
     var syncEnabled: Bool
+    var automaticDetectionEnabled: Bool? = nil
   }
   enum ModelError: LocalizedError {
-    case unresolvedConflict
+    case unresolvedConflict, invalidDetectedTiming, overlappingWorkout
     var errorDescription: String? {
-      "This item has concurrent edits. Resolve them in Settings before changing it."
+      switch self {
+      case .unresolvedConflict:
+        return "This item has concurrent edits. Resolve them in Settings before changing it."
+      case .invalidDetectedTiming:
+        return "Review the proposed timing; it must be a completed session shorter than 24 hours."
+      case .overlappingWorkout:
+        return "This period overlaps a recorded workout. Review the existing workout instead."
+      }
     }
   }
 }

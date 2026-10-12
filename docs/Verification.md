@@ -31,3 +31,13 @@ Visual review found and corrected demo banner/navigation overlap. The final UI r
 Original rounded-T vector branding exported as SVG, RGB 1024px icon, transparent PNG and Xcode-ready asset folders. Icon dimensions/no-alpha and byte-identical app/export assets validated. Today and Settings display the mark; the widget uses the same template geometry. The branding UI assertion was observed failing before integration and passes afterward.
 
 The updated simulator suite passes all3 tests, including real six-screen capture via XCTest attachments. Screenshots were visually inspected and copied without postprocessing; their source-test/timestamp/dimensions/checksums are in docs/screenshots/capture-manifest.json. Synthetic/demo data only, no physical-band validation. Fresh unsigned iPhone build:BUILD SUCCEEDED. Core logic unchanged; prior33 core tests remain the recorded core verification.
+
+## Automatic activity update (2026-10-12)
+
+- Core:43 XCTest tests passed,0 failures, including ten activity tests for sustained HR, coverage/gaps, existing workouts, source switches, duplicate records, replay and synthetic revision/archive isolation.
+- Simulator:4 UI tests passed,0 failures; confirmation creates one estimated workout and repeated scans do not recreate it. Seven actual simulator screenshots exported unchanged with capture manifest.
+- Unsigned iPhoneOS app and widget build:BUILD SUCCEEDED. Simulator tests also compile the app and extensions.
+- Read-only code review identified synthetic revision/archive leakage, stale overlapping suggestions and confirmed-estimate Health export eligibility; fixes reviewed with no remaining critical findings.
+- The first activity UI run exposed repeated readiness timeline computation. Reusing the per-calculation projection and per-render readiness result resolved the delay; rerun passes. A subsequent test needed to scroll to the confirmation control in the native Form; corrected test navigation passes.
+
+Physical-band detection accuracy, background input coverage, signed Health export and two-phone sync remain unverified. This update does not complete the outstanding original acceptance criteria.
