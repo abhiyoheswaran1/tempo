@@ -106,6 +106,7 @@ struct SleepDetailView: View {
   @Environment(AppModel.self) var model
   let sleep: SleepSession
   @State private var edit = false
+  @State private var newSleep = false
   @State private var placementDescription = "No band measurements to associate"
   var body: some View {
     List {
@@ -130,6 +131,7 @@ struct SleepDetailView: View {
       }
       Section {
         Button("Correct timing") { edit = true }
+        Button("Add another sleep session") { newSleep = true }
         Button("Delete sleep", role: .destructive) {
           model.mutate { try await model.delete(id: sleep.id, kind: "sleep") }
         }
@@ -145,6 +147,8 @@ struct SleepDetailView: View {
       }
     }.sheet(isPresented: $edit) {
       NavigationStack { SleepEditor(existing: sleep) }
+    }.sheet(isPresented: $newSleep) {
+      NavigationStack { SleepEditor() }
     }
   }
 }

@@ -113,3 +113,30 @@ public enum WearEvidence {
     return sample.wear
   }
 }
+
+public enum ManualRefreshOutcome: Equatable, Sendable {
+  case demo, localOnly, cloudRunning, needsAttention, pending, synced, retryScheduled
+  public static func resolve(
+    demo: Bool, cloudEnabled: Bool, cloudBusy: Bool,
+    cloudError: String?, pending: Int, lastSuccess: Date?, startedAt: Date
+  ) -> Self {
+    if demo { return .demo }
+    if !cloudEnabled { return .localOnly }
+    if cloudBusy { return .cloudRunning }
+    if cloudError != nil { return .needsAttention }
+    if pending > 0 { return .pending }
+    if let lastSuccess, lastSuccess >= startedAt { return .synced }
+    return .retryScheduled
+  }
+  public var message: String {
+    switch self {
+    case .demo: "Demo refreshed · real integrations stay off"
+    case .localOnly: "Local history refreshed · iCloud is off"
+    case .cloudRunning: "Collection checked · iCloud sync is still running"
+    case .needsAttention: "Local history refreshed · iCloud needs attention"
+    case .pending: "Collection checked · some uploads await retry"
+    case .synced: "Collection checked · iCloud synced"
+    case .retryScheduled: "Collection checked · iCloud retry is scheduled"
+    }
+  }
+}

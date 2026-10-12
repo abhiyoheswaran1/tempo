@@ -74,3 +74,29 @@ extension PresentationTests {
       SleepPresentation(sessions: [nap, recent, old], now: now).readinessSession?.id, recent.id)
   }
 }
+
+extension PresentationTests {
+  func testManualRefreshNeverClaimsOldCloudSuccessAsNewSync() {
+    let now = Date()
+    XCTAssertEqual(
+      ManualRefreshOutcome.resolve(
+        demo: false, cloudEnabled: true, cloudBusy: false, cloudError: nil, pending: 0,
+        lastSuccess: now.addingTimeInterval(-10), startedAt: now), .retryScheduled)
+    XCTAssertEqual(
+      ManualRefreshOutcome.resolve(
+        demo: false, cloudEnabled: true, cloudBusy: false, cloudError: nil, pending: 0,
+        lastSuccess: now.addingTimeInterval(1), startedAt: now), .synced)
+    XCTAssertEqual(
+      ManualRefreshOutcome.resolve(
+        demo: false, cloudEnabled: true, cloudBusy: false, cloudError: "offline", pending: 0,
+        lastSuccess: now.addingTimeInterval(1), startedAt: now), .needsAttention)
+    XCTAssertEqual(
+      ManualRefreshOutcome.resolve(
+        demo: true, cloudEnabled: true, cloudBusy: false, cloudError: nil, pending: 0,
+        lastSuccess: now.addingTimeInterval(1), startedAt: now), .demo)
+    XCTAssertEqual(
+      ManualRefreshOutcome.resolve(
+        demo: false, cloudEnabled: false, cloudBusy: false, cloudError: nil, pending: 4,
+        lastSuccess: nil, startedAt: now), .localOnly)
+  }
+}

@@ -302,3 +302,73 @@ struct LiveDashboardView: View {
     }
   }
 }
+
+struct TodayCollectionPanel: View {
+  @Environment(AppModel.self) var model
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 12) {
+        NavigationLink {
+          LiveDashboardView()
+        } label: {
+          HStack(spacing: 10) {
+            Image(systemName: "waveform.path.ecg").font(.title3).foregroundStyle(.teal)
+              .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+              Text("Live dashboard").font(.headline)
+              Text("Heart rate & recent coverage").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+              .accessibilityHidden(true)
+          }.contentShape(Rectangle()).frame(minHeight: 44)
+        }.buttonStyle(.plain).accessibilityLabel("Live dashboard")
+        Button {
+          Task { await model.refreshToday() }
+        } label: {
+          Group {
+            if model.refreshingToday {
+              ProgressView()
+            } else {
+              Image(systemName: "arrow.clockwise")
+            }
+          }.frame(minWidth: 44, minHeight: 44)
+        }.buttonStyle(.bordered).buttonBorderShape(.circle)
+          .accessibilityLabel("Refresh collection and iCloud")
+          .disabled(model.refreshingToday)
+      }
+      Divider()
+      BandStatusControl()
+      TimelineView(.periodic(from: .now, by: 15)) { _ in
+        VStack(alignment: .leading, spacing: 3) {
+          if let sample = model.lastSample {
+            HStack(spacing: 4) {
+              Text("Last reading")
+              Text(sample.timestamp, style: .relative)
+            }
+          }
+          if model.demo {
+            Text("Demo · real integrations off")
+          } else if !model.syncEnabled {
+            Text("On this iPhone · iCloud off")
+          } else if let date = model.lastCloudSync {
+            HStack(spacing: 4) {
+              Text("Last iCloud sync")
+              Text(date, style: .relative)
+              if model.pendingCloudChanges > 0 { Text("· \(model.pendingCloudChanges) pending") }
+            }
+          } else {
+            Text("iCloud · no successful sync yet")
+          }
+          if let result = model.refreshOutcome {
+            Text(result.message).accessibilityIdentifier("today-refresh-result")
+          }
+        }.font(.caption).foregroundStyle(.secondary)
+      }
+    }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20)
+      )
+
+  }
+}

@@ -12,7 +12,7 @@ struct TodayView: View {
     let today = model.canonical.filter { Calendar.current.isDateInToday($0.timestamp) }
     let load = CardiovascularLoad.calculate(today, maxHeartRate: model.maxHeartRate)
     ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
+      VStack(alignment: .leading, spacing: 16) {
         ViewThatFits(in: .horizontal) {
           HStack(spacing: 8) {
             brand
@@ -51,25 +51,41 @@ struct TodayView: View {
           NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
         }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(
           Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
-        VStack(spacing: 16) {
+        TodayCollectionPanel()
+        VStack(spacing: 14) {
           VStack(alignment: .leading, spacing: 6) {
-            Text(lastSleep.title).font(.headline).accessibilityIdentifier("today-sleep-summary")
             if let last = lastSleep.session {
               NavigationLink {
                 SleepDetailView(sleep: last)
               } label: {
-                MetricRow(
-                  label: "Sleep", value: durationText(last.duration),
-                  detail:
-                    "\(last.end.formatted(date: .abbreviated, time: .omitted)) · \(last.origin == .manual ? "Entered" : last.origin.rawValue.capitalized)"
-                )
+                VStack(alignment: .leading, spacing: 5) {
+                  ViewThatFits(in: .horizontal) {
+                    HStack {
+                      Text(lastSleep.title).font(.headline).accessibilityIdentifier(
+                        "today-sleep-summary")
+                      Spacer()
+                      Text(durationText(last.duration)).font(.title3.weight(.medium))
+                        .monospacedDigit()
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                      Text(lastSleep.title).font(.headline).accessibilityIdentifier(
+                        "today-sleep-summary")
+                      Text(durationText(last.duration)).font(.title3.weight(.medium))
+                        .monospacedDigit()
+                    }
+                  }
+                  Text(
+                    "\(last.end.formatted(date: .abbreviated, time: .omitted)) · \(last.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened)) · \(last.origin == .manual ? "Entered" : last.origin.rawValue.capitalized)"
+                  )
+                  .font(.caption).foregroundStyle(.secondary)
+                }.contentShape(Rectangle())
               }.tint(.primary)
             } else {
+              Text(lastSleep.title).font(.headline).accessibilityIdentifier("today-sleep-summary")
               Text("Add sleep to begin your overnight history.").font(.subheadline).foregroundStyle(
                 .secondary)
+              Button("Add sleep") { sleep = true }.font(.subheadline)
             }
-            Button(lastSleep.session == nil ? "Add sleep" : "Add or correct sleep") { sleep = true }
-              .font(.subheadline)
           }.frame(maxWidth: .infinity, alignment: .leading)
           Divider()
           VStack(alignment: .leading, spacing: 6) {
@@ -84,12 +100,6 @@ struct TodayView: View {
             )
           }.frame(maxWidth: .infinity, alignment: .leading)
         }
-        BandStatusControl()
-        NavigationLink {
-          LiveDashboardView()
-        } label: {
-          Label("Live dashboard", systemImage: "waveform.path.ecg")
-        }
         Button {
           journal = true
         } label: {
@@ -97,7 +107,8 @@ struct TodayView: View {
             .padding(.vertical, 8)
         }.buttonStyle(.bordered)
       }.padding(20)
-    }.background(Color(uiColor: .systemGroupedBackground)).navigationTitle("Today")
+    }.refreshable { await model.refreshToday() }
+      .background(Color(uiColor: .systemGroupedBackground)).navigationTitle("Today")
       .navigationBarTitleDisplayMode(.inline)
       .sheet(isPresented: $journal) { NavigationStack { JournalEditor() } }
       .sheet(isPresented: $sleep) { NavigationStack { SleepEditor() } }

@@ -422,6 +422,34 @@ import WidgetKit
     lastActivityScanRequest = now
     mutate { [weak self] in try await self?.scanAutomaticActivities() }
   }
+  var refreshingToday = false
+  var refreshOutcome: ManualRefreshOutcome?
+  func refreshToday() async {
+    guard !refreshingToday, !transitioningDataset, let refreshStore = store else { return }
+    refreshingToday = true
+    refreshOutcome = nil
+    defer { refreshingToday = false }
+    let startedAt = Date()
+    await collectionTask?.value
+    await mutationTail?.value
+    guard !transitioningDataset, self.store === refreshStore else { return }
+    if !demo {
+      bluetooth.resumeCollection(
+        preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
+      scheduleFallback(immediate: true)
+      if syncEnabled { await sync() }
+    }
+    guard !transitioningDataset, self.store === refreshStore else { return }
+    do { try await load() } catch {
+      errorMessage = "Local history could not refresh"
+      return
+    }
+    guard !transitioningDataset, self.store === refreshStore else { return }
+    refreshOutcome = ManualRefreshOutcome.resolve(
+      demo: demo, cloudEnabled: syncEnabled,
+      cloudBusy: cloud?.busy ?? false, cloudError: cloud?.errorMessage,
+      pending: pendingCloudChanges, lastSuccess: lastCloudSync, startedAt: startedAt)
+  }
   private var lastAutomaticSyncAttempt: Date?
   private func syncIfNeeded() async {
     guard !demo, syncEnabled,
@@ -598,6 +626,7 @@ import WidgetKit
   func setDemo(_ enabled: Bool) async {
     guard !transitioningDataset, enabled != demo else { return }
     finishedWorkout = nil
+    refreshOutcome = nil
     transitioningDataset = true
     loadGeneration += 1
     defer { transitioningDataset = false }

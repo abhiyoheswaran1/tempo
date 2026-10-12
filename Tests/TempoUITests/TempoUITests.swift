@@ -229,3 +229,67 @@ extension TempoUITests {
     XCTAssertFalse(app.staticTexts["Synthetic band"].exists)
   }
 }
+
+extension TempoUITests {
+  @MainActor func testTodayLiveEntryAndManualRefreshAreProminentAndHonest() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--live-dashboard-demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    let live = app.buttons["Live dashboard"]
+    XCTAssertTrue(live.isHittable)
+    XCTAssertLessThan(live.frame.minY, app.staticTexts["today-sleep-summary"].frame.minY)
+    let refresh = app.buttons["Refresh collection and iCloud"]
+    XCTAssertTrue(refresh.isHittable)
+    XCTAssertFalse(app.staticTexts["Demo refreshed · real integrations stay off"].exists)
+    let scroll = app.scrollViews.firstMatch
+    scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).press(
+      forDuration: 0.1,
+      thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)))
+    XCTAssertTrue(
+      app.staticTexts["Demo refreshed · real integrations stay off"].waitForExistence(timeout: 10))
+    XCTAssertFalse(app.staticTexts["iCloud synced"].exists)
+    // Relaunch gives the button a clean initial state, independent of the pull action.
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    XCTAssertFalse(app.staticTexts["Demo refreshed · real integrations stay off"].exists)
+    refresh.tap()
+    XCTAssertTrue(
+      app.staticTexts["Demo refreshed · real integrations stay off"].waitForExistence(timeout: 10))
+    live.tap()
+    XCTAssertTrue(app.navigationBars["Live dashboard"].waitForExistence(timeout: 5))
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testAnotherSleepCanBeAddedAfterExistingHistory() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    app.staticTexts["today-sleep-summary"].firstMatch.tap()
+    XCTAssertTrue(app.navigationBars["Sleep"].waitForExistence(timeout: 5))
+    for _ in 0..<4 where !app.buttons["Add another sleep session"].isHittable { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Add another sleep session"].waitForExistence(timeout: 5))
+    app.buttons["Add another sleep session"].tap()
+    XCTAssertTrue(app.navigationBars["Record sleep"].waitForExistence(timeout: 5))
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.navigationBars["Sleep"].waitForExistence(timeout: 5))
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Entered'")).firstMatch
+        .waitForExistence(timeout: 5))
+  }
+}
