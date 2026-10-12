@@ -6,3 +6,7 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - BRAND · original icon and seven real synthetic simulator captures · 1887391 / acd98a5 · asset checks and simulator captures.
 - ACT · experimental HR-only activity confirmation/replay/isolation · acd98a5 · 43 core /4 UI tests; accuracy gate A04 open.
 - PLACE · per-band timed placement reports/corrections/conflict projection · ee73f5f · 49 core /5 UI tests; calibration A02 and hardware C01 open.
+
+- UX01–UX08 · compact Today/evidence, band placement sheet, cross-tab workout controls/summary, daily trend aggregates/gaps, date-aware states and maximum-text/dark simulation · e2977ec · 60 core /8 UI tests, unsigned iPhone build, nine real captures; physical V05 open.
+- RUN01 · explicit app workspace/opener and package-versus-app instructions · e2977ec · Xcode lists native Tempo scheme and produces Tempo.app/Tempo; screenshot confirmed original window was TempoCore package.
+- DATA01 · HR-only current-band filtering, dated readiness, historical chart invalidation and missing-zone states · e2977ec · core/UI regressions and read-only review.

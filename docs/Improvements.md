@@ -2,18 +2,13 @@
 
 Single working backlog. Update when scope changes or evidence closes an item. Priorities: P0 integrity/collection, P1 continuity/usefulness, P2 polish/extensions. Status: open, in progress, or awaiting hardware. Remove a ticket only after its acceptance checks pass; append one compact line to [Completed](Completed.md). Durable contracts belong in the linked technical docs, not duplicated ticket prose. Git retains superseded plans and detailed investigation history. Never delete unresolved findings or treat compilation as physical validation.
 
-## Current refinement
+## Further interface work
 
-| ID | Priority/status | Finding → acceptance |
+| ID | Priority/status | Open outcome / evidence |
 |---|---|---|
-| UX01 | P1 in progress | Today headline dominates; readiness/sleep/movement should be concise and visible at standard text size. |
-| UX02 | P1 in progress | Heuristic confidence looks calibrated; replace percentages with evidence categories, keep methodology/coverage accessible. |
-| UX03 | P2 in progress | Repeated equal cards dilute hierarchy; emphasize readiness, quieter supporting rows, native navigation glass. |
-| UX04 | P1 in progress | Band status/placement buried; compact fresh/stale status opens actionable collection and placement controls; no unsupported battery placeholder on Today. |
-| UX05 | P1 in progress | Workout controls/history fragmented; frequent activities first, recording accessible across tabs, finish opens honest summary and notes/exertion. |
-| UX06 | P1 in progress | Latest daily HR is arbitrary; justified per-metric aggregates, units, quality/provenance, missing-day gaps and personal context. |
-| UX07 | P1 in progress | Technical missing states/old sleep mislabelled; actionable empty states and date-aware overnight/nap selection. |
-| UX08 | P2 in progress | Accessibility verification thin; scaled layouts, chart descriptions, largest-text and dark-mode simulator checks. Physical VoiceOver audit remains V05. |
+| UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
+
+The approved UX01–UX08 pass is closed in [Completed.md](Completed.md). Physical audit V05 stays open.
 
 ## Dependability and continuity
 
