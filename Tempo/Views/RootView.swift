@@ -57,6 +57,13 @@ struct RootView: View {
     } message: {
       Text(model.errorMessage ?? "")
     }
+    .task(id: scenePhase) {
+      guard scenePhase == .active else { return }
+      while !Task.isCancelled {
+        if !model.demo, !model.transitioningDataset { model.bluetooth.checkCollectionHealth() }
+        do { try await Task.sleep(for: .seconds(20)) } catch { return }
+      }
+    }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { Task { await model.onForegroundActive() } }
     }
@@ -93,7 +100,8 @@ struct RootView: View {
   }
   private func batteryAccessibility(at now: Date) -> String {
     guard !model.demo, let device = model.collectionDevice, model.bluetooth.isConnected(device.id),
-      let battery = model.bluetooth.battery[device.id], battery.isFresh(at: now) else { return "" }
+      let battery = model.bluetooth.battery[device.id], battery.isFresh(at: now)
+    else { return "" }
     return "\(device.name), reported battery \(battery.percent) percent"
   }
 }

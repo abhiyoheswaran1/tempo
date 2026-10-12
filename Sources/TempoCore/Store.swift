@@ -268,9 +268,9 @@ public actor TempoStore {
       sqlite3_step(countStatement) == SQLITE_ROW ? sqlite3_column_int(countStatement, 0) : 0
     sqlite3_finalize(countStatement)
     let key =
-      "night-v1-"
+      "night-v2-"
       + StableID.hash(
-        "\(sleep.id)|\(sleep.start.timeIntervalSince1970)|\(sleep.end.timeIntervalSince1970)|\(count)|\(try revisions(kind:"measurementDeletion").count)|\(sourceSegments.count)"
+        "\(sleep.id)|\(sleep.start.timeIntervalSince1970)|\(sleep.end.timeIntervalSince1970)|\(count)|\(try revisions(kind:"measurementDeletion").count)|\(StableID.hash(try JSONEncoder().encode(sourceSegments)))"
       )
     if let cached = try metadata(key) {
       return try JSONDecoder().decode([String: Double].self, from: cached)
@@ -286,11 +286,29 @@ public actor TempoStore {
     }
     if let end = samples.last?.timestamp {
       let window = samples.filter { end.timeIntervalSince($0.timestamp) <= 300 }
-      let gaps = zip(window, window.dropFirst()).map {
-        $1.timestamp.timeIntervalSince($0.timestamp)
+      var run: [Measurement] = []
+      var runs: [[Measurement]] = []
+      for sample in window {
+        if sample.rrMilliseconds.isEmpty {
+          if !run.isEmpty {
+            runs.append(run)
+            run = []
+          }
+          continue
+        }
+        if let previous = run.last,
+          sample.deviceID != previous.deviceID
+            || sample.timestamp.timeIntervalSince(previous.timestamp) > 2
+        {
+          runs.append(run)
+          run = []
+        }
+        run.append(sample)
       }
-      if window.count >= 240, gaps.allSatisfy({ $0 <= 2 }),
-        let h = HRV.calculate(window.flatMap(\.rrMilliseconds))
+      if !run.isEmpty { runs.append(run) }
+      // Require the original 240-second sample coverage in one RR-bearing source run.
+      if let run = runs.last(where: { $0.count >= 240 }),
+        let h = HRV.calculate(run.flatMap(\.rrMilliseconds))
       {
         inputs["rmssd"] = h.rmssd
       }

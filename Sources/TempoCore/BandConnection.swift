@@ -61,3 +61,53 @@ public enum BandGenerationEvidence {
     }.compactMap { try? JSONDecoder().decode(RegisteredDevice.self, from: $0.payload) }.first
   }
 }
+
+/// Phone-local transport recovery; never used as wear evidence.
+public struct CollectionRecovery: Sendable {
+  public enum Action: Sendable, Equatable { case none, resubscribe, reconnect }
+  private var probeAt: Date?
+  private var reconnectAt: Date?
+  public init() {}
+  public mutating func check(now: Date, subscribedAt: Date, lastNotification: Date?, offBody: Bool)
+    -> Action
+  {
+    guard !offBody, now.timeIntervalSince(subscribedAt) >= 30,
+      now.timeIntervalSince(lastNotification ?? subscribedAt) >= 90
+    else {
+      probeAt = nil
+      return .none
+    }
+    if let reconnectAt, now.timeIntervalSince(reconnectAt) < 180 { return .none }
+    if let probeAt {
+      guard now.timeIntervalSince(probeAt) >= 15 else { return .none }
+      self.probeAt = nil
+      reconnectAt = now
+      return .reconnect
+    }
+    probeAt = now
+    return .resubscribe
+  }
+  public mutating func received() { probeAt = nil }
+}
+public struct ConnectionRetry: Sendable {
+  private var attempt = 0
+  public init() {}
+  public mutating func nextDelay(allowed: Bool) -> Double? {
+    let delays: [Double] = [2, 4, 8, 16, 30, 60]
+    guard allowed, attempt < delays.count else { return nil }
+    defer { attempt += 1 }
+    return delays[attempt]
+  }
+  public mutating func reset() { attempt = 0 }
+}
+public struct ScanIntent: Sendable {
+  public private(set) var pending = false
+  public init() {}
+  public mutating func request() { pending = true }
+  public mutating func consume(poweredOn: Bool, allowed: Bool) -> Bool {
+    guard pending, poweredOn, allowed else { return false }
+    pending = false
+    return true
+  }
+  public mutating func cancel() { pending = false }
+}

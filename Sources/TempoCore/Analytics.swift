@@ -116,16 +116,35 @@ public enum CardiovascularLoad {
   ) -> LoadResult? {
     guard (100...240).contains(maxHeartRate) else { return nil }
     let hr = samples.filter {
-      $0.kind == .heartRate && $0.valid && (workout?.isActive(at: $0.timestamp) ?? true)
+      $0.kind == .heartRate && $0.valid
     }.sorted { $0.timestamp < $1.timestamp }
     var zones = Array(repeating: 0.0, count: 5)
     var weighted = 0.0
     var coverage = 0.0
     for pair in zip(hr, hr.dropFirst()) {
-      let delta = pair.1.timestamp.timeIntervalSince(pair.0.timestamp)
-      guard delta > 0, delta <= 10,
-        workout?.isActive(at: pair.0.timestamp.addingTimeInterval(delta / 2)) ?? true
-      else { continue }
+      let elapsed = pair.1.timestamp.timeIntervalSince(pair.0.timestamp)
+      guard elapsed > 0, elapsed <= 10 else { continue }
+      var delta = elapsed
+      if let workout {
+        let start = max(pair.0.timestamp, workout.start)
+        let end = min(pair.1.timestamp, workout.end ?? .distantFuture)
+        guard end > start else { continue }
+        var cursor = start
+        delta = 0
+        var pauses = workout.pauses
+        if let pausedAt = workout.pausedAt {
+          pauses.append(DateInterval(start: pausedAt, end: max(pausedAt, end)))
+        }
+        for pause in pauses.sorted(by: { $0.start < $1.start }) {
+          let pauseStart = max(start, pause.start)
+          let pauseEnd = min(end, pause.end)
+          guard pauseEnd > pauseStart else { continue }
+          delta += max(0, pauseStart.timeIntervalSince(cursor))
+          cursor = max(cursor, pauseEnd)
+        }
+        delta += max(0, end.timeIntervalSince(cursor))
+      }
+      guard delta > 0 else { continue }
       let fraction = pair.0.value / maxHeartRate
       let zone = max(0, min(4, Int(floor((fraction - 0.5) * 10))))
       if fraction >= 0.5 { zones[zone] += delta }
@@ -135,7 +154,7 @@ public enum CardiovascularLoad {
     return LoadResult(
       points: zones.enumerated().reduce(0) { $0 + $1.element / 60 * Double($1.offset + 1) },
       coveredSeconds: coverage, zones: zones, average: coverage > 0 ? weighted / coverage : nil,
-      maximum: hr.map(\.value).max())
+      maximum: hr.filter { workout?.isActive(at: $0.timestamp) ?? true }.map(\.value).max())
   }
 }
 public struct AssociationResult: Sendable {

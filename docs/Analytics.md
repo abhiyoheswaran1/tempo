@@ -8,11 +8,13 @@ Measured HRS HR/RR; imported Health HR/RHR/SDNN/sleep; manual sleep/journal/work
 
 UTC instants drive elapsed durations. Sessions retain an IANA timezone for local presentation; DST does not change elapsed sleep/workout seconds. Canonical one-second bins choose valid source records using temporary override, latest active-source transition, contact status and direct-measurement priority. RR timing within a packet is not independently timestamped. Source observations remain stored.
 
+Overnight cache version2 includes source-segment contents as well as observation/deletion coverage. Source corrections invalidate prior overnight results even when the number of segments is unchanged. Observations remain immutable.
+
 ## RR preprocessing
 
 Intervals must be finite and300–2000ms. A successive change above20% is rejected. Rejection breaks adjacency so RMSSD does not bridge an artefact. At least240 accepted intervals and90% acceptance, with sufficient adjacent pairs, are needed by default. RMSSD is sqrt(mean successive squared differences); SDNN uses sample standard deviation of accepted normal intervals. These heuristics are conservative, not an ECG artefact validation study.
 
-Overnight analysis requires one contiguous last-five-minute window: at least240 one-second canonical samples, no gap above2s and qualifying RR. This window is a limited overnight estimate, not a whole-night median HRV. Breathing-session HRV must never enter nightly baselines.
+Overnight analysis requires one contiguous last-five-minute window: at least240 one-second canonical samples in a single RR-bearing source run, no gap above2s and qualifying RR. Missing RR packets and source changes break adjacency; runs cannot be joined to reach minimum coverage. This window is a limited overnight estimate, not a whole-night median HRV. Breathing-session HRV must never enter nightly baselines.
 
 Resting HR is an overnight10th-percentile estimate requiring70% one-second coverage. Sleep duration is manually entered or imported; automatic detection/staging is unavailable because no defensible motion input is enabled. Overlapping sessions are projected with manual priority rather than summed. Imported stages are preserved as raw sessions; current projection is conservative and does not invent a hypnogram.
 
@@ -53,3 +55,5 @@ The refined Trends screen shows one selected metric, including a separate sleep-
 When readiness has no score, Today shows compact baseline progress and brings collection first. The calculation and minimum coverage remain unchanged; unavailable scores no longer occupy a large numeric placeholder. Established available scores retain their evidence entry. Trends preserve the existing five-minute incoming-data refresh window, with request/dataset guards preventing obsolete asynchronous results from replacing current history.
 
 Removed registrations retain their available friendly name as archived source evidence. Missing registry metadata is labelled unresolved, not assumed to be imported.
+
+Cardiovascular load clips each accepted adjacent interval at workout bounds and subtracts the union of pause intervals, including an ongoing pause. Paused samples remain interval boundaries so filtering them cannot bridge a pause or data gap. Original intervals above10s remain excluded.

@@ -246,6 +246,7 @@ import WidgetKit
       guard let self, let store = self.store else { return }
       do {
         try await store.insert([m])
+        self.bluetooth.recordStoredSample(m)
         self.measurements.append(m)
         self.latestReadings.ingest([m], now: Date(), allowSynthetic: self.demo)
         // Keep only the visible recent window in memory. Older history remains in SQLite.

@@ -50,6 +50,16 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   var onSample: ((TempoCore.Measurement) -> Void)?
   var onGeneration: ((UUID, DeviceGeneration) -> Void)?
   var onMetadata: ((UUID, String?, String?) -> Void)?
+  var receivedHRPackets: [UUID: Int] = [:]
+  var lastHRNotification: [UUID: Date] = [:]
+  var storedHRPackets: [UUID: Int] = [:]
+  var lastHRStored: [UUID: Date] = [:]
+  private var subscribedAt: [UUID: Date] = [:]
+  private var discoveryFailedAt: [UUID: Date] = [:]
+  private var recovery: [UUID: CollectionRecovery] = [:]
+  private var retryPolicy: [UUID: ConnectionRetry] = [:]
+  private var retryTasks: [UUID: Task<Void, Never>] = [:]
+  private var scanIntent = ScanIntent()
   private var central: CBCentralManager?
   private var collectionSuspended = false
   private var restoredPeripherals: [CBPeripheral] = []
@@ -98,9 +108,11 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   }
   func scan() {
     collectionSuspended = false
+    scanIntent.request()
     start()
-    guard central?.state == .poweredOn else {
-      status = "Enable Bluetooth to discover your bands"
+    guard scanIntent.consume(poweredOn: central?.state == .poweredOn, allowed: !collectionSuspended)
+    else {
+      status = "Waiting for Bluetooth to discover your bands"
       return
     }
     discovered = []
@@ -114,6 +126,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   func isConnected(_ id: UUID) -> Bool { connected.contains(id) }
   func suspend() {
     collectionSuspended = true
+    for task in retryTasks.values { task.cancel() }
+    retryTasks = [:]
     connectionLedger.suspend()
     inFlight = []
     stopScan()
@@ -125,7 +139,10 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     lastSamples = [:]
     status = "Collection suspended for demonstration"
   }
-  func stopScan() { poweredCommand(cleanup: true) { $0.stopScan() } }
+  func stopScan() {
+    scanIntent.cancel()
+    poweredCommand(cleanup: true) { $0.stopScan() }
+  }
   func register(peripheralID: UUID, deviceID: UUID, generation: DeviceGeneration) {
     guard connectionLedger.canReplaceBinding(deviceID) || mapping[peripheralID] == deviceID else {
       status = "Disconnect the registered band before matching a different peripheral"
@@ -174,6 +191,11 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     }
   }
   func disconnect(deviceID: UUID) {
+    retryTasks.removeValue(forKey: deviceID)?.cancel()
+    retryPolicy.removeValue(forKey: deviceID)
+    discoveryFailedAt.removeValue(forKey: deviceID)
+    subscribedAt.removeValue(forKey: deviceID)
+    recovery.removeValue(forKey: deviceID)
     connectionLedger.disconnect(deviceID)
     persistPaused()
     connected.remove(deviceID)
@@ -252,6 +274,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     case .poweredOn:
       status = "Bluetooth ready"
       restoreWhenPoweredOn(central)
+      if scanIntent.pending, !collectionSuspended { scan() }
       if !collectionSuspended, let target, !isConnected(target) { connect(deviceID: target) }
     case .poweredOff:
       historyLinks = [:]
@@ -350,6 +373,10 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     }
     inFlight.remove(id)
     connected.insert(id)
+    retryTasks.removeValue(forKey: id)?.cancel()
+    retryPolicy[id] = ConnectionRetry()
+    discoveryFailedAt.removeValue(forKey: id)
+    subscribedAt.removeValue(forKey: id)
     discovered.removeAll { $0.id == peripheral.identifier }
     onConnectionChange?()
     peripheral.delegate = self
@@ -368,6 +395,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       connectionLedger.failedConnection(id)
       connected.remove(id)
       onConnectionChange?()
+      scheduleConnectionRetry(id)
     }
     status = "Connection failed. Check pairing mode and competing connections."
   }
@@ -377,6 +405,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     guard let id = mapping[peripheral.identifier] else { return }
     inFlight.remove(id)
     connected.remove(id)
+    discoveryFailedAt.removeValue(forKey: id)
+    subscribedAt.removeValue(forKey: id)
     historyLinks.removeValue(forKey: id)
     historyStatus[id] = "Interrupted · stored chunks retained"
     connectionLedger.lostConnection(id)
@@ -389,6 +419,58 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     } else if connected.isEmpty {
       status = "Disconnected; tap Connect when ready"
     }
+  }
+  private func scheduleConnectionRetry(_ id: UUID) {
+    guard
+      let delay = retryPolicy[id, default: ConnectionRetry()].nextDelay(
+        allowed: !collectionSuspended && registeredIDs.contains(id)
+          && connectionLedger.shouldReconnect(id))
+    else { return }
+    retryTasks.removeValue(forKey: id)?.cancel()
+    retryTasks[id] = Task { [weak self] in
+      try? await Task.sleep(for: .seconds(delay))
+      guard !Task.isCancelled, let self, !self.collectionSuspended,
+        self.registeredIDs.contains(id), self.connectionLedger.shouldReconnect(id),
+        self.central?.state == .poweredOn, !self.isConnected(id)
+      else { return }
+      self.connect(deviceID: id)
+    }
+  }
+  func recordStoredSample(_ sample: TempoCore.Measurement) {
+    storedHRPackets[sample.deviceID, default: 0] += 1
+    lastHRStored[sample.deviceID] = Date()
+  }
+  /// Called only while the app is foreground active. No promise of background timer execution.
+  func checkCollectionHealth(now: Date = Date()) {
+    guard !collectionSuspended, central?.state == .poweredOn else { return }
+    for id in connected {
+      guard let p = historyPeripheral(id), let since = subscribedAt[id] ?? discoveryFailedAt[id]
+      else { continue }
+      let action = recovery[id, default: CollectionRecovery()].check(
+        now: now, subscribedAt: since,
+        lastNotification: lastHRNotification[id].flatMap { $0 >= since ? $0 : nil },
+        offBody: WearEvidence.current(lastSamples[id], connected: true, now: now) == .offBody)
+      switch action {
+      case .none: break
+      case .resubscribe:
+        status = "Heart-rate stream quiet; checking subscription"
+        if discoveryFailedAt[id] != nil {
+          p.discoverServices([
+            CBUUID(string: "180D"), CBUUID(string: "180A"), CBUUID(string: "180F"), Self.service4,
+            Self.service5,
+          ])
+        } else {
+          for service in p.services ?? [] where service.uuid == CBUUID(string: "180D") {
+            p.discoverCharacteristics([CBUUID(string: "2A37")], for: service)
+          }
+        }
+      case .reconnect:
+        status = "Heart-rate stream interrupted; reconnecting selected band"
+        historyLinks.removeValue(forKey: id)
+        poweredCommand { $0.cancelPeripheralConnection(p) }
+      }
+    }
+    refreshHistoryIfNeeded()
   }
   func historyApplicationFirmware(_ id: UUID) -> String? { historyLinks[id]?.applicationFirmware }
   private func historyPeripheral(_ id: UUID) -> CBPeripheral? {
@@ -478,6 +560,18 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       link.transfer = Whoop4Transfer()
       historyStatus[id] = "Requesting stored band records"
       sendHistoryCommand(id, command: 22, body: Data([0]))
+      let session = link.session
+      let started = link.started
+      Task { [weak self] in
+        try? await Task.sleep(for: .seconds(120))
+        guard !Task.isCancelled, let self, let current = self.historyLinks[id],
+          current.session == session, current.started == started, current.transfer != nil
+        else { return }
+        current.transfer?.interrupt()
+        current.transfer = nil
+        self.sendHistoryCommand(id, command: 20, body: Data([0]))
+        self.historyStatus[id] = "History interrupted · committed data retained"
+      }
     }
   }
   private func receiveHistory(
@@ -618,7 +712,10 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       return
     }
     guard error == nil else {
-      status = "Service discovery failed"
+      status = "Service discovery failed; recovery pending"
+      if let id = mapping[peripheral.identifier], discoveryFailedAt[id] == nil {
+        discoveryFailedAt[id] = Date()
+      }
       return
     }
     if let id = mapping[peripheral.identifier] {
@@ -631,6 +728,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
         onGeneration?(id, generation)
       }
       if !services.contains(where: { $0.uuid == CBUUID(string: "180D") }) {
+        discoveryFailedAt.removeValue(forKey: id)
         status = "Connected, but no live HR service exposed. Enable broadcast if supported."
       }
     }
@@ -664,6 +762,11 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     }
     guard error == nil else {
       status = "Characteristic discovery failed"
+      if service.uuid == CBUUID(string: "180D"), let id = mapping[peripheral.identifier],
+        discoveryFailedAt[id] == nil
+      {
+        discoveryFailedAt[id] = Date()
+      }
       return
     }
     if service.uuid == Self.service4 || service.uuid == Self.service5,
@@ -675,10 +778,15 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
         historyStatus[id] = "Checking stored-history notification channels"
       }
       for c in service.characteristics ?? [] where c.uuid != Self.customUUID(generation, 2) {
-        if c.properties.contains(.notify) || c.properties.contains(.indicate) { peripheral.setNotifyValue(true, for: c) }
+        if c.properties.contains(.notify) || c.properties.contains(.indicate) {
+          peripheral.setNotifyValue(true, for: c)
+        }
       }
       prepareHistoryLink(peripheral, id: id)
       return
+    }
+    if service.uuid == CBUUID(string: "180D"), let id = mapping[peripheral.identifier] {
+      discoveryFailedAt.removeValue(forKey: id)
     }
     for c in service.characteristics ?? [] {
       if service.uuid == CBUUID(string: "180F"), c.uuid == CBUUID(string: "2A19") {
@@ -687,7 +795,12 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
           peripheral.readValue(for: c)
         }
         if c.properties.contains(.notify) { peripheral.setNotifyValue(true, for: c) }
-      } else if c.uuid == CBUUID(string: "2A37") && c.properties.contains(.notify) {
+      } else if service.uuid == CBUUID(string: "180D"), c.uuid == CBUUID(string: "2A37"),
+        c.properties.contains(.notify)
+      {
+        if let id = mapping[peripheral.identifier], subscribedAt[id] == nil {
+          subscribedAt[id] = Date()
+        }
         peripheral.setNotifyValue(true, for: c)
       } else if c.properties.contains(.read) {
         peripheral.readValue(for: c)
@@ -738,7 +851,12 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       } else {
         rejectedPackets += 1
       }
-    } else if characteristic.uuid == CBUUID(string: "2A37") {
+    } else if characteristic.uuid == CBUUID(string: "2A37"),
+      characteristic.service?.uuid == CBUUID(string: "180D")
+    {
+      lastHRNotification[id] = Date()
+      receivedHRPackets[id, default: 0] += 1
+      recovery[id, default: CollectionRecovery()].received()
       do {
         let packet = try HeartRatePacket.parse(data)
         let m = TempoCore.Measurement(

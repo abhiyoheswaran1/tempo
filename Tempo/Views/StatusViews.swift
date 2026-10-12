@@ -86,8 +86,10 @@ struct BandStatusSheet: View {
                 LabeledContent("Reported battery", value: "\(battery.percent)%")
                 Text("Standard Bluetooth battery report · accuracy unverified on this band")
                   .font(.caption).foregroundStyle(.secondary)
-                Text("Received \(battery.receivedAt.formatted(date: .abbreviated, time: .standard))\(battery.isFresh(at: context.date) ? "" : " · stale")")
-                  .font(.caption).foregroundStyle(.secondary)
+                Text(
+                  "Received \(battery.receivedAt.formatted(date: .abbreviated, time: .standard))\(battery.isFresh(at: context.date) ? "" : " · stale")"
+                )
+                .font(.caption).foregroundStyle(.secondary)
               } else {
                 Text("Battery report unavailable").font(.caption).foregroundStyle(.secondary)
               }
@@ -117,20 +119,58 @@ struct BandStatusSheet: View {
           .font(.caption).foregroundStyle(.secondary)
           NavigationLink("Manage and reconnect bands") { DevicesView() }
         }
+        if !model.demo, !model.devices.isEmpty {
+          Section("Live collection diagnostics") {
+            ForEach(model.devices) { device in
+              Text(device.name).font(.headline)
+              LabeledContent(
+                "HR packets received",
+                value: "\(model.bluetooth.receivedHRPackets[device.id, default: 0])")
+              LabeledContent(
+                "Live readings stored",
+                value: "\(model.bluetooth.storedHRPackets[device.id, default: 0])")
+              if let date = model.bluetooth.lastHRNotification[device.id] {
+                LabeledContent(
+                  "Last Bluetooth HR packet",
+                  value: date.formatted(date: .abbreviated, time: .standard))
+              }
+              if let date = model.bluetooth.lastHRStored[device.id] {
+                LabeledContent(
+                  "Last live database commit",
+                  value: date.formatted(date: .abbreviated, time: .standard))
+              }
+            }
+            Text(
+              "Counts are for this app launch. Received includes malformed packets; stored counts successful live writes. These phone-local diagnostics do not fill missing history."
+            )
+            .font(.caption).foregroundStyle(.secondary)
+          }
+        }
         Section("History retrieval") {
           if model.demo || model.devices.isEmpty {
-            LabeledContent("Band history retrieval", value: model.demo ? "Unavailable in demo" : "Connect a band to check support")
+            LabeledContent(
+              "Band history retrieval",
+              value: model.demo ? "Unavailable in demo" : "Connect a band to check support")
           } else {
             ForEach(model.devices) { device in
-              LabeledContent(device.name, value: model.bluetooth.historyStatus[device.id] ?? "History connection not established")
-              LabeledContent("Application firmware", value: model.bluetooth.historyApplicationFirmware(device.id) ?? "Not confirmed")
+              LabeledContent(
+                device.name,
+                value: model.bluetooth.historyStatus[device.id]
+                  ?? "History connection not established")
+              LabeledContent(
+                "Application firmware",
+                value: model.bluetooth.historyApplicationFirmware(device.id) ?? "Not confirmed")
               if let date = model.bluetooth.lastHistoryCommit[device.id] {
-                LabeledContent("Last stored history chunk", value: date.formatted(date: .abbreviated, time: .standard))
+                LabeledContent(
+                  "Last stored history chunk",
+                  value: date.formatted(date: .abbreviated, time: .standard))
               }
             }
           }
-          Text("Live receipt is separate from stored history. Whoop4 retrieval is experimental for supported firmware; Whoop5 history is not validated. Gaps remain visible until actual records arrive.")
-            .font(.caption).foregroundStyle(.secondary)
+          Text(
+            "Live receipt is separate from stored history. Whoop4 retrieval is experimental for supported firmware; Whoop5 history is not validated. Gaps remain visible until actual records arrive."
+          )
+          .font(.caption).foregroundStyle(.secondary)
         }
         Section("iCloud") { SyncStatusRow() }
         Section { NavigationLink("Collection health") { CollectionHealthView() } }
@@ -557,7 +597,9 @@ struct TodayCollectionPanel: View {
             }.frame(minHeight: 60).contentShape(Rectangle())
           }
         }.buttonStyle(.plain).accessibilityLabel("Live dashboard")
-          .accessibilityValue(model.collectionReading(at: Date()).displayedBPM.map { "\($0) beats per minute" } ?? "No current reading")
+          .accessibilityValue(
+            model.collectionReading(at: Date()).displayedBPM.map { "\($0) beats per minute" }
+              ?? "No current reading")
         Button {
           Task { await model.refreshToday() }
         } label: {
