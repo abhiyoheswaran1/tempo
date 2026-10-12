@@ -24,3 +24,5 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - UX17 /D04 · four-hour Live history/ranges, extrema and gap preservation, full-input statistics, powered central-command guards/deferred restoration · 713cdc0 ·82 core /5 affected UI tests, fresh captures and unsigned iPhone build; physical C03/E01 remain open.
 
 - UX18–UX19 · native Today hierarchy, live hero, adaptive daily summaries, bounded latest-reading index/presented summaries and expiry, accessible optional standard battery report · f7f1459 ·85 core,15 simulator tests plus affected/final capture-layout reruns, unsigned iPhone build and13 refreshed captures; battery accuracy E01 and collection/history C03/C05 remain open.
+
+- HIST01 · experimental firmware-gated W4 transfer, atomic raw/sample/checkpoint retention, post-commit ordinary ACK, partial/discarded/special/empty-chunk protection, schema2/legacy backup migration and W5 read-only Hello/range diagnostics · e23fda3 ·100 core tests,3 affected simulator flows plus2 final status/capture tests, unsigned iPhone build; C05 remains open and W5 gap recovery is not implemented.
