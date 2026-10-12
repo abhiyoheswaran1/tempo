@@ -91,11 +91,15 @@ public struct Workout: Codable, Sendable, Identifiable, Equatable {
       pausedAt = nil
     }
     end = date
-    if !sources.isEmpty { sources[sources.count - 1].end = date }
+    if !sources.isEmpty, sources.last?.end == nil { sources[sources.count - 1].end = date }
+  }
+  public mutating func closeSource(_ id: UUID, at date: Date) {
+    guard end == nil, let last = sources.last, last.deviceID == id, last.end == nil else { return }
+    sources[sources.count - 1].end = max(date, last.start)
   }
   public mutating func switchSource(to id: UUID, at date: Date) {
-    guard end == nil, sources.last?.deviceID != id else { return }
-    if !sources.isEmpty { sources[sources.count - 1].end = date }
+    guard end == nil, !(sources.last?.deviceID == id && sources.last?.end == nil) else { return }
+    if !sources.isEmpty, sources.last?.end == nil { sources[sources.count - 1].end = date }
     sources.append(SourceSegment(deviceID: id, start: date, end: nil, reason: "workout source"))
   }
   public func activeDuration(at now: Date) -> TimeInterval {

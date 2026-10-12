@@ -10,6 +10,9 @@ import WidgetKit
   var cloud: CloudSyncService?
   var health: HealthService?
   var devices: [RegisteredDevice] = []
+  var archivedDevices: [RegisteredDevice] = []
+  var lastCloudSync: Date?
+  var pendingCloudChanges = 0
   var measurements: [TempoCore.Measurement] = []
   var nightMetrics: [UUID: [String: Double]] = [:]
   var workouts: [Workout] = []
@@ -98,6 +101,15 @@ import WidgetKit
       try await load()
       bluetooth.onConnectionChange = { [weak self] in self?.scheduleFallback() }
       bluetooth.onSample = { [weak self] m in self?.enqueueSample(m) }
+      bluetooth.onGeneration = { [weak self] id, generation in
+        self?.mutate { [weak self] in
+          guard let self, let device = self.devices.first(where: { $0.id == id }),
+            device.generation != generation
+          else { return }
+          try await self.save(
+            BandGenerationEvidence.correct(device, to: generation), kind: "device")
+        }
+      }
       bluetooth.onMetadata = { [weak self] id, firmware, identity in
         self?.mutate { [weak self] in
           guard let self, let index = self.devices.firstIndex(where: { $0.id == id }) else {
@@ -113,8 +125,10 @@ import WidgetKit
         }
       }
       bluetooth.configure(devices)
-      if let id = devices.first?.id { bluetooth.connect(deviceID: id) }
-      if syncEnabled { await sync() }
+      if let id = devices.first(where: { !bluetooth.isPaused($0.id) })?.id {
+        bluetooth.connect(deviceID: id)
+      }
+      if syncEnabled { await syncIfNeeded() }
       scheduleAutomaticScan(force: true)
     } catch {
       errorMessage =
@@ -122,7 +136,9 @@ import WidgetKit
     }
   }
   private func enqueueSample(_ m: TempoCore.Measurement) {
-    guard !demo, !transitioningDataset else { return }
+    guard !demo, !transitioningDataset, devices.contains(where: { $0.id == m.deviceID }) else {
+      return
+    }
     let preceding = collectionTask
     collectionTask = Task { [weak self] in
       await preceding?.value
@@ -142,7 +158,7 @@ import WidgetKit
             wear: sample?.wear ?? .unknown)
         }
         if let segment = self.selector.update(evidence, now: Date()) {
-          if !self.sourceSegments.isEmpty {
+          if !self.sourceSegments.isEmpty, self.sourceSegments.last?.end == nil {
             self.sourceSegments[self.sourceSegments.count - 1].end = segment.start
           }
           self.sourceSegments.append(segment)
@@ -174,12 +190,16 @@ import WidgetKit
       else { return }
       let active = self.selector.activeID ?? self.devices.first?.id
       if let active, let sample = self.bluetooth.lastSamples[active], sample.valid,
+        sample.wear != .offBody,
         self.bluetooth.connected.contains(active), Date().timeIntervalSince(sample.timestamp) < 90
       {
         return
       }
       if let last = self.lastProbe, Date().timeIntervalSince(last) < 180 { return }
-      guard let other = self.devices.first(where: { $0.id != active }) else { return }
+      guard
+        let other = self.devices.first(where: { $0.id != active && !self.bluetooth.isPaused($0.id) }
+        )
+      else { return }
       self.lastProbe = Date()
       self.bluetooth.connect(deviceID: other.id)
     }
@@ -189,6 +209,8 @@ import WidgetKit
     refreshTask = Task { [weak self] in
       try? await Task.sleep(for: .seconds(15))
       guard let self else { return }
+      await self.refreshSyncSummary()
+      await self.syncIfNeeded()
       self.writeWidget()
       self.refreshTask = nil
     }
@@ -208,7 +230,7 @@ import WidgetKit
     let loadedMeasurements = try await store.measurements(
       from: Date().addingTimeInterval(-2 * 86400), to: Date().addingTimeInterval(300))
     let revisions = try await store.revisions()
-    guard generation == loadGeneration else { return }
+    guard generation == loadGeneration, self.store === store else { return }
     measurements = loadedMeasurements
     let parents = Set(revisions.flatMap(\.parentIDs))
     let heads = revisions.filter { !parents.contains($0.id) }
@@ -219,6 +241,10 @@ import WidgetKit
     devices = unique.filter { $0.kind == "device" }.compactMap {
       try? decoder.decode(RegisteredDevice.self, from: $0.payload)
     }
+    archivedDevices = groups.filter {
+      $0.value.count == 1 && $0.value[0].kind == "device" && $0.value[0].deleted
+    }.keys.compactMap { BandGenerationEvidence.archivedDevice(id: $0, revisions: revisions) }
+    if !demo { bluetooth.configure(devices) }
     placements = PlacementTimeline.project(revisions)
     workouts = SessionReconciliation.workouts(
       unique.filter { $0.kind == "workout" }.compactMap {
@@ -244,13 +270,13 @@ import WidgetKit
     ).sorted { $0.start < $1.start }
     for night in sleeps.prefix(29) {
       let values = try await store.nightInputs(night, sourceSegments: sourceSegments)
-      guard generation == loadGeneration else { return }
+      guard generation == loadGeneration, self.store === store else { return }
       nightMetrics[night.id] = values
     }
     if let data = try await store.metadata("preferences.local"),
       let p = try? decoder.decode(Preferences.self, from: data)
     {
-      guard generation == loadGeneration else { return }
+      guard generation == loadGeneration, self.store === store else { return }
       selector.preference = p.preference
       maxHeartRate = p.maxHeartRate
       hideWidgetDetails = p.hideWidgetDetails
@@ -260,12 +286,14 @@ import WidgetKit
     if let revision = unique.first(where: { $0.kind == "preferences" }),
       let p = try? decoder.decode(PortablePreferences.self, from: revision.payload)
     {
-      guard generation == loadGeneration else { return }
+      guard generation == loadGeneration, self.store === store else { return }
       selector.preference = p.preference
       maxHeartRate = p.maxHeartRate
       hideWidgetDetails = p.hideWidgetDetails
       automaticDetectionEnabled = p.automaticDetectionEnabled ?? false
     }
+    await refreshSyncSummary()
+    guard generation == loadGeneration, self.store === store else { return }
     historyGeneration &+= 1
     writeWidget()
   }
@@ -301,13 +329,50 @@ import WidgetKit
     _ discovery: BluetoothService.Discovery, generation: DeviceGeneration, existing: UUID? = nil
   ) async throws {
     guard !demo else { return }
+    if let existing, !demo, bluetooth.state(existing) != .disconnected,
+      bluetooth.deviceID(for: discovery.id) != existing
+    {
+      throw ModelError.identityMismatch
+    }
+    let mappedID = bluetooth.deviceID(for: discovery.id)
+    if let mappedID, let existing, mappedID != existing { throw ModelError.identityMismatch }
+    let id = mappedID ?? existing
+    let known = id.flatMap { candidate in (devices + archivedDevices).first { $0.id == candidate } }
     let d =
-      existing.flatMap { id in devices.first { $0.id == id } }
+      known.map { BandGenerationEvidence.correct($0, to: discovery.generation ?? generation) }
       ?? RegisteredDevice(
-        generation: generation, name: generation == .whoop4 ? "Whoop 4" : "Whoop 5")
-    if existing == nil { try await save(d, kind: "device") }
+        generation: discovery.generation ?? generation,
+        name: (discovery.generation ?? generation) == .whoop4 ? "Whoop 4" : "Whoop 5")
+    if !devices.contains(where: { $0.id == d.id }) || devices.first(where: { $0.id == d.id }) != d {
+      try await save(d, kind: "device")
+    }
     bluetooth.configure(devices)
     bluetooth.register(peripheralID: discovery.id, deviceID: d.id, generation: d.generation)
+  }
+  func disconnectBand(_ id: UUID) async throws {
+    if !demo { bluetooth.disconnect(deviceID: id) }
+    fallbackTask?.cancel()
+    await collectionTask?.value
+    selector.release(id)
+    let now = Date()
+    if let segment = sourceSegments.last(where: { $0.deviceID == id && $0.end == nil }) {
+      var closed = segment
+      closed.end = max(now, segment.start)
+      try await save(closed, kind: "source")
+    }
+    if var workout = activeWorkout {
+      workout.closeSource(id, at: now)
+      try await save(workout, kind: "workout")
+    }
+  }
+  func removeBand(_ id: UUID) async throws {
+    try await disconnectBand(id)
+    try await delete(id: id, kind: "device")
+  }
+  func correctGeneration(_ id: UUID, to generation: DeviceGeneration) async throws {
+    guard let device = devices.first(where: { $0.id == id }) else { return }
+    try await save(BandGenerationEvidence.correct(device, to: generation), kind: "device")
+    bluetooth.configure(devices)
   }
   func startWorkout(_ activity: TempoCore.Activity) async throws {
     guard activeWorkout == nil else { return }
@@ -357,8 +422,23 @@ import WidgetKit
     lastActivityScanRequest = now
     mutate { [weak self] in try await self?.scanAutomaticActivities() }
   }
+  private var lastAutomaticSyncAttempt: Date?
+  private func syncIfNeeded() async {
+    guard !demo, syncEnabled,
+      SyncFreshness.shouldSync(
+        lastSuccess: lastCloudSync, pending: pendingCloudChanges, now: Date()),
+      lastAutomaticSyncAttempt.map({ Date().timeIntervalSince($0) >= 60 }) ?? true
+    else { return }
+    lastAutomaticSyncAttempt = Date()
+    await sync()
+  }
   func onForegroundActive() async {
-    if syncEnabled { await sync() }
+    guard !demo else { return }
+    bluetooth.resumeCollection(
+      preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
+    scheduleFallback(immediate: true)
+    await refreshSyncSummary()
+    await syncIfNeeded()
     scheduleAutomaticScan(force: true)
   }
   func setAutomaticDetectionEnabled(_ enabled: Bool) async throws {
@@ -456,10 +536,12 @@ import WidgetKit
     selector.preference = preference
     selector.overrideID = nil
     try await persistPreferences()
-    let desired = devices.first {
-      preference == .prefer4
-        ? $0.generation == .whoop4 : (preference == .prefer5 ? $0.generation == .whoop5 : true)
-    }
+    let desired =
+      (preference == .automatic ? activeDevice : nil)
+      ?? devices.first {
+        preference == .prefer4
+          ? $0.generation == .whoop4 : (preference == .prefer5 ? $0.generation == .whoop5 : true)
+      }
     if let desired, !demo { bluetooth.connect(deviceID: desired.id) }
   }
   func override(_ id: UUID) {
@@ -481,21 +563,43 @@ import WidgetKit
     writeWidget()
   }
   func sync(forceRetry: Bool = false) async {
-    guard !demo, syncEnabled else { return }
+    guard !demo, !transitioningDataset, syncEnabled, let syncStore = store else { return }
     await collectionTask?.value
     await mutationTail?.value
-    if cloud == nil, let store { cloud = CloudSyncService(store: store) }
-    if forceRetry { try? await store?.resetRetrySchedule() }
-    await cloud?.sync()
+    guard !demo, !transitioningDataset, syncEnabled, self.store === syncStore else { return }
+    if cloud == nil { cloud = CloudSyncService(store: syncStore) }
+    guard let service = cloud else { return }
+    if forceRetry { try? await syncStore.resetRetrySchedule() }
+    guard !demo, !transitioningDataset, self.store === syncStore else { return }
+    await service.sync(forceRetry: forceRetry)
+    guard !demo, !transitioningDataset, self.store === syncStore else { return }
     do {
       try await load()
+      guard !demo, !transitioningDataset, self.store === syncStore else { return }
       bluetooth.configure(devices)
-    } catch { errorMessage = "Restored history could not load" }
+    } catch {
+      if !demo, !transitioningDataset, self.store === syncStore {
+        errorMessage = "Restored history could not load"
+      }
+    }
+  }
+  func refreshSyncSummary() async {
+    guard !demo, let store else {
+      lastCloudSync = nil
+      pendingCloudChanges = 0
+      return
+    }
+    let date = try? await store.metadata("cloud.lastSuccess")
+    let pending = (try? await store.pendingCount()) ?? 0
+    guard !demo, self.store === store else { return }
+    lastCloudSync = date.flatMap { try? JSONDecoder().decode(Date.self, from: $0) }
+    pendingCloudChanges = pending
   }
   func setDemo(_ enabled: Bool) async {
     guard !transitioningDataset, enabled != demo else { return }
     finishedWorkout = nil
     transitioningDataset = true
+    loadGeneration += 1
     defer { transitioningDataset = false }
     fallbackTask?.cancel()
     bluetooth.suspend()
@@ -530,6 +634,16 @@ import WidgetKit
               deviceID: d.id, kind: .heartRate, timestamp: end.addingTimeInterval(Double(i - 300)),
               value: Double(58 + day % 6) + sin(Double(i) / 20) * 3, origin: .synthetic,
               transport: "demo", rrMilliseconds: [980, 1000, 1020]))
+        }
+      }
+      if ProcessInfo.processInfo.arguments.contains("--live-dashboard-demo") {
+        for i in 0..<300 {
+          records.append(
+            TempoCore.Measurement(
+              deviceID: d.id, kind: .heartRate,
+              timestamp: now.addingTimeInterval(Double(i - 299)),
+              value: 78 + sin(Double(i) / 30) * 12,
+              origin: .synthetic, transport: "demo", rrMilliseconds: [800, 810], wear: .unknown))
         }
       }
       if ProcessInfo.processInfo.arguments.contains("--activity-detection-demo") {
@@ -580,9 +694,13 @@ import WidgetKit
     var automaticDetectionEnabled: Bool? = nil
   }
   enum ModelError: LocalizedError {
-    case unresolvedConflict, invalidDetectedTiming, overlappingWorkout, invalidPlacement
+    case unresolvedConflict, invalidDetectedTiming, overlappingWorkout, invalidPlacement,
+      identityMismatch
     var errorDescription: String? {
       switch self {
+      case .identityMismatch:
+        return
+          "This phone already maps that band to another registered identity. Choose its existing registry entry."
       case .unresolvedConflict:
         return "This item has concurrent edits. Resolve them in Settings before changing it."
       case .invalidPlacement:

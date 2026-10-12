@@ -85,6 +85,11 @@ struct TodayView: View {
           }.frame(maxWidth: .infinity, alignment: .leading)
         }
         BandStatusControl()
+        NavigationLink {
+          LiveDashboardView()
+        } label: {
+          Label("Live dashboard", systemImage: "waveform.path.ecg")
+        }
         Button {
           journal = true
         } label: {

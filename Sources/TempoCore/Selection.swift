@@ -37,6 +37,17 @@ public struct SourceSelector: Sendable {
   private var candidateSince: Date?
   private var unavailableSince: Date?
   public init() {}
+  public mutating func release(_ id: UUID) {
+    if activeID == id {
+      activeID = nil
+      unavailableSince = nil
+    }
+    if candidateID == id {
+      candidateID = nil
+      candidateSince = nil
+    }
+    if overrideID == id { overrideID = nil }
+  }
   public mutating func update(_ evidence: [DeviceEvidence], now: Date) -> SourceSegment? {
     let usable = evidence.filter { $0.usable(now, freshness) }
     let active = evidence.first { $0.deviceID == activeID }

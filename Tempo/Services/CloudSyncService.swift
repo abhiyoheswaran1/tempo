@@ -15,6 +15,7 @@ private final class ChangePage: @unchecked Sendable {
   var pendingUploads = 0
   var restoredRecords = 0
   var busy = false
+  private var nextAttempt = Date.distantPast
   var errorMessage: String?
   private var accountChanged = false
   private let container: CKContainer
@@ -37,8 +38,8 @@ private final class ChangePage: @unchecked Sendable {
       }
     }
   }
-  func sync() async {
-    guard !busy else { return }
+  func sync(forceRetry: Bool = false) async {
+    guard !busy, forceRetry || Date() >= nextAttempt else { return }
     busy = true
     defer { busy = false }
     errorMessage = nil
@@ -89,6 +90,7 @@ private final class ChangePage: @unchecked Sendable {
       status =
         pendingUploads == 0 ? "History is up to date" : "Waiting to retry \(pendingUploads) uploads"
     } catch {
+      nextAttempt = Date().addingTimeInterval(max(60, (error as? CKError)?.retryAfterSeconds ?? 60))
       errorMessage = message(error)
       status = "Sync needs attention"
       pendingUploads = (try? await store.pendingCount()) ?? 0

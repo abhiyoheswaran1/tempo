@@ -53,6 +53,7 @@ struct SettingsView: View {
         NavigationLink("Collection health") { CollectionHealthView() }
       }
       Section("Private iCloud") {
+        SyncStatusRow()
         Toggle("Sync and restore history", isOn: $m.syncEnabled).disabled(model.demo).onChange(
           of: model.syncEnabled
         ) { _, enabled in
@@ -62,12 +63,7 @@ struct SettingsView: View {
         Text(model.cloud?.status ?? "Off · local collection works without iCloud").font(
           .subheadline)
         if let cloud = model.cloud {
-          if let date = cloud.lastSuccess {
-            LabeledContent("Last success", value: date.formatted())
-          }
-          LabeledContent("Pending uploads", value: String(cloud.pendingUploads))
           LabeledContent("Restored records", value: String(cloud.restoredRecords))
-          if let error = cloud.errorMessage { Text(error).foregroundStyle(.orange) }
           Button("Retry sync") { Task { await model.sync(forceRetry: true) } }.disabled(cloud.busy)
         }
         Text(
@@ -165,7 +161,7 @@ struct SettingsView: View {
 }
 struct DevicesView: View {
   @Environment(AppModel.self) var model
-  @State private var generation: DeviceGeneration = .whoop4
+  @State private var generation: DeviceGeneration?
   @State private var matching: UUID?
   var body: some View {
     List {
@@ -177,7 +173,10 @@ struct DevicesView: View {
             VStack(alignment: .leading) {
               Text(device.name).font(.headline)
               Text(
-                "\(device.generation.rawValue) · \(model.bluetooth.connected.contains(device.id) ? "Connected":"Registered")"
+                "\(device.generation == .whoop5 ? "Whoop 5" : "Whoop 4") · \(model.bluetooth.bandStatus(device.id))"
+              ).font(.caption).foregroundStyle(.secondary)
+              Text(
+                "\(model.bluetooth.wearStatus(device.id))\(model.selector.activeID == device.id ? " · Selected source" : "")"
               ).font(.caption).foregroundStyle(.secondary)
             }
           }
@@ -186,32 +185,45 @@ struct DevicesView: View {
       }
       Section("Discover or reconnect") {
         Picker("Generation", selection: $generation) {
-          Text("Whoop 4").tag(DeviceGeneration.whoop4)
-          Text("Whoop 5").tag(DeviceGeneration.whoop5)
+          Text("Confirm generation").tag(DeviceGeneration?.none)
+          Text("Whoop 4").tag(DeviceGeneration?.some(.whoop4))
+          Text("Whoop 5").tag(DeviceGeneration?.some(.whoop5))
         }
         Picker("Match to registry", selection: $matching) {
           Text("Register a new band").tag(UUID?.none)
           ForEach(model.devices) { Text("Reconnect \($0.name)").tag(UUID?.some($0.id)) }
+          ForEach(model.archivedDevices) {
+            Text("Restore \($0.name) · history retained").tag(UUID?.some($0.id))
+          }
         }
         Button("Scan for my bands") { model.bluetooth.scan() }.disabled(model.demo)
         Text(
           "Use pairing / heart-rate broadcast mode where supported. Confirm the physical band before matching it. A nearby name or signal strength does not prove identity or wear."
         ).font(.caption).foregroundStyle(.secondary)
-        ForEach(model.bluetooth.discovered) { d in
+        ForEach(model.bluetooth.availableDiscoveries) { d in
           Button {
+            guard let confirmed = d.generation ?? generation else { return }
             model.mutate {
               try await model.register(
-                d, generation: d.generation ?? generation, existing: matching)
+                d, generation: confirmed, existing: matching)
             }
           } label: {
             HStack {
-              Text(d.name)
+              VStack(alignment: .leading) {
+                Text(d.name)
+                Text("Nearby · not connected").font(.caption).foregroundStyle(.secondary)
+              }
               Spacer()
-              Text(d.generation?.rawValue ?? "Confirm generation").font(.caption)
+              Text(
+                d.generation.map { $0 == .whoop5 ? "Whoop 5" : "Whoop 4" } ?? "Confirm generation"
+              ).font(.caption)
             }
-          }
+          }.disabled(d.generation == nil && generation == nil)
         }
         Text(model.bluetooth.status).font(.caption)
+        Text("Already connected bands appear above, not as new registration choices.").font(
+          .caption
+        ).foregroundStyle(.secondary)
       }
     }.navigationTitle("Your bands").onDisappear { model.bluetooth.stopScan() }
   }
@@ -220,22 +232,38 @@ struct DeviceDetailView: View {
   @Environment(AppModel.self) var model
   let device: RegisteredDevice
   @State private var name = ""
+  @State private var selectedGeneration = DeviceGeneration.whoop4
+  @State private var remove = false
+  @Environment(\.dismiss) private var dismiss
+  var current: RegisteredDevice { model.devices.first { $0.id == device.id } ?? device }
   var body: some View {
     List {
       Section("Identity") {
         TextField("Friendly name", text: $name)
         Button("Save name") {
           model.mutate {
-            var d = device
+            var d = current
             d.name = name
             try await model.save(d, kind: "device")
           }
         }
         Text("App identity: \(device.id.uuidString)").font(.caption).textSelection(.enabled)
-        LabeledContent("Firmware", value: device.firmware ?? "Not readable yet")
+        LabeledContent("Firmware", value: current.firmware ?? "Not readable yet")
         LabeledContent(
           "Hardware identifier",
-          value: device.hardwareIdentityHash == nil ? "Unresolved" : "Serial hash retained")
+          value: current.hardwareIdentityHash == nil ? "Unresolved" : "Serial hash retained")
+      }
+      Section("Generation") {
+        Picker("Device generation", selection: $selectedGeneration) {
+          Text("Whoop 4").tag(DeviceGeneration.whoop4)
+          Text("Whoop 5").tag(DeviceGeneration.whoop5)
+        }
+        Button("Save generation") {
+          model.mutate { try await model.correctGeneration(device.id, to: selectedGeneration) }
+        }
+        Text(
+          "Known generation-specific services correct this label when discovered. If only standard HR is exposed, confirm your generation here. History and custom names are retained."
+        ).font(.caption).foregroundStyle(.secondary)
       }
       Section("Wearing placement") {
         NavigationLink("Record wearing placement") { PlacementView(device: device) }
@@ -245,18 +273,44 @@ struct DeviceDetailView: View {
         ).font(.caption)
       }
       Section("Connection") {
-        Button("Connect this band") { model.bluetooth.connect(deviceID: device.id) }
+        LabeledContent("State", value: model.bluetooth.bandStatus(device.id))
+        Button("Connect this band") { model.bluetooth.connect(deviceID: device.id) }.disabled(
+          model.demo || model.bluetooth.state(device.id) != .disconnected)
+        Button("Disconnect") { model.mutate { try await model.disconnectBand(device.id) } }
+          .disabled(model.demo || model.bluetooth.state(device.id) == .disconnected)
+        NavigationLink("Live dashboard") { LiveDashboardView() }
         Button("Use temporarily") { model.override(device.id) }
         Text(
           "Only one band connection is maintained until concurrent behavior is physically validated. Automatic wear-based switching cannot be promised from an unconnected band."
         ).font(.caption).foregroundStyle(.secondary)
       }
+      Section {
+        Button("Remove band", role: .destructive) { remove = true }
+        Text(
+          "Removes registration and stops collection. Recorded measurements and workouts stay in your history. This does not erase the band or remove an iOS Bluetooth bond."
+        ).font(.caption).foregroundStyle(.secondary)
+      }
       Section("Capabilities · public evidence, instance validation separate") {
         ForEach(Capability.allCases, id: \.self) { c in
-          LabeledContent(c.rawValue, value: device.capabilities[c].rawValue)
+          LabeledContent(c.rawValue, value: current.capabilities[c].rawValue)
         }
       }
-    }.navigationTitle(device.name).onAppear { name = device.name }
+    }.navigationTitle(current.name).onAppear {
+      name = current.name
+      selectedGeneration = current.generation
+    }
+    .onChange(of: current.generation) { _, value in selectedGeneration = value }
+    .confirmationDialog(
+      "Remove this band from Tempo? Your history will be kept.", isPresented: $remove,
+      titleVisibility: .visible
+    ) {
+      Button("Remove band", role: .destructive) {
+        model.mutate {
+          try await model.removeBand(device.id)
+          dismiss()
+        }
+      }.accessibilityIdentifier("confirm-remove-band")
+    }
   }
 }
 struct CollectionHealthView: View {

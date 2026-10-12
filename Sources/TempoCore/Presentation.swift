@@ -80,3 +80,36 @@ public enum LiveSampleSelection {
     }.max { $0.timestamp == $1.timestamp ? $0.id < $1.id : $0.timestamp < $1.timestamp }
   }
 }
+
+public enum LiveReadingState: Sendable {
+  case waiting, live, recent, stale
+  public init(timestamp: Date?, connected: Bool, now: Date) {
+    guard let timestamp else {
+      self = .waiting
+      return
+    }
+    let age = now.timeIntervalSince(timestamp)
+    guard age.isFinite, age >= -5, age <= 90 else {
+      self = .stale
+      return
+    }
+    self = connected && age <= 10 ? .live : .recent
+  }
+}
+
+public enum SyncFreshness {
+  public static let cloudInterval: TimeInterval = 300
+  public static func shouldSync(lastSuccess: Date?, pending: Int, now: Date) -> Bool {
+    pending > 0 || lastSuccess.map { now.timeIntervalSince($0) >= cloudInterval } ?? true
+  }
+}
+
+public enum WearEvidence {
+  /// Contact flags remain useful even when off-body physiological values are excluded.
+  public static func current(_ sample: Measurement?, connected: Bool, now: Date) -> WearState {
+    guard connected, let sample, sample.origin == .measured, sample.quality.isEmpty,
+      sample.timestamp <= now.addingTimeInterval(5), now.timeIntervalSince(sample.timestamp) <= 90
+    else { return .unknown }
+    return sample.wear
+  }
+}

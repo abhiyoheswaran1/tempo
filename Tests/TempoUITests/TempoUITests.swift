@@ -193,3 +193,39 @@ extension TempoUITests {
     XCTAssertFalse(app.staticTexts["Close to your usual range"].exists)
   }
 }
+
+extension TempoUITests {
+  @MainActor func testLiveDashboardAndBandManagementKeepDemoHonest() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--live-dashboard-demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    for _ in 0..<3 where !app.buttons["Live dashboard"].isHittable { app.swipeUp() }
+    app.buttons["Live dashboard"].tap()
+    XCTAssertTrue(app.navigationBars["Live dashboard"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Synthetic demonstration"].exists)
+    XCTAssertFalse(app.staticTexts["Receiving live heart rate"].exists)
+    let live = XCTAttachment(screenshot: app.screenshot())
+    live.name = "live-dashboard-demo"
+    live.lifetime = .keepAlways
+    add(live)
+    for _ in 0..<4 where !app.buttons["Manage bands"].isHittable { app.swipeUp() }
+    app.buttons["Manage bands"].tap()
+    XCTAssertTrue(app.staticTexts["Synthetic band"].waitForExistence(timeout: 5))
+    app.staticTexts["Synthetic band"].tap()
+    XCTAssertTrue(app.navigationBars["Synthetic band"].waitForExistence(timeout: 5))
+    for _ in 0..<6 where !app.buttons["Disconnect"].exists { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Disconnect"].exists)
+    for _ in 0..<6 where !app.buttons["Remove band"].isHittable { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Remove band"].exists)
+    app.buttons["Remove band"].tap()
+    XCTAssertTrue(app.buttons["confirm-remove-band"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["confirm-remove-band"].firstMatch.tap()
+    XCTAssertTrue(app.navigationBars["Your bands"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["Synthetic band"].exists)
+  }
+}
