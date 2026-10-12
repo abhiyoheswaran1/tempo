@@ -20,3 +20,5 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - WIDGET01 · absent/out-of-range widget readiness remains unavailable · 6d38142 · app/extension build; physical cross-process delivery remains D02/V01.
 
 - UX12–UX15 · unified collection state/actions, compact baseline-building Today, one-metric Trends/same-day evidence and focused Live with stale/source protection · f0f7ecd · 79 core /15 UI tests, final archive-provenance regression, unsigned iPhone build and thirteen fresh captures; physical gates unchanged.
+
+- UX17 /D04 · four-hour Live history/ranges, extrema and gap preservation, full-input statistics, powered central-command guards/deferred restoration · 713cdc0 ·82 core /5 affected UI tests, fresh captures and unsigned iPhone build; physical C03/E01 remain open.
