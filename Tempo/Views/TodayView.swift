@@ -4,7 +4,7 @@ import TempoCore
 struct TodayView: View {
   @Environment(AppModel.self) var model
   @Environment(\.dynamicTypeSize) private var textSize
-  @State private var journal = false
+  @State private var journal: JournalEntry?
   @State private var sleep = false
   @ScaledMetric(relativeTo: .largeTitle) private var scoreSize = 42
   var body: some View {
@@ -65,21 +65,31 @@ struct TodayView: View {
         }
         if readiness.score == nil { baselineProgress(readiness) }
         Button {
-          journal = true
+          journal = todayJournal ?? JournalEntry()
         } label: {
           HStack {
             Image(systemName: "square.and.pencil")
-            Text("How do you feel?")
+            VStack(alignment: .leading, spacing: 4) {
+              Text(todayJournal == nil ? "How do you feel?" : "Journal check-in saved")
+              if todayJournal != nil {
+                Text("Edit").font(.subheadline).foregroundStyle(.teal)
+              }
+            }
             Spacer()
             Image(systemName: "chevron.right").font(.caption)
           }.frame(minHeight: 44).contentShape(Rectangle())
         }.buttonStyle(.plain).tint(.teal).padding(.horizontal, 4)
+          .accessibilityIdentifier("today-journal-check-in")
       }.padding(20)
     }.refreshable { await model.refreshToday() }
       .background(Color(uiColor: .systemGroupedBackground)).navigationTitle("Today")
       .navigationBarTitleDisplayMode(.large)
-      .sheet(isPresented: $journal) { NavigationStack { JournalEditor() } }
+      .sheet(item: $journal) { entry in NavigationStack { JournalEditor(entry: entry) } }
       .sheet(isPresented: $sleep) { NavigationStack { SleepEditor() } }
+  }
+  private var todayJournal: JournalEntry? {
+    model.journals.filter { Calendar.current.isDateInToday($0.date) }
+      .max { $0.date < $1.date }
   }
   private var cardBackground: Color { Color(uiColor: .secondarySystemGroupedBackground) }
   private var calculationLink: some View {

@@ -5,30 +5,36 @@ struct JournalEditor: View {
   @Environment(AppModel.self) var model
   @Environment(\.dismiss) var dismiss
   @State var entry = JournalEntry()
+  @State private var showContext = false
   var body: some View {
     Form {
       Section("A quick check-in") {
         rating("Energy", $entry.energy)
-        rating("Mood", $entry.mood)
         rating("Soreness", $entry.soreness)
-        rating("Perceived sleep quality", $entry.sleepQuality)
+        rating("Mood", $entry.mood)
       }
-      Section("Context · optional") {
-        answer("Feeling unwell", $entry.unwell)
-        answer("Alcohol", $entry.alcohol)
-        answer("Late meal", $entry.lateMeal)
-        Toggle(
-          "Add caffeine timing",
-          isOn: Binding(
-            get: { entry.caffeineTime != nil }, set: { entry.caffeineTime = $0 ? Date() : nil }))
-        if entry.caffeineTime != nil {
-          DatePicker(
-            "Last caffeine",
-            selection: Binding(
-              get: { entry.caffeineTime ?? Date() }, set: { entry.caffeineTime = $0 }),
-            displayedComponents: [.hourAndMinute])
-        }
+      Section {
+        DisclosureGroup("Sleep & behaviours · optional", isExpanded: $showContext) {
+          rating("Perceived sleep quality", $entry.sleepQuality)
+          answer("Feeling unwell", $entry.unwell)
+          answer("Alcohol", $entry.alcohol)
+          answer("Late meal", $entry.lateMeal)
+          Toggle(
+            "Add caffeine timing",
+            isOn: Binding(
+              get: { entry.caffeineTime != nil }, set: { entry.caffeineTime = $0 ? Date() : nil }))
+          if entry.caffeineTime != nil {
+            DatePicker(
+              "Last caffeine",
+              selection: Binding(
+                get: { entry.caffeineTime ?? Date() }, set: { entry.caffeineTime = $0 }),
+              displayedComponents: [.hourAndMinute])
+          }
+        }.accessibilityIdentifier("journal-optional-context")
+      }
+      Section("Notes · optional") {
         TextField("Anything else?", text: $entry.note, axis: .vertical)
+          .accessibilityIdentifier("journal-note")
       }
       Section {
         Text("Every field is optional. A blank answer is unknown, never “no”.").font(.caption)
@@ -47,10 +53,34 @@ struct JournalEditor: View {
     }
   }
   func rating(_ label: String, _ value: Binding<Int?>) -> some View {
-    Picker(label, selection: value) {
-      Text("Not entered").tag(Int?.none)
-      ForEach(1...5, id: \.self) { Text("\($0) / 5").tag(Int?.some($0)) }
-    }
+    let identifier = label.lowercased().replacingOccurrences(of: " ", with: "-")
+    return VStack(alignment: .leading, spacing: 8) {
+      Text(label).font(.headline)
+      LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 8)], spacing: 8) {
+        ForEach(1...5, id: \.self) { level in
+          Button { value.wrappedValue = level } label: {
+            Text("\(level)").font(.body.weight(.semibold))
+              .frame(maxWidth: .infinity, minHeight: 44)
+          }
+          .buttonStyle(.bordered)
+          .tint(value.wrappedValue == level ? .teal : .secondary)
+          .accessibilityLabel("\(label), \(level) of 5")
+          .accessibilityAddTraits(value.wrappedValue == level ? .isSelected : [])
+          .accessibilityIdentifier("journal-\(identifier)-\(level)")
+        }
+      }
+      Text("1 = low · 5 = high").font(.caption).foregroundStyle(.secondary)
+      HStack {
+        Text(value.wrappedValue.map { "\($0) of 5" } ?? "Not entered")
+          .font(.subheadline).foregroundStyle(.secondary)
+        Spacer()
+        Button("Clear") { value.wrappedValue = nil }
+          .buttonStyle(.borderless).frame(minHeight: 44)
+          .disabled(value.wrappedValue == nil)
+          .accessibilityLabel("Clear \(label.lowercased())")
+          .accessibilityIdentifier("journal-\(identifier)-clear")
+      }
+    }.padding(.vertical, 4)
   }
   func answer(_ label: String, _ value: Binding<Bool?>) -> some View {
     Picker(label, selection: value) {
