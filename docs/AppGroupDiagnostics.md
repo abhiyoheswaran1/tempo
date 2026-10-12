@@ -18,3 +18,7 @@ On the signed phone, turn demo off, add the Tempo widget, and check that the wid
 Local collection uses SQLite in Tempo's app container; this shared-defaults domain carries only widget summary/privacy fields and is separate from band collection and private CloudKit history.
 
 The widget decoder was corrected so an absent readiness key cannot become score0 through `integer(forKey:)`'s default. Missing/out-of-range values remain unavailable. This guards an actual missing-data case; it does not claim to suppress or resolve the OS diagnostic. Physical widget sharing remains an open validation gate (D02/V01).
+
+## User-reported signed-phone check
+
+On 2026-10-12 the owner confirmed the Home Screen widget timestamp updates after opening Tempo with demo off, while reporting the CFPrefs diagnostic. This is user-reported evidence for that field, not an automated signed-phone test or proof of every widget field/relaunch condition. No timestamp-sharing failure is currently reported; the warning is retained for context rather than suppressed. Remaining widget/privacy/relaunch coverage is V01.

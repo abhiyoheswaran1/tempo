@@ -7,12 +7,10 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
 | D01 | P1 awaiting hardware | Exact QuartzCore message reproduced in independent minimal NavigationStack app without BLE/cloud; [evidence](RenderingDiagnostics.md). Confirm physical OS/action and any freeze/flicker/crash before an app workaround. No log suppression or fixed claim. |
-| D02 | P1 awaiting physical validation | CFPrefs App Group diagnostic: local signed app/widget groups match signatures and provisioning; verify isolated runtime canary and document actual failure signals. No group renaming to suppress logs. |
+| D02 | P1 awaiting physical validation | CFPrefs App Group diagnostic: local signed app/widget groups match signatures and provisioning; user confirms signed phone widget timestamp updates (2026-10-12); warning persists without a reported timestamp-sharing failure. Verify other summary fields/relaunch under V01. No group renaming to suppress logs. |
 | D03 | P1 awaiting physical validation | PointerUI non-launching-port diagnostic: check minimal native/runtime logs, distinguish input service from BLE/cloud and retain physical OS/failure boundary. |
-| UX12 | P1 in progress | Collection status: current source, HR age and wear separately; history retrieval explicitly unavailable; cloud success distinct; direct connect/disconnect plus diagnostics. Simulator states and physical C01/C03 remain separate. |
-| UX13 | P1 in progress | Today without a score: compact baseline progress, no empty score, available collection/sleep/activity first; retain calculation entry and existing score when justified. |
-| UX14 | P1 in progress | Trends: one selected metric including sleep, clear units/range, select only same-day data rather than nearest across gaps, evidence and accessible daily rows. Preserve provenance and corrections. |
-| UX15 | P1 in progress | Live: dominant current/recent reading, stale value separated, five-minute gap-preserving chart and compact coverage; source/R-R/limits disclosed on demand, timestamp always available. |
+| UX17 | P1 in progress | Live chart defaults to four hours with shorter inspection range; bounded local-store query, gap-preserving downsampling, full-input coverage/average, missing/truncated states and fresh captures. Physical collection C01/C03 stays separate. |
+| D04 | P0 in progress | Core Bluetooth powered-state API misuse: guard central commands including stop/cancel/restoration; defer restoration/cleanup until powered on; prevent demo resume and discard invalid peripheral handles on resetting. Fixture/native simulator checks, physical C03 remains open. |
 | UX16 | P2 open | Fast journal: energy/soreness/mood first, optional behaviours afterwards, Today check-in completion with Edit; unknown answers stay unknown. Routine check-in under 30 seconds requires usability validation. |
 | UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
 

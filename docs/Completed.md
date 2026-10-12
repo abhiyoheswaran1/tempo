@@ -18,3 +18,5 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - UX11 · focused Activity selection/live timer/pause/resume, explicit Cancel/Finish alert and timer accessibility · 6d38142 · 74 core /12 UI tests plus final band-status rerun, unsigned iPhone build, ten fresh simulator captures.
 - W01 · wear-not-reported copy and firmware-bounded body-status research, with no speculative device commands · 6d38142 · parser/presentation tests and final status UI test; physical C01/C04 remain open.
 - WIDGET01 · absent/out-of-range widget readiness remains unavailable · 6d38142 · app/extension build; physical cross-process delivery remains D02/V01.
+
+- UX12–UX15 · unified collection state/actions, compact baseline-building Today, one-metric Trends/same-day evidence and focused Live with stale/source protection · f0f7ecd · 79 core /15 UI tests, final archive-provenance regression, unsigned iPhone build and thirteen fresh captures; physical gates unchanged.
