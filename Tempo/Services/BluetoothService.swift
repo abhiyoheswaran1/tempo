@@ -25,6 +25,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   var onGeneration: ((UUID, DeviceGeneration) -> Void)?
   var onMetadata: ((UUID, String?, String?) -> Void)?
   private var central: CBCentralManager?
+  private var collectionSuspended = false
+  private var restoredPeripherals: [CBPeripheral] = []
   private var peripherals: [UUID: CBPeripheral] = [:]
   private var mapping: [UUID: UUID] = [:]
   private var generations: [UUID: DeviceGeneration] = [:]
@@ -58,31 +60,45 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
         CBCentralManagerOptionShowPowerAlertKey: true,
       ])
   }
+  @discardableResult private func poweredCommand(
+    cleanup: Bool = false,
+    manager: CBCentralManager? = nil, action: (CBCentralManager) -> Void
+  ) -> Bool {
+    guard let manager = manager ?? central else { return false }
+    return BluetoothCommandPolicy.perform(
+      poweredOn: manager.state == .poweredOn,
+      collectionAllowed: !collectionSuspended, cleanup: cleanup
+    ) { action(manager) }
+  }
   func scan() {
+    collectionSuspended = false
     start()
     guard central?.state == .poweredOn else {
       status = "Enable Bluetooth to discover your bands"
       return
     }
     discovered = []
-    central?.scanForPeripherals(
-      withServices: [Self.service4, Self.service5, CBUUID(string: "180D")],
-      options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+    poweredCommand {
+      $0.scanForPeripherals(
+        withServices: [Self.service4, Self.service5, CBUUID(string: "180D")],
+        options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+    }
     status = "Searching for bands in pairing/broadcast mode"
   }
   func isConnected(_ id: UUID) -> Bool { connected.contains(id) }
   func suspend() {
+    collectionSuspended = true
     connectionLedger.suspend()
     inFlight = []
-    central?.stopScan()
+    stopScan()
     for p in peripherals.values where p.state != .disconnected {
-      central?.cancelPeripheralConnection(p)
+      poweredCommand(cleanup: true) { $0.cancelPeripheralConnection(p) }
     }
     connected = []
     lastSamples = [:]
     status = "Collection suspended for demonstration"
   }
-  func stopScan() { central?.stopScan() }
+  func stopScan() { poweredCommand(cleanup: true) { $0.stopScan() } }
   func register(peripheralID: UUID, deviceID: UUID, generation: DeviceGeneration) {
     guard connectionLedger.canReplaceBinding(deviceID) || mapping[peripheralID] == deviceID else {
       status = "Disconnect the registered band before matching a different peripheral"
@@ -109,6 +125,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     }
   }
   func resumeCollection(preferred: UUID?) {
+    collectionSuspended = false
     start()
     if let id = target ?? preferred, !isPaused(id) { connect(deviceID: id) }
   }
@@ -136,7 +153,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     lastSamples.removeValue(forKey: deviceID)
     for (key, id) in mapping where id == deviceID {
       if let p = peripherals[key], p.state != .disconnected {
-        central?.cancelPeripheralConnection(p)
+        poweredCommand(cleanup: true) { $0.cancelPeripheralConnection(p) }
       }
     }
     onConnectionChange?()
@@ -154,6 +171,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       status = "Scan and explicitly match this band to reconnect"
       return
     }
+    collectionSuspended = false
     start()
     let requested = connectionLedger.requestConnect(deviceID)
     if requested { persistPaused() }
@@ -183,13 +201,15 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     guard !inFlight.contains(deviceID), connectionLedger.shouldReconnect(deviceID) else { return }
     for (key, id) in mapping where id != deviceID {
       if let old = peripherals[key], old.state != .disconnected {
-        central?.cancelPeripheralConnection(old)
+        poweredCommand(cleanup: true) { $0.cancelPeripheralConnection(old) }
       }
     }
     peripherals[p] = peripheral
     peripheral.delegate = self
     inFlight.insert(deviceID)
-    central?.connect(peripheral, options: [CBConnectPeripheralOptionNotifyOnDisconnectionKey: true])
+    poweredCommand {
+      $0.connect(peripheral, options: [CBConnectPeripheralOptionNotifyOnDisconnectionKey: true])
+    }
     status = "Connecting to registered band"
   }
   private func persistMapping() {
@@ -201,34 +221,56 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     switch central.state {
     case .poweredOn:
       status = "Bluetooth ready"
-      if let target { connect(deviceID: target) }
+      restoreWhenPoweredOn(central)
+      if !collectionSuspended, let target, !isConnected(target) { connect(deviceID: target) }
     case .poweredOff:
       status = "Bluetooth is off"
       connected = []
       inFlight = []
       for id in registeredIDs { connectionLedger.failedConnection(id) }
     case .unauthorized:
+      invalidatePeripherals()
       status = "Bluetooth permission denied. Enable it in Settings."
       connected = []
       inFlight = []
       for id in registeredIDs { connectionLedger.failedConnection(id) }
-    case .unsupported: status = "Bluetooth unavailable"
+    case .unsupported:
+      status = "Bluetooth unavailable"
+      invalidatePeripherals()
     case .resetting:
+      invalidatePeripherals()
       status = "Bluetooth is restarting"
       connected = []
       inFlight = []
       for id in registeredIDs { connectionLedger.failedConnection(id) }
-    default: status = "Waiting for Bluetooth"
+    default:
+      invalidatePeripherals()
+      status = "Waiting for Bluetooth"
     }
   }
+  private func invalidatePeripherals() {
+    peripherals = [:]
+    restoredPeripherals = []
+    discovered = []
+    connected = []
+    inFlight = []
+    for id in registeredIDs { connectionLedger.failedConnection(id) }
+  }
   func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
-    for p in dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? [] {
+    restoredPeripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
+    restoreWhenPoweredOn(central)
+  }
+  private func restoreWhenPoweredOn(_ manager: CBCentralManager) {
+    guard manager.state == .poweredOn else { return }
+    let restored = restoredPeripherals
+    restoredPeripherals = []
+    for p in restored {
       peripherals[p.identifier] = p
       p.delegate = self
-      guard let id = mapping[p.identifier], registeredIDs.contains(id), !isPaused(id),
-        target == nil || target == id
+      guard !collectionSuspended, let id = mapping[p.identifier], registeredIDs.contains(id),
+        !isPaused(id), target == nil || target == id
       else {
-        central.cancelPeripheralConnection(p)
+        poweredCommand(cleanup: true, manager: manager) { $0.cancelPeripheralConnection(p) }
         continue
       }
       if target == nil { _ = connectionLedger.requestConnect(id) }
@@ -237,9 +279,11 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
         connected.insert(id)
         onConnectionChange?()
         status = "Connection restored; checking services"
-        p.discoverServices([
-          CBUUID(string: "180D"), CBUUID(string: "180A"), Self.service4, Self.service5,
-        ])
+        poweredCommand(manager: manager) { _ in
+          p.discoverServices([
+            CBUUID(string: "180D"), CBUUID(string: "180A"), Self.service4, Self.service5,
+          ])
+        }
       } else {
         connect(deviceID: id)
       }
@@ -249,6 +293,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     _ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
     advertisementData: [String: Any], rssi RSSI: NSNumber
   ) {
+    guard central.state == .poweredOn, !collectionSuspended else { return }
     peripherals[peripheral.identifier] = peripheral
     let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
     let generation = BandGenerationEvidence.resolve(
@@ -263,10 +308,11 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     // RSSI is deliberately not a wear signal.
   }
   func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-    guard let id = mapping[peripheral.identifier], registeredIDs.contains(id),
+    guard central.state == .poweredOn, !collectionSuspended,
+      let id = mapping[peripheral.identifier], registeredIDs.contains(id),
       connectionLedger.didConnect(id)
     else {
-      central.cancelPeripheralConnection(peripheral)
+      poweredCommand(cleanup: true, manager: central) { $0.cancelPeripheralConnection(peripheral) }
       return
     }
     inFlight.remove(id)
@@ -274,7 +320,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     discovered.removeAll { $0.id == peripheral.identifier }
     onConnectionChange?()
     peripheral.delegate = self
-    central.stopScan()
+    poweredCommand(cleanup: true, manager: central) { $0.stopScan() }
     status = "Connected; discovering heart-rate service"
     peripheral.discoverServices([
       CBUUID(string: "180D"), CBUUID(string: "180A"), Self.service4, Self.service5,
@@ -302,13 +348,22 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     if connectionLedger.shouldReconnect(id), registeredIDs.contains(id), central.state == .poweredOn
     {
       inFlight.insert(id)
-      central.connect(peripheral)
+      poweredCommand(manager: central) { $0.connect(peripheral) }
       status = "Connection interrupted; waiting to reconnect"
     } else if connected.isEmpty {
       status = "Disconnected; tap Connect when ready"
     }
   }
+  private func canUsePeripheral(_ peripheral: CBPeripheral) -> Bool {
+    guard central?.state == .poweredOn, !collectionSuspended, peripheral.state == .connected,
+      let id = mapping[peripheral.identifier], registeredIDs.contains(id)
+    else { return false }
+    return connectionLedger.shouldReconnect(id)
+  }
   func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+    guard canUsePeripheral(peripheral) else {
+      return
+    }
     guard error == nil else {
       status = "Service discovery failed"
       return
@@ -338,6 +393,9 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   func peripheral(
     _ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?
   ) {
+    guard canUsePeripheral(peripheral) else {
+      return
+    }
     guard error == nil else {
       status = "Characteristic discovery failed"
       return
@@ -354,6 +412,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     _ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic,
     error: Error?
   ) {
+    guard canUsePeripheral(peripheral) else { return }
     status =
       error == nil && characteristic.isNotifying
       ? "Listening for live heart rate"
@@ -362,7 +421,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   func peripheral(
     _ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?
   ) {
-    guard error == nil, let data = characteristic.value, let id = mapping[peripheral.identifier],
+    guard central?.state == .poweredOn, !collectionSuspended, peripheral.state == .connected,
+      error == nil, let data = characteristic.value, let id = mapping[peripheral.identifier],
       registeredIDs.contains(id), connectionLedger.state(id) == .connected, !isPaused(id)
     else { return }
     if characteristic.uuid == CBUUID(string: "2A37") {

@@ -215,12 +215,17 @@ extension TempoUITests {
     app.buttons["Live dashboard"].tap()
     XCTAssertTrue(app.navigationBars["Live dashboard"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Synthetic demonstration"].exists)
+    XCTAssertTrue(app.segmentedControls.buttons["4 hours"].isSelected)
+    XCTAssertTrue(app.staticTexts["live-history-coverage"].waitForExistence(timeout: 15))
     XCTAssertTrue(app.staticTexts["live-received-time"].exists)
     XCTAssertFalse(app.staticTexts["Receiving live heart rate"].exists)
     let live = XCTAttachment(screenshot: app.screenshot())
     live.name = "live-dashboard-demo"
     live.lifetime = .keepAlways
     add(live)
+    app.segmentedControls.buttons["15 min"].tap()
+    XCTAssertTrue(app.segmentedControls.buttons["15 min"].isSelected)
+    XCTAssertTrue(app.staticTexts["live-history-coverage"].waitForExistence(timeout: 10))
     let evidence = app.buttons["Source and measurement evidence"]
     for _ in 0..<4 where !evidence.isHittable { app.swipeUp() }
     XCTAssertTrue(evidence.isHittable)

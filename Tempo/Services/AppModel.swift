@@ -666,12 +666,12 @@ import WidgetKit
         }
       }
       if ProcessInfo.processInfo.arguments.contains("--live-dashboard-demo") {
-        for i in 0..<300 {
+        for i in stride(from: 0, to: 14400, by: 5) where !(6600..<7200).contains(i) {
           records.append(
             TempoCore.Measurement(
               deviceID: d.id, kind: .heartRate,
-              timestamp: now.addingTimeInterval(Double(i - 299)),
-              value: 78 + sin(Double(i) / 30) * 12,
+              timestamp: now.addingTimeInterval(Double(i - 14399)),
+              value: 78 + sin(Double(i) / 500) * 12 + ((3000..<4500).contains(i) ? 40 : 0),
               origin: .synthetic, transport: "demo", rrMilliseconds: [800, 810], wear: .unknown))
         }
       }

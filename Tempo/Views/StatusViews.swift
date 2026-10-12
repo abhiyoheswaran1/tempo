@@ -233,15 +233,6 @@ struct LiveDashboardView: View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
       let reading = model.collectionReading(at: context.date)
       let sample = reading.sample
-      let sourceID = model.collectionDevice?.id
-      let recent = CanonicalTimeline.select(
-        model.measurements.filter {
-          $0.kind == .heartRate && $0.valid && (25...240).contains($0.value)
-            && ($0.origin == .measured || (model.demo && $0.origin == .synthetic))
-            && $0.timestamp >= context.date.addingTimeInterval(-300) && $0.timestamp <= context.date
-            && sourceID != nil && $0.deviceID == sourceID
-        }, sourceSegments: model.sourceSegments)
-      let load = CardiovascularLoad.calculate(recent, maxHeartRate: model.maxHeartRate)
       List {
         Section {
           VStack(alignment: .leading, spacing: 10) {
@@ -281,31 +272,7 @@ struct LiveDashboardView: View {
             .font(.caption).foregroundStyle(.secondary)
           }
         }
-        Section("Last five minutes") {
-          if !recent.isEmpty {
-            liveChart(recent)
-          } else {
-            ContentUnavailableView(
-              "No recent readings", systemImage: "waveform.path.ecg",
-              description: Text("Your history stays available. Missing periods remain gaps."))
-          }
-          ViewThatFits(in: .horizontal) {
-            HStack {
-              liveStatistic("Covered", value: durationText(load?.coveredSeconds ?? 0))
-              Spacer()
-              liveStatistic("Average", value: load?.average.map { "\(Int($0)) bpm" } ?? "—")
-              Spacer()
-              liveStatistic("Range", value: observedRange(recent))
-            }
-            VStack(alignment: .leading, spacing: 12) {
-              liveStatistic("Covered", value: durationText(load?.coveredSeconds ?? 0))
-              liveStatistic("Average", value: load?.average.map { "\(Int($0)) bpm" } ?? "—")
-              liveStatistic("Range", value: observedRange(recent))
-            }
-          }
-          Text("Average uses covered time. Gaps are excluded.").font(.caption).foregroundStyle(
-            .secondary)
-        }
+        LiveHistorySection()
         Section {
           if let device = model.collectionDevice {
             LabeledContent("Source", value: device.name)
@@ -364,36 +331,172 @@ struct LiveDashboardView: View {
       Button("Cancel", role: .cancel) {}
     }
   }
-  private func liveChart(_ samples: [TempoCore.Measurement]) -> some View {
-    let points = LiveChartSeries.points(samples)
-    let low = max(25, (samples.map(\.value).min() ?? 60) - 8)
-    let high = min(240, (samples.map(\.value).max() ?? 100) + 8)
-    return Chart(points) { point in
-      LineMark(
-        x: .value("Time", point.sample.timestamp), y: .value("Heart rate", point.sample.value),
-        series: .value("Coverage", point.segment)
-      ).foregroundStyle(.teal)
-      PointMark(
-        x: .value("Time", point.sample.timestamp), y: .value("Heart rate", point.sample.value)
-      )
-      .symbolSize(8).foregroundStyle(.teal)
-    }.chartLegend(.hidden).chartYScale(domain: low...high).chartYAxisLabel("bpm")
-      .frame(height: 180).accessibilityLabel(
-        "Heart rate over the last five minutes; gaps represent missing readings")
+
+}
+
+struct LiveHistorySection: View {
+  @Environment(AppModel.self) var model
+  @State private var seconds = 14400
+  @State private var snapshot: LiveHistorySnapshot?
+  @State private var truncated = false
+  @State private var loading = false
+  @State private var error: String?
+  @State private var dataset: ObjectIdentifier?
+  @State private var demo = false
+  @State private var loadedSource: UUID?
+  @State private var loadedRange = 0
+  @State private var generation = -1
+  @State private var request = UUID()
+  var body: some View {
+    Section("Recorded heart rate") {
+      Picker("Chart range", selection: $seconds) {
+        Text("15 min").tag(900)
+        Text("1 hour").tag(3600)
+        Text("4 hours").tag(14400)
+      }.pickerStyle(.segmented).accessibilityIdentifier("live-chart-range")
+      TimelineView(.periodic(from: .now, by: 20)) { context in
+        let ready =
+          dataset == model.store.map(ObjectIdentifier.init) && demo == model.demo
+          && loadedSource == model.collectionDevice?.id && loadedRange == seconds
+          && generation == model.historyGeneration && !model.transitioningDataset
+        VStack(alignment: .leading, spacing: 14) {
+          if let error {
+            Text(error).font(.subheadline)
+            Button("Retry chart") { Task { await load(at: context.date) } }
+          } else if ready, let snapshot {
+            if snapshot.points.isEmpty {
+              ContentUnavailableView(
+                "No recent readings", systemImage: "waveform.path.ecg",
+                description: Text(
+                  "No recorded band heart rate in this range. Your longer history stays in Trends.")
+              )
+            } else {
+              Chart(snapshot.points) { point in
+                LineMark(
+                  x: .value("Time", point.sample.timestamp),
+                  y: .value("Heart rate", point.sample.value),
+                  series: .value("Coverage", point.segment)
+                ).foregroundStyle(.teal)
+                PointMark(
+                  x: .value("Time", point.sample.timestamp),
+                  y: .value("Heart rate", point.sample.value)
+                )
+                .symbolSize(8).foregroundStyle(.teal)
+              }.chartLegend(.hidden).chartXScale(
+                domain: context.date.addingTimeInterval(Double(-seconds))...context.date
+              )
+              .chartYScale(
+                domain: max(
+                  25, (snapshot.minimum ?? 60) - 8)...min(240, (snapshot.maximum ?? 100) + 8)
+              )
+              .chartYAxisLabel("bpm").frame(height: 190)
+              .accessibilityLabel(
+                "Recorded heart rate over the selected range; gaps are missing readings")
+            }
+            ViewThatFits(in: .horizontal) {
+              HStack {
+                statistic("Covered", durationText(snapshot.coveredSeconds))
+                Spacer()
+                statistic("Average", snapshot.average.map { "\(Int($0)) bpm" } ?? "—")
+                Spacer()
+                statistic("Range", rangeText(snapshot))
+              }
+              VStack(alignment: .leading, spacing: 8) {
+                statistic("Covered", durationText(snapshot.coveredSeconds))
+                statistic("Average", snapshot.average.map { "\(Int($0)) bpm" } ?? "—")
+                statistic("Range", rangeText(snapshot))
+              }
+            }
+            Text(
+              "\(snapshot.sampleCount) recorded readings · \(snapshot.sourceIDs.count) sources · gaps excluded"
+            )
+            .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier(
+              "live-history-coverage")
+            if snapshot.sampleCount > snapshot.points.count {
+              Text(
+                "Chart retains recorded highs and lows. Average uses all covered readings, not plotted points."
+              )
+              .font(.caption).foregroundStyle(.secondary)
+            }
+            if truncated {
+              Text(
+                "Record limit reached. This chart and its statistics cover only the most recent available subset."
+              )
+              .font(.caption).foregroundStyle(.secondary)
+            }
+          } else {
+            ProgressView("Loading recorded heart rate")
+          }
+        }
+        .task(
+          id:
+            "\(seconds)-\(model.demo)-\(model.historyGeneration)-\(model.collectionDevice?.id.uuidString ?? "none")-\(Int(context.date.timeIntervalSince1970 / 20))"
+        ) {
+          await load(at: context.date)
+        }
+      }
+    }
   }
-  private func liveStatistic(_ title: String, value: String) -> some View {
+  private func statistic(_ title: String, _ value: String) -> some View {
     VStack(alignment: .leading, spacing: 3) {
       Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
       Text(title).font(.caption).foregroundStyle(.secondary)
     }.accessibilityElement(children: .combine)
   }
-  private func observedRange(_ samples: [TempoCore.Measurement]) -> String {
-    guard let low = samples.map(\.value).min(), let high = samples.map(\.value).max() else {
-      return "—"
-    }
+  private func rangeText(_ value: LiveHistorySnapshot) -> String {
+    guard let low = value.minimum, let high = value.maximum else { return "—" }
     return "\(Int(low))–\(Int(high)) bpm"
   }
-
+  @MainActor private func load(at end: Date) async {
+    guard !model.transitioningDataset else { return }
+    let token = UUID()
+    request = token
+    loading = true
+    error = nil
+    let store = model.store
+    let source = model.collectionDevice?.id
+    let currentDemo = model.demo
+    let range = seconds
+    let currentGeneration = model.historyGeneration
+    let from = end.addingTimeInterval(Double(-range))
+    let known = Set((model.devices + model.archivedDevices).map(\.id))
+    let segments = model.sourceSegments
+    let maxHR = model.maxHeartRate
+    do {
+      let window: LiveMeasurementWindow
+      if source != nil, let store {
+        window = try await store.liveHeartRateWindow(from: from, to: end.addingTimeInterval(0.001))
+      } else {
+        window = LiveMeasurementWindow(samples: [], truncated: false)
+      }
+      let result = await Task.detached(priority: .userInitiated) {
+        LiveHistorySnapshot(
+          samples: window.samples.filter { known.contains($0.deviceID) }, from: from, to: end,
+          sourceSegments: segments, maximumHeartRate: maxHR, allowSynthetic: currentDemo)
+      }.value
+      guard !Task.isCancelled, request == token, store === model.store,
+        source == model.collectionDevice?.id,
+        currentDemo == model.demo, range == seconds, currentGeneration == model.historyGeneration,
+        !model.transitioningDataset
+      else { return }
+      snapshot = result
+      truncated = window.truncated
+      dataset = store.map(ObjectIdentifier.init)
+      demo = currentDemo
+      loadedSource = source
+      loadedRange = range
+      generation = currentGeneration
+      loading = false
+    } catch {
+      guard !Task.isCancelled, request == token, store === model.store, currentDemo == model.demo,
+        source == model.collectionDevice?.id, range == seconds,
+        currentGeneration == model.historyGeneration
+      else { return }
+      snapshot = nil
+      loading = false
+      self.error = "Recorded heart rate couldn't load. Your stored history is unchanged."
+    }
+  }
 }
 
 struct TodayCollectionPanel: View {
@@ -409,7 +512,7 @@ struct TodayCollectionPanel: View {
               .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
               Text("Live dashboard").font(.headline)
-              Text("Heart rate & recent coverage").font(.caption).foregroundStyle(.secondary)
+              Text("Heart rate & four-hour history").font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)

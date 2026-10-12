@@ -159,6 +159,36 @@ public actor TempoStore {
       !deleted.contains($0.id) && (kinds == nil || kinds!.contains($0.kind))
     }.sorted { $0.timestamp < $1.timestamp }
   }
+  public func liveHeartRateWindow(from: Date, to: Date, limit: Int = 40_000) async throws
+    -> LiveMeasurementWindow
+  {
+    guard from < to, to.timeIntervalSince(from) <= 4 * 3600 + 1 else {
+      return LiveMeasurementWindow(samples: [], truncated: false)
+    }
+    let count = max(1, min(limit, 40_000))
+    let origins = allowSynthetic ? "('measured','synthetic')" : "('measured')"
+    let data = try rows(
+      "SELECT payload FROM observations WHERE kind='heartRate' AND time>=? AND time<? AND json_extract(CAST(payload AS TEXT),'$.origin') IN \(origins) ORDER BY time DESC,id LIMIT ?",
+      [
+        .number(from.timeIntervalSince1970), .number(to.timeIntervalSince1970),
+        .number(Double(count + 1)),
+      ])
+    let deleted = Set(
+      try revisions(kind: "measurementDeletion").compactMap {
+        String(data: $0.payload, encoding: .utf8)
+      })
+    var samples: [Measurement] = []
+    for (index, payload) in data.prefix(count).enumerated() {
+      if index % 500 == 0 {
+        try Task.checkCancellation()
+        await Task.yield()
+      }
+      let sample = try JSONDecoder().decode(Measurement.self, from: payload)
+      if !deleted.contains(sample.id) { samples.append(sample) }
+    }
+    return LiveMeasurementWindow(
+      samples: samples.sorted { $0.timestamp < $1.timestamp }, truncated: data.count > count)
+  }
   public func observations(externalID: String) throws -> [Measurement] {
     try rows(
       "SELECT payload FROM observations WHERE json_extract(CAST(payload AS TEXT),'$.externalID')=?",

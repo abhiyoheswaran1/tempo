@@ -4,7 +4,7 @@ Current evidence only. Completed software IDs live in Completed.md; physical gat
 
 | Check | Result |
 |---|---|
-| Swift core suite | 79 tests passed, 0 failures |
+| Swift core suite | 82 tests passed, 0 failures |
 | iPhone simulator suite | 15 tests passed, 0 failures; final archived-source provenance flow rerun separately |
 | Native executable | Tempo workspace/scheme builds app, widget extension and UI runner; minimum iOS26 |
 | Unsigned generic iPhoneOS build | BUILD SUCCEEDED after product changes |
@@ -22,3 +22,5 @@ Red/green checks covered missing compact baseline placement, same-day/DST select
 Reproduce with README/Setup commands. Local evidence: `/private/tmp/tempo-refine-core-source-final.log`, `/private/tmp/tempo-refine-final.xcresult`, `/private/tmp/tempo-refine-provenance-green.xcresult`, `/private/tmp/tempo-refine-device-provenance.log`. Capture provenance is in `docs/screenshots/capture-manifest.json`.
 
 Physical bands tested:0. Signed CloudKit/HealthKit phone sessions:0. Physical wear accuracy, background collection, two-phone restore, signed widgets/Live Activities, iOS26 runtime and physical VoiceOver remain unverified. App Group delivery and physical rendering diagnostics remain open. Complete proprietary historical retrieval is unavailable. Compilation and synthetic simulator cases do not establish daily-use readiness.
+
+Four-hour extension:82 core tests passed; five affected simulator tests passed (`/private/tmp/tempo-four-hour-ui-final.xcresult`), with refreshed affected gallery captures; unsigned iPhone build passed (`/private/tmp/tempo-four-hour-device-final.log`). Command execution is denied when Bluetooth is unpowered; restoration is deferred and demo mode allows cleanup only. The first extension run failed because the synthetic night fixture was accidentally expanded; corrected night size and separate four-hour fixture passed. No real history was changed. App Group timestamp updates are confirmed by the owner, separately from automated tests.
