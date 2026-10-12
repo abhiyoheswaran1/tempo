@@ -39,6 +39,9 @@ public struct Measurement: Codable, Sendable, Identifiable, Equatable {
       "\(deviceID.uuidString)|\(kind.rawValue)|\(transport)|\(recordKey ?? String(timestamp.timeIntervalSince1970))"
     )
   }
+  public var isBandHistory: Bool {
+    transport.hasPrefix("whoop4-history-") || transport.hasPrefix("whoop5-history-")
+  }
   public var valid: Bool { value.isFinite && quality.isEmpty && wear != .offBody }
 }
 public struct SourceSegment: Codable, Sendable, Equatable, Identifiable {
@@ -206,7 +209,7 @@ public struct PendingChange: Codable, Sendable, Identifiable {
 }
 public struct BackupArchive: Codable, Sendable {
   public var format = "tempo-backup"
-  public var schemaVersion = 1
+  public var schemaVersion = 2
   public var exportedAt: Date
   public var algorithmVersion = "tempo-1.0"
   public var payload: Data
@@ -217,7 +220,7 @@ public struct BackupArchive: Codable, Sendable {
     checksum = StableID.hash(payload)
   }
   public func validate() throws {
-    guard format == "tempo-backup", schemaVersion == 1, payload.count <= 256 * 1024 * 1024,
+    guard format == "tempo-backup", (1...2).contains(schemaVersion), payload.count <= 256 * 1024 * 1024,
       checksum == StableID.hash(payload)
     else { throw StoreError.invalidArchive }
   }

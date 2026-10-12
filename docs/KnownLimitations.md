@@ -19,7 +19,7 @@ Portable preferences sync as revisions; Bluetooth connection state stays local. 
 
 - Full history session negotiation/recovery is not production-enabled. Whoop4 decoder/checkpoint components exist but no complete transfer is claimed. The documented acknowledgement can permit reclamation, and is excluded under the prohibition on destructive commands. A safe completion policy must be established before implementing unattended backfill.
 - Whoop5 history/overnight layouts, calibrated physiological fields and firmware identity boundaries require instance evidence before enabling.
-- Battery, proprietary wear, haptic effects and firmware alarms are hidden/unavailable. No firmware writes, authentication bypass, destructive opcodes or sensor probing.
+- Standard battery reports are optional and accuracy is unverified; proprietary wear, haptic effects and firmware alarms remain unavailable. No firmware writes, authentication bypass, destructive opcodes or sensor probing.
 - Concurrency across two band connections and automatic discovery of the unconnected worn band are unverified. Source preferences/temporary override and sequential reconnect paths are available.
 
 ## Remaining product/software work
@@ -54,3 +54,5 @@ Wrist, upper-arm and underwear reports are implemented per band with effective t
 ## UI refinement verification boundary
 
 Compact Today/evidence categories, band/placement sheet, native cross-tab workout controls, finish summaries and daily trend aggregation are implemented. Live dashboard prominently below readiness, manual/pull refresh with truthful outcomes, compact sleep timing plus repeat-session entry, disconnect/removal with retained history, generation correction and separate sync/reading timestamps are implemented. Foreground activation checks connection intent and cloud freshness (five minutes or pending changes), with a60-second automatic attempt cooldown. Maximum Dynamic Type/dark-mode simulator checks and ten actual screenshots accompany this pass. Signed installation, physical VoiceOver/contrast/transparency/battery behavior and iOS26 runtime checks remain open in the improvement tracker. A native app target/workspace is included; the root Swift package is a non-executable library.
+
+History update: experimental WHOOP4 transfer now runs only after an application-version reply confirms41.17.6.0; the Bluetooth processor/DIS value does not unlock it. WHOOP5 Hello/range diagnostics are implemented, but its historical transfer/initialization remain unresolved and cannot yet fill observed gaps. Band storage duration does not equal recoverability through Tempo. See [HistoryRetrieval](HistoryRetrieval.md). No physical recovery success is claimed.

@@ -38,7 +38,7 @@ public actor TempoStore {
     sqlite3_prepare_v2(db, "PRAGMA user_version", -1, &statement, nil)
     let version = sqlite3_step(statement) == SQLITE_ROW ? sqlite3_column_int(statement, 0) : 0
     sqlite3_finalize(statement)
-    guard version <= 1 else { throw StoreError.unsupportedSchema }
+    guard version <= 2 else { throw StoreError.unsupportedSchema }
     try execute(
       """
       BEGIN IMMEDIATE;
@@ -50,7 +50,8 @@ public actor TempoStore {
       CREATE TABLE IF NOT EXISTS outbox(id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload BLOB NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next REAL NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value BLOB NOT NULL);
       CREATE TABLE IF NOT EXISTS rejected(id TEXT PRIMARY KEY,device TEXT NOT NULL,payload BLOB NOT NULL);
-      PRAGMA user_version=1;
+      CREATE TABLE IF NOT EXISTS history_frames(id TEXT PRIMARY KEY,device TEXT NOT NULL,generation TEXT NOT NULL,payload BLOB NOT NULL);
+      PRAGMA user_version=2;
       COMMIT;
       """)
   }
@@ -298,11 +299,15 @@ public actor TempoStore {
     return inputs
   }
   public func commitHistory(
-    deviceID: UUID, samples: [Measurement], cursor: Data, rejectedFrames: [Data] = []
+    deviceID: UUID, samples: [Measurement], cursor: Data, rejectedFrames: [Data] = [],
+    rawFrames: [Data] = []
   ) throws {
     try transaction {
       guard samples.allSatisfy({ $0.deviceID == deviceID }) else { throw StoreError.invalidSample }
       for m in samples { try insertOne(m, enqueue: true) }
+      for frame in rawFrames {
+        try retainHistoryFrame(deviceID: deviceID, generation: .whoop4, data: frame)
+      }
       for f in rejectedFrames {
         try run(
           "INSERT OR IGNORE INTO rejected VALUES(?,?,?)",
@@ -312,6 +317,24 @@ public actor TempoStore {
         "INSERT OR REPLACE INTO checkpoints VALUES(?,?)",
         [.text(deviceID.uuidString), .blob(cursor)])
     }
+  }
+  private func retainHistoryFrame(deviceID: UUID, generation: DeviceGeneration, data: Data) throws {
+    let frame = try WhoopFrame.parse(data, generation: generation)
+    guard [UInt8(47), 48, 49, 52].contains(frame.type) else { throw StoreError.invalidSample }
+    let id = StableID.hash(deviceID.uuidString + ":" + StableID.hash(data))
+    try run(
+      "INSERT OR IGNORE INTO history_frames VALUES(?,?,?,?)",
+      [.text(id), .text(deviceID.uuidString), .text(generation.rawValue), .blob(data)])
+  }
+  public func historyFrameCount(deviceID: UUID) throws -> Int {
+    guard
+      let data = try rows(
+        "SELECT CAST(COUNT(*) AS TEXT) FROM history_frames WHERE device=?",
+        [.text(deviceID.uuidString)]
+      ).first,
+      let count = Int(String(decoding: data, as: UTF8.self))
+    else { throw StoreError.database("history count") }
+    return count
   }
   public func checkpoint(deviceID: UUID) throws -> Data? {
     try rows("SELECT cursor FROM checkpoints WHERE device=?", [.text(deviceID.uuidString)]).first
@@ -481,7 +504,24 @@ public actor TempoStore {
     let content = ArchivePayload(
       measurements: try rows("SELECT payload FROM observations").map {
         try JSONDecoder().decode(Measurement.self, from: $0)
-      }, revisions: try revisions())
+      }, revisions: try revisions(),
+      historyFrames: try rows(
+        "SELECT device || '|' || generation || '|' || hex(payload) FROM history_frames"
+      ).map {
+        let fields = String(decoding: $0, as: UTF8.self).split(separator: "|")
+        guard fields.count == 3, let id = UUID(uuidString: String(fields[0])),
+          let generation = DeviceGeneration(rawValue: String(fields[1]))
+        else { throw StoreError.invalidArchive }
+        let hex = Array(fields[2].utf8)
+        var data = Data()
+        for i in stride(from: 0, to: hex.count, by: 2) {
+          guard i + 1 < hex.count,
+            let byte = UInt8(String(decoding: hex[i...i + 1], as: UTF8.self), radix: 16)
+          else { throw StoreError.invalidArchive }
+          data.append(byte)
+        }
+        return ArchivedHistoryFrame(deviceID: id, generation: generation, data: data)
+      })
     return BackupArchive(payload: try JSONEncoder().encode(content))
   }
   public func importArchive(_ archive: BackupArchive) throws {
@@ -493,6 +533,10 @@ public actor TempoStore {
     // Validate every row before beginning; all rows and outbox entries commit atomically.
     try transaction {
       for m in content.measurements { try insertOne(m, enqueue: true) }
+      for frame in content.historyFrames ?? [] {
+        try retainHistoryFrame(
+          deviceID: frame.deviceID, generation: frame.generation, data: frame.data)
+      }
       for r in content.revisions {
         try validateRevision(r)
         let data = try JSONEncoder().encode(r)
@@ -520,4 +564,10 @@ private enum SQLValue {
 private struct ArchivePayload: Codable {
   var measurements: [Measurement]
   var revisions: [Revision]
+  var historyFrames: [ArchivedHistoryFrame]?
+}
+private struct ArchivedHistoryFrame: Codable {
+  var deviceID: UUID
+  var generation: DeviceGeneration
+  var data: Data
 }

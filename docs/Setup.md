@@ -37,7 +37,7 @@ Use Xcode's Swift toolchain if the shell's `swift` points to mismatched command-
 
 Keep demo off. Settings → Manage bands → choose generation → Scan. Put the owned band into its supported pairing / heart-rate broadcast mode. Explicitly identify the band, especially for generic HRS advertisements. Register both; they remain distinct portable device identities. The current transport connects to one at a time. On a restored phone choose “Reconnect [existing band]” before selecting the peripheral; do not create a new identity merely because the name is similar.
 
-Start a manual workout and verify measured HR, timestamps and persisted coverage. End it, relaunch, inspect history, export a backup and compare counts. Do this separately with each generation before relying on collection. Battery/haptic/alarm/motion controls are unavailable pending physical protocol validation; no successful hardware behavior is simulated.
+Start a manual workout and verify measured HR, timestamps and persisted coverage. End it, relaunch, inspect history, export a backup and compare counts. Do this separately with each generation before relying on collection. Standard battery reports are optional/unverified; haptic/alarm/motion controls remain unavailable; no successful hardware behavior is simulated.
 
 ## Demo
 

@@ -153,7 +153,8 @@ public struct WorkoutLiveReading: Sendable {
       sample.map { [$0] } ?? [], selectedDeviceID: nil,
       now: now, allowSynthetic: allowSynthetic)
     state = LiveReadingState(
-      timestamp: valid?.timestamp, connected: connected && wear != .offBody, now: now)
+      timestamp: valid?.timestamp,
+      connected: connected && wear != .offBody && valid?.isBandHistory != true, now: now)
     bpm = state == .live || state == .recent ? valid.map { Int($0.value) } : nil
     if state == .live, let valid, (100...240).contains(maximumHeartRate),
       valid.value >= maximumHeartRate * 0.5
@@ -190,7 +191,7 @@ public struct CollectionPresentation: Sendable {
       now: now, allowSynthetic: allowSynthetic)
     state = LiveReadingState(
       timestamp: self.sample?.timestamp,
-      connected: connected && wear != .offBody, now: now)
+      connected: connected && wear != .offBody && self.sample?.isBandHistory != true, now: now)
   }
 }
 

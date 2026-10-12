@@ -54,7 +54,7 @@ No simulator test is evidence that either physical band passed these checks.
 
 The Today band control reports the selected/last registered source with receiving/recent/stale status and receipt age. Current reception requires a valid direct HR reading no older than10s and a connection to that source, without fresh off-body evidence. Recent means at most90s, not confirmed live. Wear/contact evidence remains a separate field in the full-height band-status sheet; neither connection nor pulse supplies an invented wear report.
 
-The sheet offers explicit per-band reconnect/disconnect, placement/details and collection diagnostics. iCloud's last successful exchange and pending uploads are separate from HR receipt. **Band history retrieval is unavailable in this build**, so Tempo does not label a live callback as a successful historical sync. A new phone still needs an explicit physical-band match through Manage and reconnect bands.
+The sheet offers explicit per-band reconnect/disconnect, placement/details and collection diagnostics. iCloud's last successful exchange and pending uploads are separate from HR receipt. **WHOOP4 history retrieval is experimental on read-confirmed41.17.6.0; WHOOP5 catch-up remains unavailable**, so Tempo does not label a live callback as a successful historical sync. A new phone still needs an explicit physical-band match through Manage and reconnect bands.
 
 Live centres on current/recent HR and the five-minute chart. A stale pulse moves into a labelled last-recorded line and leaves the current reading unavailable. Covered-time average/range exclude gaps; source, timestamps, optional R–R and unsupported-sensor limits remain inspectable. Source/archive handling and signed physical collection still require the existing gates.
 

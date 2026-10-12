@@ -27,13 +27,14 @@ public enum Whoop4History {
       let v = u16(b, 23 + n * 2)
       return v == 0 ? nil : Double(v)
     }
-    // Off-wrist interpretation is experimental; do not elevate it to verified wear.
+    // Preserve uncertain contact evidence. A zero flag is excluded from analytics, without claiming verified off-body status.
     return [
       Measurement(
         deviceID: deviceID, kind: .heartRate,
         timestamp: Date(timeIntervalSince1970: Double(seconds)), value: Double(hr),
         origin: .measured, transport: "whoop4-history-v24", recordKey: StableID.hash(frame.raw),
-        rrMilliseconds: rr, wear: .unknown)
+        rrMilliseconds: rr,
+        quality: b[55] == 0 ? ["experimental-contact-zero"] : [], wear: .unknown)
     ]
   }
 }

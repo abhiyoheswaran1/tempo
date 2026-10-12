@@ -141,41 +141,49 @@ func u32(_ b: [UInt8], _ i: Int) -> UInt32 {
 public struct FrameAssembler: Sendable {
   public let generation: DeviceGeneration
   private var buffer: [UInt8] = []
+  public private(set) var discardedBytes = 0
   public var bufferedBytes: Int { buffer.count }
   public init(generation: DeviceGeneration) { self.generation = generation }
   public mutating func append(_ fragment: Data) -> [Data] {
     if fragment.count > 8192 {
+      discardedBytes += fragment.count + buffer.count
       buffer.removeAll()
       return []
     }
     buffer += fragment
     if buffer.count > 8192 {
+      discardedBytes += buffer.count
       buffer.removeAll()
       return []
     }
     var frames: [Data] = []
     while buffer.count >= 4 {
       guard buffer[0] == 0xaa else {
+        discardedBytes += 1
         buffer.removeFirst()
         continue
       }
       let count = generation == .whoop4 ? Int(u16(buffer, 1)) + 4 : Int(u16(buffer, 2)) + 8
       guard (11...8192).contains(count) else {
+        discardedBytes += 1
         buffer.removeFirst()
         continue
       }
       if generation == .whoop4 && Checksums.crc8(buffer[1...2]) != buffer[3] {
+        discardedBytes += 1
         buffer.removeFirst()
         continue
       }
       if generation == .whoop5 {
         guard buffer[1] == 1 else {
-          buffer.removeFirst()
+          discardedBytes += 1
+        buffer.removeFirst()
           continue
         }
         if buffer.count < 8 { break }
         if Checksums.crc16(buffer[0..<6]) != u16(buffer, 6) {
-          buffer.removeFirst()
+          discardedBytes += 1
+        buffer.removeFirst()
           continue
         }
       }
@@ -185,6 +193,7 @@ public struct FrameAssembler: Sendable {
         frames.append(f)
         buffer.removeFirst(count)
       } else {
+        discardedBytes += 1
         buffer.removeFirst()
       }
     }

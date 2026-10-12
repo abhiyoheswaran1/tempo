@@ -284,7 +284,8 @@ extension TempoUITests {
     XCTAssertTrue(refresh.isHittable)
     XCTAssertFalse(app.staticTexts["Demo refreshed · real integrations stay off"].exists)
     let scroll = app.scrollViews.firstMatch
-    scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).press(
+    // Start below the expanded native navigation title, inside scrollable content.
+    scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).press(
       forDuration: 0.1,
       thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)))
     XCTAssertTrue(
@@ -379,7 +380,7 @@ extension TempoUITests {
     XCTAssertTrue(app.staticTexts["Band history retrieval"].waitForExistence(timeout: 5))
     XCTAssertTrue(
       app.staticTexts.matching(
-        NSPredicate(format: "label CONTAINS %@", "Unavailable in this build")
+        NSPredicate(format: "label CONTAINS %@", "Connect a band to check support")
       ).firstMatch.exists)
     for _ in 0..<3 where !app.buttons["Manage and reconnect bands"].isHittable { app.swipeUp() }
     XCTAssertTrue(app.buttons["Manage and reconnect bands"].isHittable)

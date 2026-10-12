@@ -18,6 +18,30 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   var connected: Set<UUID> = []
   var lastSamples: [UUID: TempoCore.Measurement] = [:]
   var battery: [UUID: BatteryReading] = [:]
+  var historyStatus: [UUID: String] = [:]
+  var lastHistoryCommit: [UUID: Date] = [:]
+  var onHistoryChunk: ((UUID, UUID, HistoryChunk) -> Void)?
+  private final class HistoryLink {
+    let session = UUID()
+    let generation: DeviceGeneration
+    var sequence = 1
+    var pending: [UInt8: UInt8] = [:]
+    var assemblers: [String: FrameAssembler] = [:]
+    var applicationFirmware: String?
+    var transfer: Whoop4Transfer?
+    var lastAttempt: Date?
+    var started: Date?
+    var committedRecords = 0
+    init(_ generation: DeviceGeneration) { self.generation = generation }
+  }
+  private var historyLinks: [UUID: HistoryLink] = [:]
+  private static func customUUID(_ generation: DeviceGeneration, _ suffix: Int) -> CBUUID {
+    CBUUID(
+      string: generation == .whoop4
+        ? "6108000\(suffix)-8d6d-82b8-614a-1c8cb0f8dcc6"
+        : "fd4b000\(suffix)-cce1-4033-93ce-002d5875f58a")
+  }
+
   private var lastBatteryRequest: [UUID: Date] = [:]
   var firmware: [UUID: String] = [:]
   var identity: [UUID: String] = [:]
@@ -97,6 +121,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       poweredCommand(cleanup: true) { $0.cancelPeripheralConnection(p) }
     }
     connected = []
+    historyLinks = [:]
     lastSamples = [:]
     status = "Collection suspended for demonstration"
   }
@@ -152,6 +177,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     connectionLedger.disconnect(deviceID)
     persistPaused()
     connected.remove(deviceID)
+    historyLinks.removeValue(forKey: deviceID)
+    historyStatus[deviceID] = "Interrupted · stored chunks retained"
     lastSamples.removeValue(forKey: deviceID)
     for (key, id) in mapping where id == deviceID {
       if let p = peripherals[key], p.state != .disconnected {
@@ -227,6 +254,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       restoreWhenPoweredOn(central)
       if !collectionSuspended, let target, !isConnected(target) { connect(deviceID: target) }
     case .poweredOff:
+      historyLinks = [:]
       status = "Bluetooth is off"
       connected = []
       inFlight = []
@@ -253,6 +281,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   }
   private func invalidatePeripherals() {
     peripherals = [:]
+    historyLinks = [:]
     restoredPeripherals = []
     discovered = []
     connected = []
@@ -348,6 +377,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     guard let id = mapping[peripheral.identifier] else { return }
     inFlight.remove(id)
     connected.remove(id)
+    historyLinks.removeValue(forKey: id)
+    historyStatus[id] = "Interrupted · stored chunks retained"
     connectionLedger.lostConnection(id)
     onConnectionChange?()
     if connectionLedger.shouldReconnect(id), registeredIDs.contains(id), central.state == .poweredOn
@@ -358,6 +389,207 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     } else if connected.isEmpty {
       status = "Disconnected; tap Connect when ready"
     }
+  }
+  func historyApplicationFirmware(_ id: UUID) -> String? { historyLinks[id]?.applicationFirmware }
+  private func historyPeripheral(_ id: UUID) -> CBPeripheral? {
+    peripherals.values.first { mapping[$0.identifier] == id && canUsePeripheral($0) }
+  }
+  private func prepareHistoryLink(_ p: CBPeripheral, id: UUID) {
+    guard canUsePeripheral(p), let link = historyLinks[id], link.lastAttempt == nil,
+      let service = p.services?.first(where: {
+        $0.uuid == (link.generation == .whoop4 ? Self.service4 : Self.service5)
+      }),
+      let chars = service.characteristics,
+      chars.contains(where: {
+        $0.uuid == Self.customUUID(link.generation, 2) && $0.properties.contains(.write)
+      }),
+      ([3, 4, 5] + (link.generation == .whoop5 ? [7] : [])).allSatisfy({ n in
+        chars.contains { $0.uuid == Self.customUUID(link.generation, n) && $0.isNotifying }
+      })
+    else { return }
+    link.lastAttempt = Date()
+    historyStatus[id] = "Checking history connection and application firmware"
+    sendHistoryCommand(
+      id, command: link.generation == .whoop4 ? 26 : 145,
+      body: Data([link.generation == .whoop4 ? 0 : 1]))
+  }
+  private func sendHistoryCommand(_ id: UUID, command: UInt8, body: Data) {
+    guard let p = historyPeripheral(id), let link = historyLinks[id], link.sequence <= 250,
+      link.pending.count < 4,
+      let c = p.services?.first(where: {
+        $0.uuid == (link.generation == .whoop4 ? Self.service4 : Self.service5)
+      })?.characteristics?.first(where: {
+        $0.uuid == Self.customUUID(link.generation, 2) && $0.properties.contains(.write)
+      })
+    else {
+      historyStatus[id] = "History connection unavailable; reconnect to retry"
+      return
+    }
+    guard [UInt8(7), 20, 22, 23, 26, 34, 145].contains(command) else { return }
+    let sequence = UInt8(link.sequence)
+    link.sequence += 1
+    if command != 23 && command != 20 { link.pending[sequence] = command }
+    p.writeValue(
+      WhoopReadProtocol.command(
+        generation: link.generation, sequence: sequence,
+        command: command, body: body), for: c, type: .withResponse)
+    guard command != 23 && command != 20 else { return }
+    let session = link.session
+    Task { [weak self] in
+      try? await Task.sleep(for: .seconds(20))
+      guard let self, let current = self.historyLinks[id], current.session == session,
+        current.pending[sequence] == command
+      else { return }
+      current.pending.removeValue(forKey: sequence)
+      current.transfer?.interrupt()
+      current.transfer = nil
+      self.historyStatus[id] = "History request timed out · gaps remain"
+    }
+  }
+  func refreshHistoryIfNeeded(force: Bool = false) {
+    for (id, link) in historyLinks where historyPeripheral(id) != nil {
+      let due = force || link.lastAttempt.map({ Date().timeIntervalSince($0) >= 900 }) ?? true
+      if link.pending.isEmpty, link.transfer == nil, due {
+        if link.applicationFirmware == nil, let p = historyPeripheral(id) {
+          link.lastAttempt = nil
+          prepareHistoryLink(p, id: id)
+          continue
+        }
+        if link.generation == .whoop5, link.applicationFirmware == "50.42.1.0" {
+          link.lastAttempt = Date()
+          sendHistoryCommand(id, command: 34, body: Data())
+          continue
+        }
+      }
+      if let started = link.started, link.transfer != nil, Date().timeIntervalSince(started) > 120 {
+        link.transfer?.interrupt()
+        link.transfer = nil
+        sendHistoryCommand(id, command: 20, body: Data([0]))
+        historyStatus[id] = "History interrupted · committed data retained"
+      }
+      guard link.transfer == nil, link.pending.isEmpty,
+        WhoopReadProtocol.canRetrieve(
+          generation: link.generation, applicationFirmware: link.applicationFirmware),
+        force || link.lastAttempt.map({ Date().timeIntervalSince($0) >= 900 }) ?? true
+      else { continue }
+      link.lastAttempt = Date()
+      link.started = Date()
+      link.committedRecords = 0
+      link.transfer = Whoop4Transfer()
+      historyStatus[id] = "Requesting stored band records"
+      sendHistoryCommand(id, command: 22, body: Data([0]))
+    }
+  }
+  private func receiveHistory(
+    _ data: Data, peripheral: CBPeripheral, characteristic: CBCharacteristic, id: UUID
+  ) {
+    guard let link = historyLinks[id] else { return }
+    let key = characteristic.uuid.uuidString
+    var assembler = link.assemblers[key] ?? FrameAssembler(generation: link.generation)
+    let previouslyDiscarded = assembler.discardedBytes
+    let frames = assembler.append(data)
+    link.assemblers[key] = assembler
+    if assembler.discardedBytes != previouslyDiscarded {
+      link.transfer?.interrupt()
+      link.transfer = nil
+      historyStatus[id] = "History bytes failed integrity · acknowledgement withheld"
+      return
+    }
+    for raw in frames {
+      do {
+        let frame = try WhoopFrame.parse(raw, generation: link.generation)
+        if frame.type == 36 {
+          let reply = try WhoopReadProtocol.reply(frame)
+          guard link.pending[reply.origin] == reply.command else { continue }
+          if reply.result == 2 { continue }
+          link.pending.removeValue(forKey: reply.origin)
+          guard reply.result == 1 else {
+            link.transfer?.interrupt()
+            link.transfer = nil
+            historyStatus[id] =
+              "Band refused history request \(reply.command) (result \(reply.result)) · gaps remain"
+            continue
+          }
+          if reply.command == 26 && link.generation == .whoop4 {
+            sendHistoryCommand(id, command: 7, body: Data())
+          } else if reply.command == 7 || reply.command == 145 {
+            let version = try WhoopReadProtocol.applicationFirmware(frame)
+            link.applicationFirmware = version
+            firmware[id] = version
+            onMetadata?(id, version, identity[id])
+            if link.generation == .whoop4 {
+              if WhoopReadProtocol.canRetrieve(generation: .whoop4, applicationFirmware: version) {
+                refreshHistoryIfNeeded(force: true)
+              } else {
+                historyStatus[id] = "History unavailable for application firmware \(version)"
+              }
+            } else {
+              historyStatus[id] = "Whoop5 history initialization unverified · checking stored range"
+              if version == "50.42.1.0" { sendHistoryCommand(id, command: 34, body: Data()) }
+            }
+          } else if reply.command == 34, link.generation == .whoop5 {
+            guard reply.body.count == 65, reply.body.first == 1 else { throw PacketError.malformed }
+            let count = try WhoopReadProtocol.recordCountEstimate(reply.body)
+            historyStatus[id] =
+              count == 0
+              ? "Stored-range estimate is zero · gaps remain"
+              : "Backlog estimate \(count) records · Whoop5 transfer is not validated"
+          }
+        } else if var transfer = link.transfer {
+          if frame.type == 49, frame.command == 2,
+            !HistoryAssemblyGate.canClose(
+              bufferedBytes: link.assemblers.values.map(\.bufferedBytes))
+          {
+            throw PacketError.truncated
+          }
+          let event = try transfer.receive(frame)
+          link.transfer = transfer
+          switch event {
+          case .none: break
+          case .chunk(let chunk):
+            historyStatus[id] = "Saving retrieved band records"
+            onHistoryChunk?(id, link.session, chunk)
+          case .repeatCommitted(let body): sendHistoryCommand(id, command: 23, body: body)
+          case .complete:
+            link.transfer = nil
+            historyStatus[id] =
+              link.committedRecords == 0
+              ? "Transfer returned no usable HR · gaps remain"
+              : "Transfer complete · \(link.committedRecords) HR readings stored; coverage may remain incomplete"
+          }
+        }
+      } catch {
+        link.transfer?.interrupt()
+        link.transfer = nil
+        historyStatus[id] = "History layout or integrity check failed · gaps remain"
+      }
+    }
+  }
+  func historyChunkCommitted(deviceID: UUID, session: UUID, token: Data, count: Int) {
+    guard let link = historyLinks[deviceID], link.session == session, var transfer = link.transfer,
+      let body = try? transfer.committed(token: token)
+    else { return }
+    link.transfer = transfer
+    link.committedRecords += count
+    lastHistoryCommit[deviceID] = Date()
+    historyStatus[deviceID] = "\(link.committedRecords) historical HR readings stored · retrieving"
+    sendHistoryCommand(deviceID, command: 23, body: body)
+  }
+  func historyChunkFailed(deviceID: UUID, session: UUID) {
+    guard let link = historyLinks[deviceID], link.session == session else { return }
+    link.transfer?.interrupt()
+    link.transfer = nil
+    historyStatus[deviceID] = "History storage failed · acknowledgement withheld"
+  }
+  func peripheral(
+    _ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?
+  ) {
+    guard error != nil, let id = mapping[peripheral.identifier],
+      characteristic.service?.uuid == Self.service4 || characteristic.service?.uuid == Self.service5
+    else { return }
+    historyLinks[id]?.transfer?.interrupt()
+    historyLinks[id]?.transfer = nil
+    historyStatus[id] = "History connection write failed · live HR is separate"
   }
   func refreshBatteryIfNeeded() {
     guard !collectionSuspended, central?.state == .poweredOn else { return }
@@ -406,8 +638,18 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       if s.uuid == CBUUID(string: "180D") {
         peripheral.discoverCharacteristics([CBUUID(string: "2A37")], for: s)
       } else if s.uuid == CBUUID(string: "180F"),
-        peripheral.services?.filter({ $0.uuid == CBUUID(string: "180F") }).count == 1 {
+        peripheral.services?.filter({ $0.uuid == CBUUID(string: "180F") }).count == 1
+      {
         peripheral.discoverCharacteristics([CBUUID(string: "2A19")], for: s)
+      } else if s.uuid == Self.service4 || s.uuid == Self.service5,
+        peripheral.services?.filter({ $0.uuid == Self.service4 || $0.uuid == Self.service5 }).count
+          == 1
+      {
+        let generation: DeviceGeneration = s.uuid == Self.service4 ? .whoop4 : .whoop5
+        peripheral.discoverCharacteristics(
+          ([2, 3, 4, 5] + (generation == .whoop5 ? [7] : [])).map {
+            Self.customUUID(generation, $0)
+          }, for: s)
       } else if s.uuid == CBUUID(string: "180A") {
         peripheral.discoverCharacteristics(
           [CBUUID(string: "2A26"), CBUUID(string: "2A25"), CBUUID(string: "2A24")], for: s)
@@ -422,6 +664,20 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     }
     guard error == nil else {
       status = "Characteristic discovery failed"
+      return
+    }
+    if service.uuid == Self.service4 || service.uuid == Self.service5,
+      let id = mapping[peripheral.identifier]
+    {
+      let generation: DeviceGeneration = service.uuid == Self.service4 ? .whoop4 : .whoop5
+      if historyLinks[id] == nil {
+        historyLinks[id] = HistoryLink(generation)
+        historyStatus[id] = "Checking stored-history notification channels"
+      }
+      for c in service.characteristics ?? [] where c.uuid != Self.customUUID(generation, 2) {
+        if c.properties.contains(.notify) || c.properties.contains(.indicate) { peripheral.setNotifyValue(true, for: c) }
+      }
+      prepareHistoryLink(peripheral, id: id)
       return
     }
     for c in service.characteristics ?? [] {
@@ -442,8 +698,21 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     _ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic,
     error: Error?
   ) {
-    guard canUsePeripheral(peripheral), characteristic.uuid == CBUUID(string: "2A37"),
-      characteristic.service?.uuid == CBUUID(string: "180D") else { return }
+    guard canUsePeripheral(peripheral) else { return }
+    if characteristic.service?.uuid == Self.service4
+      || characteristic.service?.uuid == Self.service5,
+      let id = mapping[peripheral.identifier]
+    {
+      if error != nil {
+        historyStatus[id] = "History notification subscription failed"
+      } else {
+        prepareHistoryLink(peripheral, id: id)
+      }
+      return
+    }
+    guard characteristic.uuid == CBUUID(string: "2A37"),
+      characteristic.service?.uuid == CBUUID(string: "180D")
+    else { return }
     status =
       error == nil && characteristic.isNotifying
       ? "Listening for live heart rate"
@@ -456,7 +725,11 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       error == nil, let data = characteristic.value, let id = mapping[peripheral.identifier],
       registeredIDs.contains(id), connectionLedger.state(id) == .connected, !isPaused(id)
     else { return }
-    if characteristic.uuid == CBUUID(string: "2A19"),
+    if characteristic.service?.uuid == Self.service4
+      || characteristic.service?.uuid == Self.service5
+    {
+      receiveHistory(data, peripheral: peripheral, characteristic: characteristic, id: id)
+    } else if characteristic.uuid == CBUUID(string: "2A19"),
       characteristic.service?.uuid == CBUUID(string: "180F"),
       peripheral.services?.filter({ $0.uuid == CBUUID(string: "180F") }).count == 1
     {
@@ -482,7 +755,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     } else if characteristic.uuid == CBUUID(string: "2A26"),
       let text = String(data: data, encoding: .utf8)
     {
-      firmware[id] = text.trimmingCharacters(in: .controlCharacters)
+      firmware[id] =
+        historyLinks[id]?.applicationFirmware ?? text.trimmingCharacters(in: .controlCharacters)
       onMetadata?(id, firmware[id], identity[id])
     } else if characteristic.uuid == CBUUID(string: "2A25"), generations[id] == .whoop5,
       let serial = String(data: data, encoding: .utf8), !serial.isEmpty

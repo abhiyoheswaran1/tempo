@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftUI
 import TempoCore
+import UIKit
 import WidgetKit
 
 @MainActor @Observable final class AppModel {
@@ -134,6 +135,9 @@ import WidgetKit
       if let store { health = HealthService(store: store) }
       try await load()
       bluetooth.onConnectionChange = { [weak self] in self?.scheduleFallback() }
+      bluetooth.onHistoryChunk = { [weak self] id, session, chunk in
+        self?.enqueueHistory(id: id, session: session, chunk: chunk)
+      }
       bluetooth.onSample = { [weak self] m in self?.enqueueSample(m) }
       bluetooth.onGeneration = { [weak self] id, generation in
         self?.mutate { [weak self] in
@@ -167,6 +171,69 @@ import WidgetKit
     } catch {
       errorMessage =
         "Local storage could not open. Collection is paused: \(error.localizedDescription)"
+    }
+  }
+  private struct StoredHistoryCheckpoint: Codable {
+    var token: Data
+    var committedAt: Date
+    var firmware: String
+  }
+  private func enqueueHistory(id: UUID, session: UUID, chunk: HistoryChunk) {
+    guard !demo, !transitioningDataset, let store,
+      devices.contains(where: { $0.id == id })
+    else { return }
+    let preceding = collectionTask
+    collectionTask = Task { [weak self] in
+      await preceding?.value
+      guard let self, !self.demo, !self.transitioningDataset, self.store === store else { return }
+      let assertion = UIApplication.shared.beginBackgroundTask(withName: "Commit band history") {
+        self.bluetooth.historyChunkFailed(deviceID: id, session: session)
+      }
+      defer { if assertion != .invalid { UIApplication.shared.endBackgroundTask(assertion) } }
+      do {
+        let (samples, rejected) = try await Task.detached(priority: .utility) {
+          var samples: [TempoCore.Measurement] = []
+          var rejected: [Data] = []
+          for raw in chunk.frames {
+            let frame = try WhoopFrame.parse(raw, generation: .whoop4)
+            if frame.type == 47 {
+              do {
+                samples += try Whoop4History.decode(frame, deviceID: id, firmware: "41.17.6.0")
+              } catch { rejected.append(raw) }
+            }
+          }
+          return (Dictionary(grouping: samples, by: \.id).compactMap { $0.value.first }, rejected)
+        }.value
+        guard !self.demo, !self.transitioningDataset, self.store === store else { return }
+        let cursor = try JSONEncoder().encode(
+          StoredHistoryCheckpoint(
+            token: chunk.token,
+            committedAt: Date(), firmware: "41.17.6.0"))
+        try await store.commitHistory(
+          deviceID: id, samples: samples, cursor: cursor,
+          rejectedFrames: rejected, rawFrames: chunk.frames)
+        guard !self.demo, !self.transitioningDataset, self.store === store else { return }
+        // Normal transfer acknowledgement only after immutable samples, raw frames and checkpoint commit.
+        self.bluetooth.historyChunkCommitted(
+          deviceID: id, session: session, token: chunk.token, count: samples.count)
+        let cutoff = Date().addingTimeInterval(-2 * 86400)
+        let existing = Set(self.measurements.map(\.id))
+        self.measurements += samples.filter { $0.timestamp >= cutoff && !existing.contains($0.id) }
+        self.latestReadings.ingest(samples, now: Date())
+        if let first = samples.map(\.timestamp).min(), let last = samples.map(\.timestamp).max() {
+          for sleep in self.sleeps.prefix(29) where sleep.start <= last && sleep.end > first {
+            let inputs = try? await store.nightInputs(sleep, sourceSegments: self.sourceSegments)
+            guard self.store === store, !self.demo else { return }
+            self.nightMetrics[sleep.id] = inputs
+          }
+        }
+        self.historyGeneration &+= 1
+        self.refreshPresentedSummary()
+        self.scheduleSnapshot()
+      } catch {
+        self.bluetooth.historyChunkFailed(deviceID: id, session: session)
+        self.errorMessage = "Retrieved history could not commit. The band was not acknowledged."
+      }
     }
   }
   private func enqueueSample(_ m: TempoCore.Measurement) {
@@ -248,6 +315,7 @@ import WidgetKit
       await self.syncIfNeeded()
       self.refreshPresentedSummary()
       self.bluetooth.refreshBatteryIfNeeded()
+      self.bluetooth.refreshHistoryIfNeeded()
       self.writeWidget()
       self.refreshTask = nil
     }
@@ -331,6 +399,16 @@ import WidgetKit
     }
     await refreshSyncSummary()
     guard generation == loadGeneration, self.store === store else { return }
+    if !demo {
+      for device in devices {
+        if let data = try await store.checkpoint(deviceID: device.id),
+          let checkpoint = try? decoder.decode(StoredHistoryCheckpoint.self, from: data)
+        {
+          guard generation == loadGeneration, self.store === store else { return }
+          bluetooth.lastHistoryCommit[device.id] = checkpoint.committedAt
+        }
+      }
+    }
     historyGeneration &+= 1
     latestReadings = LatestBandReadings()
     latestReadings.ingest(measurements, now: Date(), allowSynthetic: demo)
@@ -477,6 +555,7 @@ import WidgetKit
       bluetooth.resumeCollection(
         preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
       bluetooth.refreshBatteryIfNeeded()
+      bluetooth.refreshHistoryIfNeeded(force: true)
       scheduleFallback(immediate: true)
       if syncEnabled { await sync() }
     }
@@ -506,6 +585,7 @@ import WidgetKit
     bluetooth.resumeCollection(
       preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
     bluetooth.refreshBatteryIfNeeded()
+    bluetooth.refreshHistoryIfNeeded()
     refreshPresentedSummary()
     scheduleFallback(immediate: true)
     await refreshSyncSummary()

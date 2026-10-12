@@ -118,8 +118,18 @@ struct BandStatusSheet: View {
           NavigationLink("Manage and reconnect bands") { DevicesView() }
         }
         Section("History retrieval") {
-          LabeledContent("Band history retrieval", value: "Unavailable in this build")
-          Text("Live receipt is separate from retrieving stored band history.")
+          if model.demo || model.devices.isEmpty {
+            LabeledContent("Band history retrieval", value: model.demo ? "Unavailable in demo" : "Connect a band to check support")
+          } else {
+            ForEach(model.devices) { device in
+              LabeledContent(device.name, value: model.bluetooth.historyStatus[device.id] ?? "History connection not established")
+              LabeledContent("Application firmware", value: model.bluetooth.historyApplicationFirmware(device.id) ?? "Not confirmed")
+              if let date = model.bluetooth.lastHistoryCommit[device.id] {
+                LabeledContent("Last stored history chunk", value: date.formatted(date: .abbreviated, time: .standard))
+              }
+            }
+          }
+          Text("Live receipt is separate from stored history. Whoop4 retrieval is experimental for supported firmware; Whoop5 history is not validated. Gaps remain visible until actual records arrive.")
             .font(.caption).foregroundStyle(.secondary)
         }
         Section("iCloud") { SyncStatusRow() }
