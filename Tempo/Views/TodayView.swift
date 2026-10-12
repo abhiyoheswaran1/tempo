@@ -3,178 +3,177 @@ import TempoCore
 
 struct TodayView: View {
   @Environment(AppModel.self) var model
+  @Environment(\.dynamicTypeSize) private var textSize
   @State private var journal = false
   @State private var sleep = false
-  @ScaledMetric(relativeTo: .largeTitle) private var scoreSize = 48
+  @ScaledMetric(relativeTo: .largeTitle) private var scoreSize = 42
   var body: some View {
-    let readiness = model.readiness
-    let lastSleep = SleepPresentation(sessions: model.sleeps, now: Date())
-    let today = model.canonical.filter { Calendar.current.isDateInToday($0.timestamp) }
-    let load = CardiovascularLoad.calculate(today, maxHeartRate: model.maxHeartRate)
-    ScrollView {
-      VStack(alignment: .leading, spacing: 16) {
-        ViewThatFits(in: .horizontal) {
-          HStack(spacing: 8) {
-            brand
-            Spacer()
-            dateLabel.fixedSize()
+    TimelineView(.periodic(from: .now, by: 60)) { _ in todayContent }
+  }
+  private var todayContent: some View {
+    let readiness = model.todayReadiness
+    let latestSleep = SleepPresentation(sessions: model.sleeps, now: Date())
+    return ScrollView {
+      VStack(alignment: .leading, spacing: 18) {
+        let headerLayout = textSize.isAccessibilitySize
+          ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+          : AnyLayout(HStackLayout())
+        headerLayout {
+          HStack {
+          Image("TempoMark").resizable().scaledToFit().frame(width: 22, height: 22)
+            .foregroundStyle(.teal).accessibilityHidden(true)
+          Text("Tempo").font(.subheadline.weight(.semibold)).accessibilityIdentifier(
+            "tempo-brand-name")
           }
-          VStack(alignment: .leading, spacing: 6) {
-            brand
-            dateLabel
-          }
+          if !textSize.isAccessibilitySize { Spacer() }
+          Text(Date(), format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
+            .font(.subheadline).foregroundStyle(.secondary)
         }
-        Text(readiness.score == nil ? "Your day, as it unfolds" : headline(readiness))
+        Text(readiness.score == nil ? "Your day, at a glance" : headline(readiness))
           .font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-        if readiness.score == nil {
-          TodayCollectionPanel()
-          baselineProgress(readiness)
-        } else {
-          VStack(alignment: .leading, spacing: 12) {
-            ViewThatFits(in: .horizontal) {
-              HStack(alignment: .firstTextBaseline) {
-                Text("Readiness").font(.headline).fixedSize()
-                Spacer()
-                Text("Tempo estimate").font(.caption).foregroundStyle(.secondary).fixedSize()
-              }
+        if let score = readiness.score {
+          VStack(alignment: .leading, spacing: 10) {
+            let readinessLayout = textSize.isAccessibilitySize
+              ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+              : AnyLayout(HStackLayout(alignment: .center, spacing: 16))
+            readinessLayout {
+              Text(score.formatted()).font(
+                .system(size: scoreSize, weight: .semibold, design: .rounded)
+              )
+              .monospacedDigit().accessibilityLabel("Readiness \(score)")
               VStack(alignment: .leading, spacing: 4) {
                 Text("Readiness").font(.headline)
-                Text("Tempo estimate").font(.caption).foregroundStyle(.secondary)
+                Text(EvidenceLevel(confidence: readiness.confidence).title).font(.subheadline)
+                  .foregroundStyle(.secondary)
+                Text("Tempo estimate · personal baseline").font(.caption).foregroundStyle(
+                  .secondary)
               }
             }
-            ViewThatFits(in: .horizontal) {
-              HStack(alignment: .firstTextBaseline, spacing: 20) {
-                score(readiness)
-                evidence(readiness).fixedSize()
-              }
-              VStack(alignment: .leading, spacing: 8) {
-                score(readiness)
-                evidence(readiness)
-              }
-            }
-            NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(
-              .subheadline)
-          }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(
-            Color(uiColor: .secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 24))
-          TodayCollectionPanel()
+            calculationLink
+          }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(
+            cardBackground, in: RoundedRectangle(cornerRadius: 22))
         }
-        VStack(spacing: 14) {
-          VStack(alignment: .leading, spacing: 6) {
-            if let last = lastSleep.session {
-              NavigationLink {
-                SleepDetailView(sleep: last)
-              } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                  ViewThatFits(in: .horizontal) {
-                    HStack {
-                      Text(lastSleep.title).font(.headline).accessibilityIdentifier(
-                        "today-sleep-summary")
-                      Spacer()
-                      Text(durationText(last.duration)).font(.title3.weight(.medium))
-                        .monospacedDigit()
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                      Text(lastSleep.title).font(.headline).accessibilityIdentifier(
-                        "today-sleep-summary")
-                      Text(durationText(last.duration)).font(.title3.weight(.medium))
-                        .monospacedDigit()
-                    }
-                  }
-                  Text(
-                    "\(last.end.formatted(date: .abbreviated, time: .omitted)) · \(last.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened)) · \(last.origin == .manual ? "Entered" : last.origin.rawValue.capitalized)"
-                  )
-                  .font(.caption).foregroundStyle(.secondary)
-                }.contentShape(Rectangle())
-              }.tint(.primary)
-            } else {
-              Text(lastSleep.title).font(.headline).accessibilityIdentifier("today-sleep-summary")
-              Text("Add sleep to begin your overnight history.").font(.subheadline).foregroundStyle(
-                .secondary)
-              Button("Add sleep") { sleep = true }.font(.subheadline)
-            }
-          }.frame(maxWidth: .infinity, alignment: .leading)
-          Divider()
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Today's movement").font(.headline).accessibilityIdentifier(
-              "today-movement-summary")
-            MetricRow(
-              label: "Cardiovascular load",
-              value: (load?.coveredSeconds ?? 0) > 60
-                ? String(format: "%.0f", load?.points ?? 0) : "Not enough data",
-              detail:
-                "\(model.workouts.filter { Calendar.current.isDateInToday($0.start) }.count) workouts · HR-based estimate"
-            )
-          }.frame(maxWidth: .infinity, alignment: .leading)
+        TodayCollectionPanel()
+        if textSize.isAccessibilitySize {
+          sleepSummary(latestSleep)
+          movementSummary
+        } else {
+          HStack(alignment: .top, spacing: 12) {
+            sleepSummary(latestSleep)
+            movementSummary
+          }
         }
+        if readiness.score == nil { baselineProgress(readiness) }
         Button {
           journal = true
         } label: {
-          Label("How do you feel?", systemImage: "square.and.pencil").frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-        }.buttonStyle(.bordered)
+          HStack {
+            Image(systemName: "square.and.pencil")
+            Text("How do you feel?")
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption)
+          }.frame(minHeight: 44).contentShape(Rectangle())
+        }.buttonStyle(.plain).tint(.teal).padding(.horizontal, 4)
       }.padding(20)
     }.refreshable { await model.refreshToday() }
       .background(Color(uiColor: .systemGroupedBackground)).navigationTitle("Today")
-      .navigationBarTitleDisplayMode(.inline)
+      .navigationBarTitleDisplayMode(.large)
       .sheet(isPresented: $journal) { NavigationStack { JournalEditor() } }
       .sheet(isPresented: $sleep) { NavigationStack { SleepEditor() } }
   }
-  func baselineProgress(_ result: ReadinessResult) -> some View {
+  private var cardBackground: Color { Color(uiColor: .secondarySystemGroupedBackground) }
+  private var calculationLink: some View {
+    NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
+  }
+  private func sleepSummary(_ value: SleepPresentation) -> some View {
+    Group {
+      if let last = value.session {
+        NavigationLink {
+          SleepDetailView(sleep: last)
+        } label: {
+          VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "bed.double").foregroundStyle(.indigo).accessibilityHidden(true)
+            Text(value.title).font(.subheadline.weight(.semibold)).accessibilityIdentifier(
+              "today-sleep-summary")
+            Text(durationText(last.duration)).font(.title2.weight(.semibold)).monospacedDigit()
+            Text(
+              "\(last.start.formatted(date: .omitted, time: .shortened))–\(last.end.formatted(date: .omitted, time: .shortened))"
+            )
+            .font(.caption).foregroundStyle(.secondary)
+            Text(
+              "\(last.end.formatted(date: .abbreviated, time: .omitted)) · \(last.origin == .manual ? "Entered" : last.origin.rawValue.capitalized)"
+            )
+            .font(.caption).foregroundStyle(.secondary)
+          }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+        }.buttonStyle(.plain).tint(.primary)
+      } else {
+        VStack(alignment: .leading, spacing: 8) {
+          Image(systemName: "bed.double").foregroundStyle(.indigo).accessibilityHidden(true)
+          Text(value.title).font(.subheadline.weight(.semibold)).accessibilityIdentifier(
+            "today-sleep-summary")
+          Text("No sleep recorded").font(.subheadline).foregroundStyle(.secondary)
+          Button("Add sleep") { sleep = true }.font(.subheadline)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+      }
+    }.padding(16).frame(maxWidth: .infinity, alignment: .topLeading).background(
+      cardBackground, in: RoundedRectangle(cornerRadius: 22))
+  }
+  private var movementSummary: some View {
+    NavigationLink {
+      ActivityView()
+    } label: {
+      VStack(alignment: .leading, spacing: 8) {
+        Image(systemName: "figure.walk").foregroundStyle(.teal).accessibilityHidden(true)
+        Text("Today's movement").font(.subheadline.weight(.semibold)).accessibilityIdentifier(
+          "today-movement-summary")
+        if let load = model.todayLoad, load.coveredSeconds > 60 {
+          Text(String(format: "%.0f", load.points)).font(.title2.weight(.semibold))
+            .monospacedDigit()
+          Text("Cardiovascular load").font(.caption).foregroundStyle(.secondary)
+        } else {
+          Text("Building coverage").font(.subheadline).foregroundStyle(.secondary)
+        }
+        Text("\(model.workouts.filter { Calendar.current.isDateInToday($0.start) }.count) workouts")
+          .font(.caption).foregroundStyle(.secondary)
+        Text("HR-based estimate").font(.caption).foregroundStyle(.secondary)
+      }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+        .padding(16).background(cardBackground, in: RoundedRectangle(cornerRadius: 22))
+    }.buttonStyle(.plain).tint(.primary)
+  }
+  private func baselineProgress(_ result: ReadinessResult) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text("Readiness").font(.subheadline.weight(.semibold))
-        Spacer()
-        if result.baselineDays < 7 {
-          Text("\(result.baselineDays) of 7 nights").font(.caption).foregroundStyle(.secondary)
+      ViewThatFits(in: .horizontal) {
+        HStack {
+          Text("Readiness").font(.subheadline.weight(.semibold)).fixedSize()
+          Spacer()
+          Text("\(min(7, result.baselineDays)) of 7 nights").font(.caption).foregroundStyle(
+            .secondary
+          ).fixedSize()
+        }
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Readiness").font(.subheadline.weight(.semibold))
+          Text("\(min(7, result.baselineDays)) of 7 nights").font(.caption).foregroundStyle(
+            .secondary)
         }
       }
       Text(headline(result)).font(.subheadline).accessibilityIdentifier("baseline-progress")
       if result.baselineDays < 7 {
-        ProgressView(value: Double(result.baselineDays), total: 7)
-          .accessibilityLabel("Personal baseline progress")
-          .accessibilityValue("\(result.baselineDays) of 7 qualifying nights")
+        ProgressView(value: Double(result.baselineDays), total: 7).accessibilityLabel(
+          "Personal baseline progress"
+        )
+        .accessibilityValue("\(result.baselineDays) of 7 qualifying nights")
       }
-      NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
-    }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-      .background(
-        Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+      calculationLink
+    }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+      .background(cardBackground, in: RoundedRectangle(cornerRadius: 22))
   }
-  var brand: some View {
-    HStack(spacing: 8) {
-      Image("TempoMark").resizable().scaledToFit().foregroundStyle(.teal).frame(
-        width: 24, height: 24
-      ).accessibilityHidden(true)
-      Text("Tempo").font(.subheadline.weight(.semibold)).accessibilityIdentifier("tempo-brand-name")
-    }.fixedSize()
-  }
-  var dateLabel: some View {
-    Text(Date(), format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(
-      .subheadline
-    ).foregroundStyle(.secondary)
-  }
-  func headline(_ result: ReadinessResult) -> String {
+  private func headline(_ result: ReadinessResult) -> String {
     if result.baselineDays < 7 { return "Building your baseline" }
     guard let score = result.score else { return "More overnight data needed" }
     return score < 50 ? "A lighter day may suit you" : "Close to your usual range"
   }
-  func score(_ result: ReadinessResult) -> some View {
-    Text(result.score.map(String.init) ?? "—").font(
-      .system(size: scoreSize, weight: .semibold, design: .rounded)
-    ).monospacedDigit().accessibilityLabel(
-      result.score.map { "Readiness \($0)" } ?? "Readiness unavailable")
-  }
-  func evidence(_ result: ReadinessResult) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(EvidenceLevel(confidence: result.confidence).title).font(.subheadline.weight(.medium))
-      Text(
-        result.baselineDays < 7
-          ? "\(result.baselineDays) of 7 nights to begin"
-          : "\(result.baselineDays) personal baseline nights"
-      ).font(.caption).foregroundStyle(.secondary)
-    }
-  }
 }
+
 struct ReadinessDetailView: View {
   @Environment(AppModel.self) var model
   var body: some View {

@@ -171,6 +171,10 @@ extension TempoUITests {
     wait(
       for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
       timeout: 30)
+    XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Readiness"].waitForExistence(timeout: 5))
+    // Allow native large-title/layout presentation to settle before recording the real frame.
+    Thread.sleep(forTimeInterval: 1)
     let attachment = XCTAttachment(screenshot: app.screenshot())
     attachment.name = "today-dark-large-text-demo"
     attachment.lifetime = .keepAlways

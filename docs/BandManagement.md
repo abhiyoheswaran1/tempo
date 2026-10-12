@@ -26,7 +26,7 @@ Current community documentation describes proprietary command84, but that is not
 
 ## Live dashboard
 
-The dashboard shows direct heart rate, a five-minute source-specific chart, covered-time average, observed range, covered time, estimated zone, source/contact status, latest supplied R–R intervals and workout controls. A connected sample no older than10seconds is labelled live; up to90seconds is recent, and older readings are stale. Repeated display of an old number is not labelled a live stream. Chart gaps over10seconds are disconnected; load excludes those intervals. Latest intervals are not an overnight HRV result. Unsupported oxygen, temperature and battery values remain unavailable.
+The dashboard shows direct heart rate, a four-hour canonical chart with 15-minute/one-hour options, covered-time average, observed range, covered time, estimated zone, source/contact status, latest supplied R–R intervals and workout controls. A connected sample no older than10seconds is labelled live; up to90seconds is recent, and older readings are stale. Repeated display of an old number is not labelled a live stream. Chart gaps over10seconds are disconnected; load excludes those intervals. Latest intervals are not an overnight HRV result. Unsupported oxygen and temperature remain unavailable. Optional battery reports follow the bounded standard-service policy in ProtocolResearch; absent reports stay unavailable.
 
 ## Automatic refresh and timestamps
 
@@ -61,3 +61,5 @@ Live centres on current/recent HR and the five-minute chart. A stale pulse moves
 Live now defaults to four hours of locally stored direct band HR, with15-minute/one-hour options. A bounded40,000-record query filters HR/origin before its limit and yields while decoding. Up to960 original first/last/min/max points are plotted; gap series are computed before reduction, isolated readings have point marks, and statistics use all qualifying canonical inputs. Query failures, truncation and missing readings remain explicit. Refresh occurs on the visible screen at20-second intervals; this is not a background-execution promise.
 
 The powered-state fix guards central stop/cancel/connect/scan commands and defers restoration work until powered on. Demo suspension cannot revive a restored connection. Reset/unsupported/permission failures invalidate peripheral handles. [Apple’s central-state contract](https://developer.apple.com/documentation/corebluetooth/cbcentralmanagerdelegate/centralmanagerdidupdatestate(_:)) supports these guards. Exact origin of the owner's warning was not captured; identified unsafe paths are corrected, while physical lifecycle validation remains C03.
+
+Battery parsing, rate limits, freshness and hardware boundary: [ProtocolResearch](ProtocolResearch.md#optional-standard-battery-report).

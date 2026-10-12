@@ -9,7 +9,7 @@
 | History | Experimental v24 and separate v25 | Experimental/version dependent | Decoder/cursor API; full retrieval disabled |
 | Motion | Experimental raw layouts | Experimental R21/streams | Disabled |
 | Verified wear | Experimental retained contact interpretations | Unknown/incomplete | SIG contact flag when supplied; hardware behavior unverified |
-| Battery | Experimental proprietary reading; SIG may always say100 | Experimental proprietary response | Unavailable pending instance validation |
+| Battery | Experimental proprietary reading; SIG may always say100 | Experimental proprietary response | Optional single-instance SIG BAS report; accuracy unverified |
 | Temperature | Unsupported calibrated value from raw ADC | Experimental R18 on some firmware | Unavailable |
 | Respiration | Unsupported calibrated value from raw fields | Unsupported valid rate | Unavailable |
 | SpO2 | Unsupported calibrated percentage | Unsupported offline calibrated percentage | Unavailable |

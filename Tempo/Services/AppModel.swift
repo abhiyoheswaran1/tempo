@@ -14,6 +14,12 @@ import WidgetKit
   var lastCloudSync: Date?
   var pendingCloudChanges = 0
   var measurements: [TempoCore.Measurement] = []
+  private var latestReadings = LatestBandReadings()
+  private var displayedReadiness: ReadinessResult?
+  private var displayedLoad: LoadResult?
+  private var displayedStore: ObjectIdentifier?
+  private var displayedDate: Date?
+  private var displayedSleepID: UUID?
   var nightMetrics: [UUID: [String: Double]] = [:]
   var workouts: [Workout] = []
   var detectedActivities: [DetectedActivityDecision] = []
@@ -47,9 +53,37 @@ import WidgetKit
     CanonicalTimeline.select(measurements, sourceSegments: sourceSegments)
   }
   var lastSample: TempoCore.Measurement? {
-    LiveSampleSelection.latest(
-      Array(bluetooth.lastSamples.values) + measurements, selectedDeviceID: selector.activeID,
-      now: Date(), allowSynthetic: demo)
+    guard !transitioningDataset else { return nil }
+    return LiveSampleSelection.latest(
+      Array(bluetooth.lastSamples.values)
+        + (latestReadings.latest(
+          selectedDeviceID: selector.activeID, now: Date(), allowSynthetic: demo
+        ).map { [$0] } ?? []),
+      selectedDeviceID: selector.activeID, now: Date(), allowSynthetic: demo)
+  }
+  var todayReadiness: ReadinessResult {
+    if displayedStore == store.map(ObjectIdentifier.init), let displayedDate,
+      Calendar.current.isDateInToday(displayedDate), displayedSleepID == readinessSleep?.id,
+      let displayedReadiness
+    {
+      return displayedReadiness
+    }
+    return readiness
+  }
+  var todayLoad: LoadResult? {
+    guard displayedStore == store.map(ObjectIdentifier.init), let displayedDate,
+      Calendar.current.isDateInToday(displayedDate)
+    else { return nil }
+    return displayedLoad
+  }
+  private func refreshPresentedSummary() {
+    guard let store else { return }
+    displayedReadiness = readiness
+    displayedSleepID = readinessSleep?.id
+    displayedLoad = CardiovascularLoad.calculate(
+      canonical.filter { Calendar.current.isDateInToday($0.timestamp) }, maxHeartRate: maxHeartRate)
+    displayedStore = ObjectIdentifier(store)
+    displayedDate = Date()
   }
   var finishedWorkout: Workout?
   var readinessSleep: SleepSession? {
@@ -146,6 +180,7 @@ import WidgetKit
       do {
         try await store.insert([m])
         self.measurements.append(m)
+        self.latestReadings.ingest([m], now: Date(), allowSynthetic: self.demo)
         // Keep only the visible recent window in memory. Older history remains in SQLite.
         let cutoff = Date().addingTimeInterval(-2 * 86400)
         self.measurements.removeAll { $0.timestamp < cutoff }
@@ -211,6 +246,8 @@ import WidgetKit
       guard let self else { return }
       await self.refreshSyncSummary()
       await self.syncIfNeeded()
+      self.refreshPresentedSummary()
+      self.bluetooth.refreshBatteryIfNeeded()
       self.writeWidget()
       self.refreshTask = nil
     }
@@ -295,6 +332,9 @@ import WidgetKit
     await refreshSyncSummary()
     guard generation == loadGeneration, self.store === store else { return }
     historyGeneration &+= 1
+    latestReadings = LatestBandReadings()
+    latestReadings.ingest(measurements, now: Date(), allowSynthetic: demo)
+    refreshPresentedSummary()
     writeWidget()
   }
   func save<T: Codable & Identifiable>(_ value: T, kind: String) async throws where T.ID == UUID {
@@ -436,6 +476,7 @@ import WidgetKit
     if !demo {
       bluetooth.resumeCollection(
         preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
+      bluetooth.refreshBatteryIfNeeded()
       scheduleFallback(immediate: true)
       if syncEnabled { await sync() }
     }
@@ -464,6 +505,8 @@ import WidgetKit
     guard !demo else { return }
     bluetooth.resumeCollection(
       preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
+    bluetooth.refreshBatteryIfNeeded()
+    refreshPresentedSummary()
     scheduleFallback(immediate: true)
     await refreshSyncSummary()
     await syncIfNeeded()
@@ -692,6 +735,10 @@ import WidgetKit
       demo = false
       devices = []
       measurements = []
+      latestReadings = LatestBandReadings()
+      displayedReadiness = nil
+      displayedLoad = nil
+      displayedStore = nil
       workouts = []
       sleeps = []
       selector = SourceSelector()

@@ -242,3 +242,39 @@ public struct TrendRefreshIdentity: Hashable, Sendable {
     }
   }
 }
+
+/// Small per-device index avoids scanning all recent observations for every live render.
+public struct LatestBandReadings: Sendable {
+  private var samples: [UUID: Measurement] = [:]
+  public init() {}
+  public mutating func ingest(_ input: [Measurement], now: Date, allowSynthetic: Bool = false) {
+    for (id, values) in Dictionary(grouping: input, by: \.deviceID) {
+      if let newest = LiveSampleSelection.latest(
+        values + (samples[id].map { [$0] } ?? []),
+        selectedDeviceID: id, now: now, allowSynthetic: allowSynthetic)
+      {
+        samples[id] = newest
+      }
+    }
+  }
+  public func latest(selectedDeviceID: UUID?, now: Date, allowSynthetic: Bool = false)
+    -> Measurement?
+  {
+    LiveSampleSelection.latest(
+      Array(samples.values), selectedDeviceID: selectedDeviceID,
+      now: now, allowSynthetic: allowSynthetic)
+  }
+}
+public struct BatteryReading: Sendable {
+  public let percent: Int
+  public let receivedAt: Date
+  public enum Failure: Error { case malformed }
+  public static func parse(_ data: Data, at date: Date) throws -> Self {
+    guard data.count == 1, let value = data.first, value <= 100 else { throw Failure.malformed }
+    return Self(percent: Int(value), receivedAt: date)
+  }
+  public func isFresh(at now: Date) -> Bool {
+    let age = now.timeIntervalSince(receivedAt)
+    return age.isFinite && age >= -5 && age <= 3600
+  }
+}

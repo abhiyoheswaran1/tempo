@@ -12,3 +12,9 @@ Software verification sequence: record six recommendations (UX12–16 plus exist
 Physical gates C01/C03/C04/S01/V01/V05 remain open. No new protocol commands, historical transfer, cloud scheduling or medical analytics are introduced by this UI pass.
 
 Recorded recommendations: 1 collection UX12, 2 Today UX13, 3 workout detail UX09, 4 fast journal UX16, 5 Trends UX14, 6 Live UX15. Completed outcomes move to Completed.md; unresolved items remain in Improvements.md. Source metadata for removed registrations remains named as archived in Trends; Live requires a current registered source.
+
+## Today redesign and render cost
+
+Today uses a native large navigation title, one rule-based headline, compact justified readiness, a prominent live-reading entry and paired sleep/movement summaries. Accessibility sizes stack summaries vertically. Refresh and separate collection/iCloud timestamps stay together; journal is a simple footer entry. Content remains opaque, with native navigation glass. Missing and stale readings retain explicit states.
+
+A per-device latest-valid-HR index replaces full history scans on every live render. Readiness and daily load refresh after load, foregrounding and the existing coalesced snapshot; the readiness cache also checks the currently eligible sleep, so its 36-hour limit cannot be hidden by caching. A visible minute timeline refreshes date/expiry; it does not promise background execution. The optional reported battery header expires after one hour and exposes its value to VoiceOver.

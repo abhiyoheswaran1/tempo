@@ -82,6 +82,15 @@ struct BandStatusSheet: View {
                 value: model.demo
                   ? "Not available in demo"
                   : model.bluetooth.wearStatus(device.id, now: context.date))
+              if !model.demo, let battery = model.bluetooth.battery[device.id] {
+                LabeledContent("Reported battery", value: "\(battery.percent)%")
+                Text("Standard Bluetooth battery report · accuracy unverified on this band")
+                  .font(.caption).foregroundStyle(.secondary)
+                Text("Received \(battery.receivedAt.formatted(date: .abbreviated, time: .standard))\(battery.isFresh(at: context.date) ? "" : " · stale")")
+                  .font(.caption).foregroundStyle(.secondary)
+              } else {
+                Text("Battery report unavailable").font(.caption).foregroundStyle(.secondary)
+              }
               let placement = PlacementTimeline.resolve(
                 deviceID: device.id, at: context.date, records: model.placements)
               NavigationLink("Placement · \(placement.title)") { PlacementView(device: device) }
@@ -501,24 +510,44 @@ struct LiveHistorySection: View {
 
 struct TodayCollectionPanel: View {
   @Environment(AppModel.self) var model
+  @ScaledMetric(relativeTo: .largeTitle) private var readingSize = 52
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 12) {
         NavigationLink {
           LiveDashboardView()
         } label: {
-          HStack(spacing: 10) {
-            Image(systemName: "waveform.path.ecg").font(.title3).foregroundStyle(.teal)
-              .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-              Text("Live dashboard").font(.headline)
-              Text("Heart rate & four-hour history").font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
-              .accessibilityHidden(true)
-          }.contentShape(Rectangle()).frame(minHeight: 44)
+          TimelineView(.periodic(from: .now, by: 1)) { context in
+            let reading = model.collectionReading(at: context.date)
+            HStack(spacing: 12) {
+              VStack(alignment: .leading, spacing: 6) {
+                if let bpm = reading.displayedBPM {
+                  Text(
+                    model.demo
+                      ? "Synthetic heart rate"
+                      : (reading.state == .live ? "Live heart rate" : "Recent heart rate")
+                  )
+                  .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                  HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(bpm.formatted()).font(
+                      .system(size: readingSize, weight: .semibold, design: .rounded)
+                    )
+                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                    Text("bpm").font(.subheadline).foregroundStyle(.secondary)
+                  }
+                } else {
+                  Label("Live dashboard", systemImage: "waveform.path.ecg").font(.headline)
+                  Text("Your live readings and four-hour history").font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
+              }
+              Spacer(minLength: 0)
+              Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            }.frame(minHeight: 60).contentShape(Rectangle())
+          }
         }.buttonStyle(.plain).accessibilityLabel("Live dashboard")
+          .accessibilityValue(model.collectionReading(at: Date()).displayedBPM.map { "\($0) beats per minute" } ?? "No current reading")
         Button {
           Task { await model.refreshToday() }
         } label: {

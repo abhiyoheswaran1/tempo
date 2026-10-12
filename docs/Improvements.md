@@ -6,11 +6,10 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
+| C05 | P0 in progress | Owner-reported Whoop5 live-history gap around18:25–18:44 despite continuous wear. Full catch-up is unavailable; implement only evidence-backed non-destructive history transport, atomic batches/cursors and reconnect recovery; preserve per-generation firmware/authentication limits. No personal screenshot committed. |
 | D01 | P1 awaiting hardware | Exact QuartzCore message reproduced in independent minimal NavigationStack app without BLE/cloud; [evidence](RenderingDiagnostics.md). Confirm physical OS/action and any freeze/flicker/crash before an app workaround. No log suppression or fixed claim. |
 | D02 | P1 awaiting physical validation | CFPrefs App Group diagnostic: local signed app/widget groups match signatures and provisioning; user confirms signed phone widget timestamp updates (2026-10-12); warning persists without a reported timestamp-sharing failure. Verify other summary fields/relaunch under V01. No group renaming to suppress logs. |
 | D03 | P1 awaiting physical validation | PointerUI non-launching-port diagnostic: check minimal native/runtime logs, distinguish input service from BLE/cloud and retain physical OS/failure boundary. |
-| UX18 | P1 in progress | Header battery percentage only for an actually exposed supported battery feed; reject malformed/stale data, disclose unavailable BAS and preserve physical E01 gate. |
-| UX19 | P1 in progress | Drastic Today hierarchy: live hero, useful daily summaries, compact readiness/baseline and quiet sync/refresh; reduce per-reading render work, preserve missing/stale/provenance and accessible controls; fresh captures. |
 | UX16 | P2 open | Fast journal: energy/soreness/mood first, optional behaviours afterwards, Today check-in completion with Edit; unknown answers stay unknown. Routine check-in under 30 seconds requires usability validation. |
 | UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
 

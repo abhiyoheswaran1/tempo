@@ -232,3 +232,42 @@ extension PresentationTests {
     XCTAssertNil(reading.displayedBPM)
   }
 }
+
+extension PresentationTests {
+  func testLatestBandCacheRetainsValidSourceAndRejectsImportedOffBodyReplacement() {
+    let now = Date()
+    let id = UUID()
+    var cache = LatestBandReadings()
+    let valid = Measurement(
+      deviceID: id, kind: .heartRate, timestamp: now.addingTimeInterval(-5), value: 80,
+      origin: .measured, transport: "fixture")
+    var imported = valid
+    imported.timestamp = now
+    imported.origin = .imported
+    var offBody = valid
+    offBody.timestamp = now
+    offBody.wear = .offBody
+    cache.ingest([valid, imported, offBody], now: now)
+    XCTAssertEqual(cache.latest(selectedDeviceID: id, now: now)?.value, 80)
+    XCTAssertNil(cache.latest(selectedDeviceID: UUID(), now: now))
+  }
+  func testBatteryRejectsMissingMalformedAndStaleValuesInsteadOfZero() throws {
+    XCTAssertEqual(try BatteryReading.parse(Data([0]), at: Date()).percent, 0)
+    XCTAssertEqual(try BatteryReading.parse(Data([100]), at: Date()).percent, 100)
+    XCTAssertThrowsError(try BatteryReading.parse(Data(), at: Date()))
+    XCTAssertThrowsError(try BatteryReading.parse(Data([101]), at: Date()))
+    XCTAssertThrowsError(try BatteryReading.parse(Data([50, 50]), at: Date()))
+    let now = Date()
+    let reading = try BatteryReading.parse(Data([52]), at: now.addingTimeInterval(-3601))
+    XCTAssertFalse(reading.isFresh(at: now))
+  }
+}
+
+extension PresentationTests {
+  func testReadinessSleepExpiresWithoutAnotherObservation() {
+    let end = Date(timeIntervalSince1970: 1_800_000_000)
+    let sleep = SleepSession(start: end.addingTimeInterval(-8 * 3600), end: end, timeZoneID: "UTC", origin: .manual)
+    XCTAssertEqual(SleepPresentation(sessions: [sleep], now: end.addingTimeInterval(35 * 3600)).readinessSession?.id, sleep.id)
+    XCTAssertNil(SleepPresentation(sessions: [sleep], now: end.addingTimeInterval(36 * 3600 + 1)).readinessSession)
+  }
+}

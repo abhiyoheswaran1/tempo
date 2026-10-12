@@ -17,6 +17,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   var status = "Bluetooth has not started"
   var connected: Set<UUID> = []
   var lastSamples: [UUID: TempoCore.Measurement] = [:]
+  var battery: [UUID: BatteryReading] = [:]
+  private var lastBatteryRequest: [UUID: Date] = [:]
   var firmware: [UUID: String] = [:]
   var identity: [UUID: String] = [:]
   var rejectedPackets = 0
@@ -193,7 +195,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       peripherals[p] = peripheral
       peripheral.delegate = self
       peripheral.discoverServices([
-        CBUUID(string: "180D"), CBUUID(string: "180A"), Self.service4, Self.service5,
+        CBUUID(string: "180D"), CBUUID(string: "180A"), CBUUID(string: "180F"), Self.service4,
+        Self.service5,
       ])
       status = "Connected; checking measurement services"
       return
@@ -281,7 +284,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
         status = "Connection restored; checking services"
         poweredCommand(manager: manager) { _ in
           p.discoverServices([
-            CBUUID(string: "180D"), CBUUID(string: "180A"), Self.service4, Self.service5,
+            CBUUID(string: "180D"), CBUUID(string: "180A"), CBUUID(string: "180F"), Self.service4,
+            Self.service5,
           ])
         }
       } else {
@@ -323,7 +327,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     poweredCommand(cleanup: true, manager: central) { $0.stopScan() }
     status = "Connected; discovering heart-rate service"
     peripheral.discoverServices([
-      CBUUID(string: "180D"), CBUUID(string: "180A"), Self.service4, Self.service5,
+      CBUUID(string: "180D"), CBUUID(string: "180A"), CBUUID(string: "180F"), Self.service4,
+      Self.service5,
     ])
   }
   func centralManager(
@@ -352,6 +357,22 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       status = "Connection interrupted; waiting to reconnect"
     } else if connected.isEmpty {
       status = "Disconnected; tap Connect when ready"
+    }
+  }
+  func refreshBatteryIfNeeded() {
+    guard !collectionSuspended, central?.state == .poweredOn else { return }
+    for p in peripherals.values where canUsePeripheral(p) {
+      guard let id = mapping[p.identifier],
+        lastBatteryRequest[id].map({ Date().timeIntervalSince($0) >= 900 }) ?? true
+      else { continue }
+      guard p.services?.filter({ $0.uuid == CBUUID(string: "180F") }).count == 1,
+        let service = p.services?.first(where: { $0.uuid == CBUUID(string: "180F") }),
+        let characteristic = service.characteristics?.first(where: {
+          $0.uuid == CBUUID(string: "2A19") && $0.properties.contains(.read)
+        })
+      else { continue }
+      lastBatteryRequest[id] = Date()
+      p.readValue(for: characteristic)
     }
   }
   private func canUsePeripheral(_ peripheral: CBPeripheral) -> Bool {
@@ -384,6 +405,9 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     for s in peripheral.services ?? [] {
       if s.uuid == CBUUID(string: "180D") {
         peripheral.discoverCharacteristics([CBUUID(string: "2A37")], for: s)
+      } else if s.uuid == CBUUID(string: "180F"),
+        peripheral.services?.filter({ $0.uuid == CBUUID(string: "180F") }).count == 1 {
+        peripheral.discoverCharacteristics([CBUUID(string: "2A19")], for: s)
       } else if s.uuid == CBUUID(string: "180A") {
         peripheral.discoverCharacteristics(
           [CBUUID(string: "2A26"), CBUUID(string: "2A25"), CBUUID(string: "2A24")], for: s)
@@ -401,7 +425,13 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       return
     }
     for c in service.characteristics ?? [] {
-      if c.uuid == CBUUID(string: "2A37") && c.properties.contains(.notify) {
+      if service.uuid == CBUUID(string: "180F"), c.uuid == CBUUID(string: "2A19") {
+        if c.properties.contains(.read) {
+          if let id = mapping[peripheral.identifier] { lastBatteryRequest[id] = Date() }
+          peripheral.readValue(for: c)
+        }
+        if c.properties.contains(.notify) { peripheral.setNotifyValue(true, for: c) }
+      } else if c.uuid == CBUUID(string: "2A37") && c.properties.contains(.notify) {
         peripheral.setNotifyValue(true, for: c)
       } else if c.properties.contains(.read) {
         peripheral.readValue(for: c)
@@ -412,7 +442,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     _ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic,
     error: Error?
   ) {
-    guard canUsePeripheral(peripheral) else { return }
+    guard canUsePeripheral(peripheral), characteristic.uuid == CBUUID(string: "2A37"),
+      characteristic.service?.uuid == CBUUID(string: "180D") else { return }
     status =
       error == nil && characteristic.isNotifying
       ? "Listening for live heart rate"
@@ -425,7 +456,16 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       error == nil, let data = characteristic.value, let id = mapping[peripheral.identifier],
       registeredIDs.contains(id), connectionLedger.state(id) == .connected, !isPaused(id)
     else { return }
-    if characteristic.uuid == CBUUID(string: "2A37") {
+    if characteristic.uuid == CBUUID(string: "2A19"),
+      characteristic.service?.uuid == CBUUID(string: "180F"),
+      peripheral.services?.filter({ $0.uuid == CBUUID(string: "180F") }).count == 1
+    {
+      if let reading = try? BatteryReading.parse(data, at: Date()) {
+        battery[id] = reading
+      } else {
+        rejectedPackets += 1
+      }
+    } else if characteristic.uuid == CBUUID(string: "2A37") {
       do {
         let packet = try HeartRatePacket.parse(data)
         let m = TempoCore.Measurement(
