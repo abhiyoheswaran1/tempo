@@ -22,8 +22,8 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 
 | Area | Current implementation | Verification boundary |
 |---|---|---|
-| Native interface | Compact Today, evidence categories, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
-| Bluetooth | Discovery, explicit registration/reconnection, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
+| Native interface | Five-minute live dashboard with freshness/coverage/source evidence, compact Today, evidence categories, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
+| Bluetooth | Discovery, generation correction, disconnect/remove with history retained, foreground reconnection, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
 | Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop 4 history decoder | Constructed fixtures; complete history transfer is disabled |
 | Wearing placement | Per-band wrist, upper-arm/bicep and underwear reports with effective times, corrections and session context | User-reported; no automatic location detection or unverified sensor correction |
 | Multiple bands | Portable device identities, separate phone peripheral mappings, preferences/temporary override, hysteresis selector, sequential fallback | One connection maintained; unconnected-band wear cannot be observed |
@@ -33,11 +33,13 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 | Sleep and journal | Entered/imported sleep, naps flag, timezone retention, manual corrections; optional energy, mood, soreness and behaviours | Automatic sleep detection and staging unavailable |
 | Analytics | Quality-gated RMSSD/SDNN, conservative personal readiness, Edwards cardiovascular load, source-change confidence reduction | Transparent rules tested; no medical or proprietary-algorithm validation |
 | Trends | Local-day covered-time HR averages, per-metric medians/latest weight, missing-day gaps, units and input/source evidence over7/28/90days | Full metric catalogue, custom ranges and personal-insight pairing unfinished |
-| Private sync | Compressed bounded batches, incremental zone tokens, durable retries, immutable edit conflicts, logical deletions and account binding | Adapter compiles; signed two-phone integration pending |
+| Private sync | Foreground freshness checks, separate last-success/pending status, compressed bounded batches, incremental zone tokens, durable retries, immutable edit conflicts, logical deletions and account binding | Adapter compiles; signed two-phone integration pending |
 | Apple Health | Optional selected imports and measured HR/manual sleep/recorded workout exports; provenance and own-source exclusion | Physical permission, reconciliation and export behavior pending |
 | Backup | Versioned JSON archive, manifest fields, SHA-256 validation and transactional idempotent restore | Core tests pass; large streaming archives unfinished |
 | Extensions | Summary widget and workout Live Activity, stale timestamps and widget privacy option | Targets compile; physical Lock Screen behavior pending |
 | Demo | Labelled synthetic data in a separate in-memory database, with real integrations disabled | UI tests and normal-store synthetic rejection tested |
+
+Connection and wearing are separate: nearby advertisements are not connected bands, contact reports are not inferred from proximity, and automatic mode retains a usable selected source even if both bands are worn. See [band controls, live dashboard and automatic refresh](docs/BandManagement.md) for thresholds and physical retest steps.
 
 The app does not fabricate unsupported sensor values. Battery, calibrated temperature, respiration, SpO₂, proprietary wear detection, band haptics and firmware alarms remain unavailable or hidden until supported implementation and physical validation exist.
 
@@ -118,7 +120,9 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 |---|---|---|
 | [<img src="docs/screenshots/workout-summary-demo.png" width="240" alt="Completed simulator workout with honest missing HR states">](docs/screenshots/workout-summary-demo.png) | [<img src="docs/screenshots/detected-activity-demo.png" width="240" alt="Experimental activity review using synthetic measurements">](docs/screenshots/detected-activity-demo.png) | [<img src="docs/screenshots/today-dark-large-text-demo.png" width="240" alt="Today in dark mode at maximum Dynamic Type size">](docs/screenshots/today-dark-large-text-demo.png) |
 
-All nine captures come from the current UI test run. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+[<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
+
+All ten captures come from the current simulator test runs. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
 
 ## Logo and Xcode assets
 
@@ -205,7 +209,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **60 core tests passed. The updated simulator suite passes all 8 tests, including nine real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **72 core tests passed. The updated simulator suite passes all 9 tests, including ten real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 

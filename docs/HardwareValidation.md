@@ -29,3 +29,7 @@ These steps validate behavior on owned devices; passing simulator tests does not
 For both bands, repeat live HR/RR collection, a manual workout, potential-workout review and overnight coverage checks at wrist, upper arm and the designated underwear sensor pocket. Record each move in Tempo. Compare HR where practical against an independent reference and note fit/contact failures; do not infer temperature or oxygen availability from position. Move one band during a workout and verify one session with both placement contexts, without source-history reset. Restore reports on a second phone and verify its own Bluetooth pairing remains separate. Resolve concurrent report corrections and verify disputed periods show unknown until resolved.
 
 Physical comparison is needed before claiming equal accuracy or adding placement-specific thresholds.
+
+## Connection-feedback regression pass
+
+Follow the concise [band controls, multiple-wear and foreground refresh procedure](BandManagement.md#physical-retest). Record actual firmware, placement, contact flags, notification timestamps, reconnect behavior, disconnect persistence, generation correction, history retention and signed cloud timestamps. Parser/state-machine tests and simulator captures do not close these physical checks.

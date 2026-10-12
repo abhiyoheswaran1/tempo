@@ -1,22 +1,23 @@
 # Latest verification — 2026-10-12
 
-This file is the current evidence summary. Completed IDs live in Completed.md; detailed older investigation is retained in Git (`git log -- docs/Verification.md`). Hardware gates remain in Improvements.md and KnownLimitations.md.
+Current evidence only. Completed IDs live in Completed.md; older investigations remain in Git. Physical gates remain in Improvements.md and KnownLimitations.md.
 
 | Check | Result |
 |---|---|
-| Swift core suite | 60 tests passed,0 failures |
-| iPhone simulator suite | 8 tests passed,0 failures |
-| App workspace, Tempo scheme | simulator app/widget/UI-runner build and tests succeed |
-| Unsigned generic iPhoneOS build | BUILD SUCCEEDED; app and widget compile |
-| Executable configuration | native application product, Tempo.app/Tempo, iPhoneOS + Simulator, minimum iOS26 |
-| Screenshots | nine actual XCTest attachments, unchanged; manifest includes source test/timestamp/dimensions/SHA-256 |
-| Accessibility simulation | maximum Dynamic Type `.accessibility5`, dark mode; primary actions reachable |
-| Source/workout flows | band HR-only filtering, cross-tab pause/resume, active/finished modal titles, completion summary, optional exertion |
-| Date/data integrity | older/future/nap inputs cannot supply current readiness; DST local-day summaries, gap/overlap/deletion handling, midnight evidence retained |
-| Read-only review | old-readiness and historical-refresh findings corrected; no remaining important finding in reviewed fixes |
+| Swift core suite | 72 tests passed,0 failures |
+| iPhone simulator suite | 9 tests passed,0 failures; final contact-status change additionally passes focused dashboard/removal rerun |
+| Native executable | Tempo workspace/scheme builds Tempo.app/Tempo, app/widget/UI runner; minimum iOS26 |
+| Unsigned generic iPhoneOS build | BUILD SUCCEEDED after final contact-status change |
+| Captures | ten actual, unmodified successful-test XCTest attachments; source/timestamp/dimensions/SHA-256 manifest |
+| Band policy | pending/connected connection idempotence, explicit pause across ledger restoration, interrupted link intent, late callbacks, generation evidence, history-preserving registry deletion/restoration |
+| Wearing/selection | both usable worn sources retain current automatic selection; fresh connected measured contact reports required; off-body physiology excluded while contact remains visible |
+| Workout integrity | manual disconnect closes source, same-band reconnect starts another segment, finishing never extends an already-closed source gap |
+| Sync | five-minute freshness/pending-change policy,60-second automatic cooldown, failed-pass backoff, dataset identity guards after awaits; actual CloudKit behavior needs signed validation |
+| UI | live dashboard/demo honesty, removal confirmation, Today/tabs, cross-tab workout controls, stale sleep, placement changes, maximum text/dark mode |
+| Review | remapping/sync dataset races and finish-gap findings fixed; final contact evidence review has no important unresolved finding |
 
-Core red/green evidence covered arbitrary-last-HR weighting, midnight provenance and old-sleep eligibility. The initial UI gate failed before the new compact status/accessory flow. Interaction failures caught child navigation titles and offscreen large-text navigation; fixes pass. Visual review replaced absent zone data with an unavailable state and shortened elapsed-time formatting.
+Red/green checks covered absent connection/freshness APIs, disconnected source gaps and off-body contact evidence. Simulator runs caught offscreen controls and duplicate accessibility representations of a native confirmation button; removal is moved ahead of the capability list and the test targets the explicit confirmation action.
 
-Reproduce with README/Setup commands, using Tempo.xcworkspace or Tempo.xcodeproj and scheme Tempo. Latest local artifacts during this session: `/private/tmp/tempo-ui-final2-core.log`, `/private/tmp/tempo-ui-delivery.log`, `/private/tmp/tempo-ui-delivery-device.log`, `/private/tmp/tempo-ui-delivery-tests.xcresult`.
+Reproduce with README/Setup commands. Local session artifacts: `/private/tmp/tempo-band-final-core.log`, `/private/tmp/tempo-band-delivery-ui.log`, `/private/tmp/tempo-band-delivery-ui.xcresult`, `/private/tmp/tempo-band-contact-ui.log`, `/private/tmp/tempo-band-contact-ui.xcresult`, `/private/tmp/tempo-band-device.log`. Captures come from the full simulator run and final focused live-dashboard run. See the manifest for each source test.
 
-Physical bands tested:0. Signed HealthKit/CloudKit phone-validation sessions:0. iOS26 runtime, VoiceOver, real background reliability and cross-phone restore remain unverified. A passing unsigned build does not provision/install a phone or establish daily-use readiness.
+Physical bands tested:0. Signed CloudKit/HealthKit phone sessions:0. iOS26 runtime, VoiceOver, actual background reliability, wear/contact accuracy at all placements and cross-phone restore remain unverified. A passing unsigned build neither provisions an iPhone nor establishes daily-use readiness. Complete proprietary historical retrieval is still unavailable.

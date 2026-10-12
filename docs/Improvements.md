@@ -10,6 +10,8 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 
 The approved UX01–UX08 pass is closed in [Completed.md](Completed.md). Physical audit V05 stays open.
 
+Band feedback B01–B06 is implemented and software-verified in [Completed.md](Completed.md). The [connection/live/refresh contract](BandManagement.md) includes physical retest steps; C01/C03/C04/S01 remain open.
+
 ## Dependability and continuity
 
 | ID | Priority/status | Open outcome / evidence |
