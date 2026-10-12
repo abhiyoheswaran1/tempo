@@ -1,5 +1,7 @@
 # Architecture and decisions
 
+Tempo is an independent personal wearable companion centred on local collection, durable history and transparent analytics. Multi-band registration and switching are features within that broader product, not its sole purpose. Public documentation describes interoperability and personal builds without presenting the project as a replacement for a manufacturer service.
+
 Tempo targets iOS 26. No third-party packages. Swift Package TempoCore is testable without Bluetooth or iCloud; the app owns platform services on MainActor, SQLite is actor-owned, and sync operations are serialized.
 
 SQLite rather than SwiftData: explicit transactions atomically store observations, retrieval checkpoints and outbox entries; uniqueness prevents replay duplication; SQL indexes allow bounded range reads. WAL with FULL synchronous durability. The database uses complete-until-first-authentication file protection on iPhone for supported background collection. This is availability/security tradeoff, not application-level encryption.

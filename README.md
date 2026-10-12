@@ -1,10 +1,20 @@
 # Tempo
 
-**Two bands. One continuous history. Your data, across your iPhones.**
+**A personal companion for your wearable data.**
 
-Tempo is an original native iPhone app for personally owned Whoop 4.0 and Whoop 5.0 bands. It uses Swift, SwiftUI, direct Bluetooth, local SQLite storage, on-device analytics, optional Apple Health integration, and a private CloudKit database. It requires no Tempo account, custom backend, advertising SDK, or Whoop cloud connection for its implemented collection path.
+Tempo is an independent, open-source iPhone app for collecting, understanding and keeping your own wearable measurements. It brings daily context, workouts, sleep records, journalling and transparent personal analytics into a native, local-first experience. The current interoperability work targets personally owned WHOOP 4.0 and WHOOP 5.0 hardware.
+
+Tempo uses Swift, SwiftUI, direct Bluetooth, local SQLite storage, on-device analytics, optional Apple Health integration and private iCloud synchronization. Support for multiple registered bands is one feature within that broader experience; your personal history remains the centre of the product.
 
 > **Current status: buildable engineering implementation, not a complete or physically validated daily-use release.** Simulator and unsigned iPhone builds pass. Live Bluetooth behavior, signed HealthKit operation, and two-phone CloudKit restore have not been validated on physical devices. Full historical retrieval and several requested features remain unfinished. See [acceptance status and remaining work](docs/KnownLimitations.md) before relying on collection.
+
+## Project purpose and personal builds
+
+Tempo explores direct interoperability with supported wearable hardware and gives owners a transparent way to retain and inspect available measurements. It is a separate application with its own interface, storage model and analytics, rather than an implementation of the manufacturer's service or proprietary scores.
+
+You can clone or fork this public repository and build your own installation under the [MIT licence](LICENSE). Configure your own Apple signing identifiers, App Group and private CloudKit container; your installation should not use another contributor's provisioning or health dataset. No shared Tempo service or account is operated by this repository.
+
+Manufacturer names identify hardware compatibility only. Tempo is not an official WHOOP application and does not claim equivalent features, measurements or validation. Compatibility remains bounded by device generation, firmware and the evidence documented below.
 
 ## What is implemented
 
