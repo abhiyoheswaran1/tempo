@@ -39,3 +39,14 @@ Follow the concise [band controls, multiple-wear and foreground refresh procedur
 On each signed physical band, check Today → Band status → Live: source and connection must match the registered band; HR receipt, contact evidence, independent history transfer status and successful iCloud exchange must remain distinct. Disconnect explicitly, confirm live becomes recent then stale after90s, and confirm the main Live value becomes unavailable while retained history remains. Reconnect using the same portable identity; unknown contact must not turn into confirmed wear from pulse or proximity. Check large text/VoiceOver and denied Bluetooth/Health permissions. Removing registration must retain history in Trends while ending that band as a current Live source. Simulator cases do not validate any physical communication.
 
 Battery check: for each generation/firmware, confirm whether a single180F/2A19 service is exposed, compare reported percent against a trusted device reading, check changes after use/charging, disconnect hiding, one-hour expiry and VoiceOver. A constant100 response must not be promoted to reliable battery capability.
+
+## WHOOP5 50.42.1.0 catch-up acceptance
+
+1. Rebuild the latest Tempo executable on the signed iPhone, keeping the existing app/database.
+2. Connect the band. Open the top-right profile/battery control → Band status and history, or its device-detail History section. Record application firmware and exact retrieval status.
+3. Pull to refresh Today. A successful read-confirmed version plus positive range should request stored records; refusal/zero/timeout must remain explicit. Wait for an actual stored-chunk timestamp and mapped-HR count.
+4. Inspect older timestamps in the four-hour chart. Source measurements must be from the band, not interpolated. Experimental R18 flags remain visible and those records do not populate readiness/load/HRV or Health exports.
+5. Lock the phone for15minutes, reopen and refresh; compare persisted earlier coverage. Repeat with a temporary Bluetooth interruption and verify resumed records do not double count. Completion is not proof of complete coverage.
+6. If unsuccessful, preserve the exact history status/application version. A worn band and current HRS do not establish stored data. Do not reset, flash or force-trim it to test recovery. No personal capture should be committed to the public repo.
+
+Software parser fixtures, emulator screens and an unsigned build do not satisfy these steps.

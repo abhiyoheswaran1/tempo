@@ -6,12 +6,10 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
-| C05 | P0 awaiting owned-band evidence | Owner-reported Whoop5 live-history gap around18:25–18:44 despite continuous wear. Experimental W4 transfer now implemented; W5 catch-up remains unavailable. Read Hello/application firmware and range result on owner band, then establish distinct W5 initialization/metadata support without authentication bypass. Verify actual recovered records and background interruptions; [contract](HistoryRetrieval.md). No personal screenshot committed. |
+| C05 | P0 awaiting owned-band evidence | Owner-reported Whoop5 live-history gap around18:25–18:44 despite continuous wear. Firmware-bounded W4/W5 transfer now implemented; owner screenshot reports50.42.1.0. Validate read-confirmed Hello, positive range, actually committed R18 records and older timestamps on the owned band without authentication bypass. Verify actual recovered records and background interruptions; [contract](HistoryRetrieval.md). No personal screenshot committed. |
 | D01 | P1 awaiting hardware | Exact QuartzCore message reproduced in independent minimal NavigationStack app without BLE/cloud; [evidence](RenderingDiagnostics.md). Confirm physical OS/action and any freeze/flicker/crash before an app workaround. No log suppression or fixed claim. |
 | D02 | P1 awaiting physical validation | CFPrefs App Group diagnostic: local signed app/widget groups match signatures and provisioning; user confirms signed phone widget timestamp updates (2026-10-12); warning persists without a reported timestamp-sharing failure. Verify other summary fields/relaunch under V01. No group renaming to suppress logs. |
 | D03 | P1 awaiting physical validation | PointerUI non-launching-port diagnostic: check minimal native/runtime logs, distinguish input service from BLE/cloud and retain physical OS/failure boundary. |
-| UX16 | P2 open | Fast journal: energy/soreness/mood first, optional behaviours afterwards, Today check-in completion with Edit; unknown answers stay unknown. Routine check-in under 30 seconds requires usability validation. |
-| UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
 
 UX01–UX08 and UX10 are closed in [Completed.md](Completed.md). Physical audit V05 stays open.
 
@@ -42,6 +40,6 @@ Band feedback B01–B06 is implemented and software-verified in [Completed.md](C
 | E01 | P2 awaiting hardware | Authoritative battery, verified haptics/alarm contracts; unsupported controls stay hidden. |
 | E02 | P2 open | Opt-in routes, notification cooldowns/quiet hours, breathing sessions and supported cues. |
 | V01 | P1 awaiting hardware | Signed install, widgets/Live Activities/privacy and Lock Screen behavior. |
-| V05 | P1 awaiting hardware | iOS26 runtime, VoiceOver, large text, contrast/transparency, background/battery/performance audit. |
+| V05 | P1 awaiting hardware | iOS26 runtime, VoiceOver, large text, contrast/transparency, background/battery/performance audit, including real journal check-in timing under30seconds. |
 
 Original acceptance mapping and exact limitations: [KnownLimitations.md](KnownLimitations.md). These stay as accurate product documentation; this backlog is the work queue.

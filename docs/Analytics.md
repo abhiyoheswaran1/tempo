@@ -1,4 +1,4 @@
-# Tempo analytics 1.0
+# Tempo analytics methodology
 
 These are original transparent personal-guidance estimates, not Whoop's recovery algorithm or medical validation.
 
@@ -8,7 +8,7 @@ Measured HRS HR/RR; imported Health HR/RHR/SDNN/sleep; manual sleep/journal/work
 
 UTC instants drive elapsed durations. Sessions retain an IANA timezone for local presentation; DST does not change elapsed sleep/workout seconds. Canonical one-second bins choose valid source records using temporary override, latest active-source transition, contact status and direct-measurement priority. RR timing within a packet is not independently timestamped. Source observations remain stored.
 
-Overnight cache version2 includes source-segment contents as well as observation/deletion coverage. Source corrections invalidate prior overnight results even when the number of segments is unchanged. Observations remain immutable.
+Overnight cache version3 includes source-segment contents as well as observation/deletion coverage. Source corrections invalidate prior overnight results even when the number of segments is unchanged. Observations remain immutable.
 
 ## RR preprocessing
 
@@ -57,3 +57,9 @@ When readiness has no score, Today shows compact baseline progress and brings co
 Removed registrations retain their available friendly name as archived source evidence. Missing registry metadata is labelled unresolved, not assumed to be imported.
 
 Cardiovascular load clips each accepted adjacent interval at workout bounds and subtracts the union of pause intervals, including an ongoing pause. Paused samples remain interval boundaries so filtering them cannot bridge a pause or data gap. Original intervals above10s remain excluded.
+
+## Experimental historical quality
+
+WHOOP5 R18 primary HR remains inspectable as a direct experimental reading. Opaque cardiac/quality flags are preserved in optional `qualityContext`; unknown flags are not treated as validated physiological signal quality. Such records cannot provide resting HR, overnight HRV, cardiovascular load, automatic workout suggestions or Health exports. Raw RR words are retained for future validation, not consumed by RMSSD. Readiness version1.2 and night-input cache3 disclose this stricter input qualification.
+
+Live chart coverage and its time-weighted mean are descriptive receipt statistics across canonical adjacent readings at most10s apart. They may include experimental primary HR, with an explicit explanation. They are separate from training-load eligibility. Canonical overlap selection prefers a qualified reading below explicit source override/active-source/wear priorities; observations remain immutable. No source-quality probability or validation claim is implied.

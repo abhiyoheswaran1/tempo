@@ -8,7 +8,7 @@ Tempo is an independent, open-source iPhone app for collecting, understanding an
 
 Tempo uses Swift, SwiftUI, direct Bluetooth, local SQLite storage, on-device analytics, optional Apple Health integration and private iCloud synchronization. Support for multiple registered bands is one feature within that broader experience; your personal history remains the centre of the product.
 
-> **Current status: buildable engineering implementation, not a complete or physically validated daily-use release.** Simulator and unsigned iPhone builds pass. Live Bluetooth behavior, signed HealthKit operation, and two-phone CloudKit restore have not been validated on physical devices. WHOOP4 historical retrieval is now experimental on one read-confirmed application firmware; WHOOP5 catch-up and several requested features remain unfinished. See [acceptance status and remaining work](docs/KnownLimitations.md) before relying on collection.
+> **Current status: buildable engineering implementation, not a complete or physically validated daily-use release.** Simulator and unsigned iPhone builds pass. Live Bluetooth behavior, signed HealthKit operation, and two-phone CloudKit restore have not been validated on physical devices. Historical retrieval is experimental for read-confirmed WHOOP4 41.17.6.0 and WHOOP5 50.42.1.0 with a positive stored-range result; successful recovery on owned bands and several requested features remain unverified or unfinished. See [acceptance status and remaining work](docs/KnownLimitations.md) before relying on collection.
 
 ## Project purpose and personal builds
 
@@ -24,7 +24,7 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 |---|---|---|
 | Native interface | Redesigned Today with native large title, live-reading hero, compact readiness, paired sleep/movement summaries, pull/manual refresh and quiet sync status; four-hour Live history, optional reported battery in the header, freshness/coverage/source evidence, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
 | Bluetooth | Discovery, generation correction, disconnect/remove with history retained, bounded connection retries, foreground silent-stream recovery, receipt/storage diagnostics, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
-| Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop4 history transfer with durable raw frames/checkpoints and ordinary receipt acknowledgements; Whoop5 Hello/range inspection | Constructed fixtures; physical transfer/replay unverified; Whoop5 catch-up unavailable |
+| Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop4/Whoop5 history transfer with durable raw frames/checkpoints and ordinary receipt acknowledgements; Whoop5 range preflight | Constructed fixtures; physical transfer/replay unverified; unsupported layouts retained raw |
 | Wearing placement | Per-band wrist, upper-arm/bicep and underwear reports with effective times, corrections and session context | User-reported; no automatic location detection or unverified sensor correction |
 | Multiple bands | Portable device identities, separate phone peripheral mappings, preferences/temporary override, hysteresis selector, sequential fallback | One connection maintained; unconnected-band wear cannot be observed |
 | Local persistence | SQLite WAL/FULL transactions, immutable observations, revision ancestry, tombstones, checkpoints and durable sync outbox | Integrity/replay/rollback tests pass |
@@ -44,6 +44,8 @@ On Today, the live dashboard sits directly below readiness, with an accessible R
 Connection and wearing are separate: nearby advertisements are not connected bands, contact reports are not inferred from proximity, and automatic mode retains a usable selected source even if both bands are worn. See [band controls, live dashboard and automatic refresh](docs/BandManagement.md) for thresholds and physical retest steps.
 
 The app does not fabricate unsupported sensor values. Battery, calibrated temperature, respiration, SpO₂, proprietary wear detection, band haptics and firmware alarms remain unavailable or hidden until supported implementation and physical validation exist.
+
+To inspect band history support, tap the top-right profile/battery control → **Band status and history**, then scroll to **History retrieval**. Application firmware and the actual transfer/refusal status appear there for registered bands. On Today, tapping the band-name row beneath live heart rate opens the same view.
 
 Rendering diagnostics such as the reported QuartzCore handler message are documented in [RenderingDiagnostics.md](docs/RenderingDiagnostics.md), including a reproduction independent of Tempo’s Bluetooth and cloud code.
 
@@ -100,7 +102,7 @@ See [complete installation instructions](docs/Setup.md) and [CloudKit setup](doc
 5. Record a short workout, pause/resume it, finish, relaunch and inspect coverage/source segments. Repeat offline and through a brief Bluetooth interruption.
 6. Export a backup and follow the [physical validation checklist](docs/HardwareValidation.md). Record generation, firmware, iOS version and results.
 
-Only one band connection is maintained by default. Automatic selection software has hysteresis and interruption grace, but does not establish reliable automatic wear detection on an unconnected band. Historical catch-up is not enabled, so interruptions can leave unrecoverable gaps. iOS background restoration is supported configuration, not a guarantee of continuous execution after force-quit or system termination.
+Only one band connection is maintained by default. Automatic selection software has hysteresis and interruption grace, but does not establish reliable automatic wear detection on an unconnected band. Historical catch-up is experimental on the supported application firmwares; unknown firmware, refused requests, invalid band time or missing stored records can leave gaps. iOS background restoration is supported configuration, not a guarantee of continuous execution after force-quit or system termination.
 
 ## Simulator demo
 
@@ -126,12 +128,14 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 
 [<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
 
-All thirteen captures come from successful simulator tests. Today now uses a native large title, a prominent live-reading entry, compact readiness and paired sleep/movement summaries. At accessibility text sizes the daily summaries stack vertically. Collection comes first while a baseline builds; unavailable readiness has compact progress instead of an empty score. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and a four-hour chart first, with15-minute and one-hour options, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+All fourteen captures come from successful simulator tests. Today now uses a native large title, a prominent live-reading entry, compact readiness and paired sleep/movement summaries. At accessibility text sizes the daily summaries stack vertically. Collection comes first while a baseline builds; unavailable readiness has compact progress instead of an empty score. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and a four-hour chart first, with15-minute and one-hour options, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Journal puts Energy, Soreness and Mood first, with optional context and same-day editing. Workout details put notes/exertion ahead of collapsible measurement evidence. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
 
 | Baseline building · empty test dataset | Band status · empty test dataset | Sleep trends · synthetic demo |
 |---|---|---|
 | [<img src="docs/screenshots/today-baseline-empty.png" width="240" alt="Today with no records and compact baseline progress">](docs/screenshots/today-baseline-empty.png) | [<img src="docs/screenshots/band-status-empty.png" width="240" alt="Band status separating unavailable history retrieval from iCloud">](docs/screenshots/band-status-empty.png) | [<img src="docs/screenshots/sleep-trends-demo.png" width="240" alt="Selected sleep metric with synthetic sessions and provenance">](docs/screenshots/sleep-trends-demo.png) |
 
+
+[<img src="docs/screenshots/journal-demo.png" width="240" alt="Fast journal check-in with optional unanswered ratings in synthetic demo">](docs/screenshots/journal-demo.png)
 
 ## Logo and Xcode assets
 
@@ -218,7 +222,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **109 core tests passed. The redesigned simulator suite passed all15 tests; five affected tests passed after review fixes, with final capture/accessibility reruns. Thirteen real simulator captures cover synthetic and empty states. Simulator and unsigned iPhone builds pass.** The latest bug pass also passed three affected simulator flows and the unsigned iPhone build. Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **122 core tests passed. All19 simulator tests passed, followed by four affected-screen checks and final capture reruns. Fourteen real simulator captures cover synthetic and empty states. Simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 

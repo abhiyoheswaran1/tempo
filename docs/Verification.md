@@ -1,27 +1,18 @@
-# Latest verification — 2026-10-12
+# Latest verification — 2026-10-13
 
-Completed software IDs live in Completed.md; unresolved physical gates remain in Improvements.md and KnownLimitations.md.
-
-| Check | Result |
+| Check | Evidence / boundary |
 |---|---|
-| Swift core suite | 109 tests passed, 0 failures; bounded live history, powered-command policy, latest-reading index, malformed battery bytes, freshness and sleep expiry included |
-| iPhone simulator suite | Redesigned product passed all15 tests; five affected Today/capture tests passed after review fixes; final capture/baseline and maximum-text layout reruns |
-| Native executable | Tempo workspace/scheme builds app and widget extension; minimum iOS26 |
-| Unsigned generic iPhoneOS build | BUILD SUCCEEDED |
-| Captures | Thirteen unmodified successful-test simulator attachments, synthetic or empty isolated datasets; timestamp/dimensions/SHA-256 manifest |
-| Today | Native large title, compact readiness, live-reading hero, paired sleep/movement summaries, vertical accessibility layout, journal and manual/pull refresh |
-| Smoothness | Latest valid per-device reading index avoids full-history live-render scans; presented readiness/load summaries refresh after load/foreground/coalesced collection; current eligible sleep invalidates cached readiness |
-| Battery | Optional single-instance standard BLE report, validated bytes,15-minute read limit and one-hour header expiry; VoiceOver value and timestamp/accuracy disclosure; actual band support unverified |
-| Trends/Live | One selected metric and same-day provenance; four-hour bounded chart with short ranges, exact input statistics and gap preservation; stale/source states remain explicit |
-| Bluetooth | Commands require powered-on central; restored peripherals deferred; battery notification callbacks cannot claim HR started or failed |
-| Read-only review | Sleep cache expiry, missing VoiceOver values and battery/HR status confusion identified and corrected |
+| Swift core |122 tests passed,0 failures;13 WHOOP5 history tests cover firmware/range/padding, R18 parsing, generation, idempotent archives, transaction rollback, quality exclusion, descriptive coverage, source priority, deadlines and late commits across retries |
+| Simulator |All19 UI tests passed; four affected-screen checks passed, followed by final capture/contrast reruns. Native app/extension compiled on installed iOS27 runtime, minimum target iOS26 |
+| iPhone compilation |Unsigned generic iPhoneOS build passes; this is not signing, installation or hardware validation |
+| Journal/workouts |Quick nullable ratings, same-day edit identity, notes/exertion first, missing-data summaries and native disclosures; read-only task reviews and UI regressions passed |
+| History software |Read-confirmed W4 41.17.6.0; W5 50.42.1.0 plus positive range. Durable raw/sample/checkpoint commit before normal ACK, independent generation layout and per-attempt callback scope |
+| Quality |Opaque R18 fields retained; excludes these records from physiological analytics, suggestions and Health export. Descriptive chart includes explicit experimental context; readiness1.2/night-cache3 |
+| Review |Final whole-branch review plus scoped attempt/deadline review found no concrete important blocker |
+| Gallery |14 unmodified successful-test simulator PNGs, synthetic or empty isolated datasets; checksum/dimension/timestamp provenance manifest. No owner health screenshot published |
 
-Local evidence: `/private/tmp/tempo-today-verified-core.log`, `/private/tmp/tempo-today-redesign-ui.xcresult` (full15), `/private/tmp/tempo-today-verified-ui.xcresult` (affected rerun), `/private/tmp/tempo-today-final-layout-device.log`. Capture provenance: [manifest](screenshots/capture-manifest.json).
+Reproducible local evidence: `/private/tmp/tempo-history-attempt-verified-core.log`, `/private/tmp/tempo-overnight-ui.xcresult` (full19), `/private/tmp/tempo-overnight-release-ui.xcresult` (four affected), `/private/tmp/tempo-journal-contrast-capture.xcresult`, `/private/tmp/tempo-shipping-captures.xcresult`, `/private/tmp/tempo-overnight-final-shipping-phone.log`. Intended failures were observed before fixes in decoder/range/quality/selection/chart/detection/deadline/attempt and navigation/journal/workout regressions. Test fixtures are original constructed packets, not captured proof of a band transfer.
 
-Physical bands tested by the implementation agent:0. Signed CloudKit/HealthKit integration sessions:0. Physical battery accuracy, wear accuracy, background collection, two-phone restore, signed widgets/Live Activities, iOS26 runtime and VoiceOver remain unverified. The owner separately confirms that the signed phone widget timestamp updates; the CFPrefs warning and remaining delivery fields/relaunch audit remain open. QuartzCore/PointerUI diagnostics remain documented without a hardware fix claim. WHOOP4 transfer is experimental and physically unverified; WHOOP5 catch-up remains unavailable. Compilation and synthetic simulator tests do not establish daily-use readiness.
+Physical bands tested by the implementation agent:0. Signed CloudKit/HealthKit integration sessions:0. The owner separately reports live Whoop5 HR, firmware50.42.1.0 and an updating widget timestamp. Those observations do not establish memory offload, overnight quality, background continuity, two-phone restore or full widget/Live Activity behavior. Actual W4/W5 history recovery remains C05/C02; signed lifecycle, source switching, cloud, Health and accessibility gates stay open in [Improvements](Improvements.md). QuartzCore/PointerUI/App Group messages remain documented without a physical-fix claim.
 
-History extension:100 core tests pass, including transfer boundaries/commit-before-ACK, raw archive replay/rollback, special/empty chunk refusal, successive chunks, discarded/partial cross-channel bytes, legacy backup import, schema1 migration preserving pending uploads and backfill never labelled live. Three affected simulator tests passed, followed by two final band-status/capture tests after refining unavailable-state copy; the pull gesture was corrected to start below the expanded native navigation title. Unsigned iPhone build passes. Evidence: `/private/tmp/tempo-history-release-final-core.log`, `/private/tmp/tempo-history-verified-ui.xcresult`, `/private/tmp/tempo-history-final-phone-build.log`. None is a physical backfill result. The owner's screenshot separately shows current Whoop5 live HR plus a past gap, not demonstrated history recovery.
-
-Bug pass:109 core tests pass, including nine new regressions/control cases for corrected source-cache identity, RR discontinuity, continuous RR preservation, exact workout pause/bounds clipping, bounded retries, deferred scan intent and silent-stream recovery timing/cooldown. Three analytics defects were reproduced as failing tests before correction. Read-only reviews identified the discovery-error recovery blind spot, subsequently addressed. Logs: `/private/tmp/tempo-bug-red.log`, `/private/tmp/tempo-transport-red.log`, `/private/tmp/tempo-bug-full-core.log`. Receipt/storage diagnostics and recovery policies do not establish the cause of owner Whoop5 gaps or implement W5 flash retrieval.
-
-Bug-pass native checks: unsigned iPhone build passes (`/private/tmp/tempo-bug-final-phone.log`); all3 affected simulator tests pass (`/private/tmp/tempo-bug-pass-ui.xcresult`): empty/workout flows, live/band management, Today manual/pull refresh. Two read-only reviews found no remaining concrete blocker after the discovery fix. Existing synthetic gallery surfaces are visually unchanged; the new diagnostics appear only for actual registrations and no personal capture was published.
+This is a buildable engineering implementation for physical testing, not a validated daily-use acceptance sign-off. Follow [the catch-up checklist](HardwareValidation.md#whoop5-504210-catch-up-acceptance).

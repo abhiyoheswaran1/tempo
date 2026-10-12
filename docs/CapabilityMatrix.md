@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Live HR | Experimental until owned-band test | Experimental until owned-band test | Standard HRS if discovered |
 | RR | Experimental; ms proprietary and SIG ticks distinct | Experimental; SIG/proprietary ticks | SIG RR only when packet includes it |
-| History | Experimental v24 and separate v25 | Experimental/version dependent | Experimental W4 transfer for read-confirmed application41.17.6.0; W5 Hello/range diagnostics only |
+| History | Experimental v24 and separate v25 | Experimental/version dependent | Experimental W4 transfer for read-confirmed application41.17.6.0; experimental W5 transfer after read-confirmed50.42.1.0 and positive range; R18 primary HR only, opaque quality retained and RR excluded |
 | Motion | Experimental raw layouts | Experimental R21/streams | Disabled |
 | Verified wear | Experimental retained contact interpretations | Unknown/incomplete | SIG contact flag when supplied; hardware behavior unverified |
 | Battery | Experimental proprietary reading; SIG may always say100 | Experimental proprietary response | Optional single-instance SIG BAS report; accuracy unverified |
