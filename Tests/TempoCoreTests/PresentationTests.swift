@@ -134,3 +134,101 @@ extension PresentationTests {
       ).bpm)
   }
 }
+
+extension PresentationTests {
+  func testCollectionStatusCannotTreatConnectionOrOldPulseAsLive() {
+    let now = Date()
+    let id = UUID()
+    var hr = Measurement(
+      deviceID: id, kind: .heartRate, timestamp: now, value: 80,
+      origin: .measured, transport: "fixture")
+    XCTAssertEqual(
+      CollectionPresentation(sample: nil, connected: true, wear: .unknown, now: now).state, .waiting
+    )
+    XCTAssertEqual(
+      CollectionPresentation(sample: hr, connected: true, wear: .unknown, now: now).state, .live)
+    XCTAssertEqual(
+      CollectionPresentation(sample: hr, connected: true, wear: .offBody, now: now).state, .recent)
+    XCTAssertEqual(
+      CollectionPresentation(sample: hr, connected: false, wear: .onBody, now: now).state, .recent)
+    hr.timestamp = now.addingTimeInterval(-60)
+    XCTAssertEqual(
+      CollectionPresentation(sample: hr, connected: true, wear: .onBody, now: now).state, .recent)
+    hr.timestamp = now.addingTimeInterval(-100)
+    XCTAssertEqual(
+      CollectionPresentation(sample: hr, connected: true, wear: .onBody, now: now).state, .stale)
+    XCTAssertNil(
+      CollectionPresentation(sample: hr, connected: true, wear: .onBody, now: now).displayedBPM)
+    hr.origin = .imported
+    XCTAssertNil(
+      CollectionPresentation(sample: hr, connected: true, wear: .onBody, now: now).sample)
+  }
+  func testTrendSelectionKeepsMissingLocalDayEmptyAcrossDST() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Europe/Zurich")!
+    let formatter = ISO8601DateFormatter()
+    let dates = [
+      formatter.date(from: "2026-03-28T12:00:00Z")!, formatter.date(from: "2026-03-30T12:00:00Z")!,
+    ]
+    let missing = formatter.date(from: "2026-03-29T12:00:00Z")!
+    XCTAssertNil(TrendSelection.index(at: missing, dates: dates, calendar: calendar))
+    XCTAssertEqual(
+      TrendSelection.index(at: dates[1].addingTimeInterval(3600), dates: dates, calendar: calendar),
+      1)
+    XCTAssertNil(TrendSelection.index(at: dates[0], dates: [], calendar: calendar))
+  }
+  func testLiveChartPreservesGapsAndOrdersSamples() {
+    let now = Date()
+    let id = UUID()
+    let samples = [20.0, 0, 5].map { offset in
+      Measurement(
+        deviceID: id, kind: .heartRate, timestamp: now.addingTimeInterval(offset), value: 80,
+        origin: .measured, transport: "fixture")
+    }
+    let points = LiveChartSeries.points(samples)
+    XCTAssertEqual(
+      points.map { $0.sample.timestamp },
+      [now, now.addingTimeInterval(5), now.addingTimeInterval(20)])
+    XCTAssertEqual(points.map { $0.segment }, [0, 0, 1])
+  }
+}
+
+extension PresentationTests {
+  func testTrendsReloadsForNewCollectionWindowWithoutReloadingEverySample() {
+    let first = TrendRefreshIdentity(
+      metric: "heartRate", days: 28, demo: false, generation: 1,
+      latestSample: Date(timeIntervalSince1970: 120))
+    let sameWindow = TrendRefreshIdentity(
+      metric: "heartRate", days: 28, demo: false, generation: 1,
+      latestSample: Date(timeIntervalSince1970: 240))
+    let newWindow = TrendRefreshIdentity(
+      metric: "heartRate", days: 28, demo: false, generation: 1,
+      latestSample: Date(timeIntervalSince1970: 301))
+    XCTAssertEqual(first, sameWindow)
+    XCTAssertNotEqual(first, newWindow)
+    XCTAssertNotEqual(
+      first,
+      TrendRefreshIdentity(
+        metric: "heartRate", days: 28, demo: true,
+        generation: 1, latestSample: Date(timeIntervalSince1970: 120)))
+    XCTAssertNotEqual(
+      first,
+      TrendRefreshIdentity(
+        metric: "heartRate", days: 28, demo: false,
+        generation: 2, latestSample: Date(timeIntervalSince1970: 120)))
+  }
+}
+
+extension PresentationTests {
+  func testCollectionCannotPresentAnotherBandsPulseUnderConnectedSource() {
+    let now = Date()
+    let sample = Measurement(
+      deviceID: UUID(), kind: .heartRate, timestamp: now, value: 80,
+      origin: .measured, transport: "fixture")
+    let reading = CollectionPresentation(
+      sample: sample, connected: true, wear: .onBody,
+      now: now, selectedDeviceID: UUID())
+    XCTAssertEqual(reading.state, .waiting)
+    XCTAssertNil(reading.displayedBPM)
+  }
+}

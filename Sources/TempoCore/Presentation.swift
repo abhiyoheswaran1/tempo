@@ -165,3 +165,80 @@ public struct WorkoutLiveReading: Sendable {
     }
   }
 }
+
+/// Receiving data, transport connection and contact evidence are independent.
+public struct CollectionPresentation: Sendable {
+  public var statusTitle: String {
+    switch state {
+    case .live: "Receiving live heart rate"
+    case .recent: "Recent reading · not confirmed live"
+    case .stale: "No current reading"
+    case .waiting: "No reading yet"
+    }
+  }
+  public let sample: Measurement?
+  public let state: LiveReadingState
+  public var displayedBPM: Int? {
+    state == .live || state == .recent ? sample.map { Int($0.value) } : nil
+  }
+  public init(
+    sample: Measurement?, connected: Bool, wear: WearState, now: Date,
+    allowSynthetic: Bool = false, selectedDeviceID: UUID? = nil
+  ) {
+    self.sample = LiveSampleSelection.latest(
+      sample.map { [$0] } ?? [], selectedDeviceID: selectedDeviceID,
+      now: now, allowSynthetic: allowSynthetic)
+    state = LiveReadingState(
+      timestamp: self.sample?.timestamp,
+      connected: connected && wear != .offBody, now: now)
+  }
+}
+
+public enum TrendSelection {
+  /// A selection in a missing local day must not silently move to a neighbour.
+  public static func index(at date: Date, dates: [Date], calendar: Calendar = .current) -> Int? {
+    dates.firstIndex { calendar.isDate($0, inSameDayAs: date) }
+  }
+}
+
+public struct LiveChartPoint: Identifiable, Sendable {
+  public let sample: Measurement
+  public let segment: Int
+  public var id: String { sample.id }
+}
+public enum LiveChartSeries {
+  public static func points(_ samples: [Measurement]) -> [LiveChartPoint] {
+    let sorted = samples.sorted {
+      $0.timestamp == $1.timestamp ? $0.id < $1.id : $0.timestamp < $1.timestamp
+    }
+    var segment = 0
+    var previous: Date?
+    return sorted.map { sample in
+      if let previous, sample.timestamp.timeIntervalSince(previous) > 10 { segment += 1 }
+      previous = sample.timestamp
+      return LiveChartPoint(sample: sample, segment: segment)
+    }
+  }
+}
+
+/// Bounded collection refresh plus dataset identity for asynchronous trend requests.
+public struct TrendRefreshIdentity: Hashable, Sendable {
+  private let metric: String
+  private let days: Int
+  private let demo: Bool
+  private let generation: Int
+  private let sampleWindow: Int?
+  public init(metric: String, days: Int, demo: Bool, generation: Int, latestSample: Date?) {
+    self.metric = metric
+    self.days = days
+    self.demo = demo
+    self.generation = generation
+    if let time = latestSample?.timeIntervalSince1970, time.isFinite,
+      time / 300 > Double(Int.min), time / 300 < Double(Int.max)
+    {
+      sampleWindow = Int(floor(time / 300))
+    } else {
+      sampleWindow = nil
+    }
+  }
+}

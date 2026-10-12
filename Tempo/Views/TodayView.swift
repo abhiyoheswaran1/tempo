@@ -24,34 +24,41 @@ struct TodayView: View {
             dateLabel
           }
         }
-        Text(headline(readiness)).font(.title2.weight(.semibold)).fixedSize(
-          horizontal: false, vertical: true)
-        VStack(alignment: .leading, spacing: 12) {
-          ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline) {
-              Text("Readiness").font(.headline).fixedSize()
-              Spacer()
-              Text("Tempo estimate").font(.caption).foregroundStyle(.secondary).fixedSize()
+        Text(readiness.score == nil ? "Your day, as it unfolds" : headline(readiness))
+          .font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+        if readiness.score == nil {
+          TodayCollectionPanel()
+          baselineProgress(readiness)
+        } else {
+          VStack(alignment: .leading, spacing: 12) {
+            ViewThatFits(in: .horizontal) {
+              HStack(alignment: .firstTextBaseline) {
+                Text("Readiness").font(.headline).fixedSize()
+                Spacer()
+                Text("Tempo estimate").font(.caption).foregroundStyle(.secondary).fixedSize()
+              }
+              VStack(alignment: .leading, spacing: 4) {
+                Text("Readiness").font(.headline)
+                Text("Tempo estimate").font(.caption).foregroundStyle(.secondary)
+              }
             }
-            VStack(alignment: .leading, spacing: 4) {
-              Text("Readiness").font(.headline)
-              Text("Tempo estimate").font(.caption).foregroundStyle(.secondary)
+            ViewThatFits(in: .horizontal) {
+              HStack(alignment: .firstTextBaseline, spacing: 20) {
+                score(readiness)
+                evidence(readiness).fixedSize()
+              }
+              VStack(alignment: .leading, spacing: 8) {
+                score(readiness)
+                evidence(readiness)
+              }
             }
-          }
-          ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 20) {
-              score(readiness)
-              evidence(readiness).fixedSize()
-            }
-            VStack(alignment: .leading, spacing: 8) {
-              score(readiness)
-              evidence(readiness)
-            }
-          }
-          NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
-        }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(
-          Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
-        TodayCollectionPanel()
+            NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(
+              .subheadline)
+          }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 24))
+          TodayCollectionPanel()
+        }
         VStack(spacing: 14) {
           VStack(alignment: .leading, spacing: 6) {
             if let last = lastSleep.session {
@@ -112,6 +119,26 @@ struct TodayView: View {
       .navigationBarTitleDisplayMode(.inline)
       .sheet(isPresented: $journal) { NavigationStack { JournalEditor() } }
       .sheet(isPresented: $sleep) { NavigationStack { SleepEditor() } }
+  }
+  func baselineProgress(_ result: ReadinessResult) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("Readiness").font(.subheadline.weight(.semibold))
+        Spacer()
+        if result.baselineDays < 7 {
+          Text("\(result.baselineDays) of 7 nights").font(.caption).foregroundStyle(.secondary)
+        }
+      }
+      Text(headline(result)).font(.subheadline).accessibilityIdentifier("baseline-progress")
+      if result.baselineDays < 7 {
+        ProgressView(value: Double(result.baselineDays), total: 7)
+          .accessibilityLabel("Personal baseline progress")
+          .accessibilityValue("\(result.baselineDays) of 7 qualifying nights")
+      }
+      NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
+    }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
   }
   var brand: some View {
     HStack(spacing: 8) {

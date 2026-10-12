@@ -33,3 +33,7 @@ Physical comparison is needed before claiming equal accuracy or adding placement
 ## Connection-feedback regression pass
 
 Follow the concise [band controls, multiple-wear and foreground refresh procedure](BandManagement.md#physical-retest). Record actual firmware, placement, contact flags, notification timestamps, reconnect behavior, disconnect persistence, generation correction, history retention and signed cloud timestamps. Parser/state-machine tests and simulator captures do not close these physical checks.
+
+## Collection UI retest
+
+On each signed physical band, check Today → Band status → Live: source and connection must match the registered band; HR receipt, contact evidence, unavailable historical retrieval and successful iCloud exchange must remain distinct. Disconnect explicitly, confirm live becomes recent then stale after90s, and confirm the main Live value becomes unavailable while retained history remains. Reconnect using the same portable identity; unknown contact must not turn into confirmed wear from pulse or proximity. Check large text/VoiceOver and denied Bluetooth/Health permissions. Removing registration must retain history in Trends while ending that band as a current Live source. Simulator cases do not validate any physical communication.

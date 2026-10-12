@@ -179,7 +179,7 @@ struct DevicesView: View {
                 "\(model.bluetooth.wearStatus(device.id))\(model.selector.activeID == device.id ? " · Selected source" : "")"
               ).font(.caption).foregroundStyle(.secondary)
             }
-          }
+          }.accessibilityIdentifier("registered-band-\(device.id.uuidString)")
         }
         if model.devices.isEmpty { Text("Register your bands once; keep one continuous history.") }
       }
@@ -318,7 +318,11 @@ struct CollectionHealthView: View {
   var body: some View {
     List {
       Section("Collection") {
-        Text(model.bluetooth.status)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+          LabeledContent(
+            "Collection status", value: model.collectionReading(at: context.date).statusTitle)
+        }
+        LabeledContent("Last transport event", value: model.bluetooth.status)
         LabeledContent("Connected devices", value: String(model.bluetooth.connected.count))
         if let date = model.lastSample?.timestamp {
           LabeledContent("Last sample", value: date.formatted())

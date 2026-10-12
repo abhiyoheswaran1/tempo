@@ -5,9 +5,8 @@ import TempoCore
 struct BandStatusControl: View {
   @Environment(AppModel.self) var model
   @State private var details = false
-  @Environment(\.dynamicTypeSize) private var textSize
   var body: some View {
-    TimelineView(.periodic(from: .now, by: 15)) { context in
+    TimelineView(.periodic(from: .now, by: 1)) { context in
       let fresh = SampleFreshness(timestamp: model.lastSample?.timestamp, now: context.date)
       Button {
         details = true
@@ -16,7 +15,7 @@ struct BandStatusControl: View {
           Image(systemName: fresh == .fresh ? "waveform.path.ecg" : "sensor.tag.radiowaves.forward")
             .foregroundStyle(.teal).accessibilityHidden(true)
           VStack(alignment: .leading, spacing: 3) {
-            Text(model.activeDevice?.name ?? "Your bands").font(.subheadline.weight(.semibold))
+            Text(model.collectionDevice?.name ?? "Your bands").font(.subheadline.weight(.semibold))
             Text(status(fresh, now: context.date)).font(.caption).foregroundStyle(.secondary)
           }
           Spacer()
@@ -26,66 +25,120 @@ struct BandStatusControl: View {
       }.buttonStyle(.plain).accessibilityIdentifier("band-status-control")
     }.sheet(isPresented: $details) {
       NavigationStack { BandStatusSheet() }.presentationDetents(
-        textSize.isAccessibilitySize ? [.large] : [.medium, .large])
+        [.large])
     }
   }
   func status(_ freshness: SampleFreshness, now: Date) -> String {
-    guard let sample = model.lastSample else { return "Connect a band to begin" }
-    let placement = PlacementTimeline.resolve(
-      deviceID: sample.deviceID, at: now, records: model.placements)
-    let location = placement == .unknown ? "Placement unrecorded" : placement.title
-    if model.demo { return "Synthetic sample · \(location)" }
-    if model.bluetooth.isConnected(sample.deviceID), freshness == .fresh {
-      return "Connected · recent reading · \(model.bluetooth.wearStatus(sample.deviceID)) · \(location)"
+    if model.demo { return "Synthetic sample · no band connection" }
+    let device = model.collectionDevice
+    let reading = model.collectionReading(at: now)
+    let connection =
+      device.map { model.bluetooth.bandStatus($0.id, now: now) } ?? "No band selected"
+    guard let sample = reading.sample else { return "\(connection) · no heart rate yet" }
+    switch reading.state {
+    case .live, .recent:
+      let age = max(0, Int(now.timeIntervalSince(sample.timestamp)))
+      let receipt = age < 60 ? "\(age)s ago" : "\(age / 60) min ago"
+      return "\(reading.state == .live ? "Live" : connection) · HR received \(receipt)"
+    case .stale: return "\(connection) · reading stale"
+    case .waiting: return "\(connection) · no heart rate yet"
     }
-    return
-      "\(model.bluetooth.isConnected(sample.deviceID) ? "Data stale" : "Disconnected") · last \(sample.timestamp.formatted(date: .abbreviated, time: .shortened))"
   }
+
 }
 struct BandStatusSheet: View {
   @Environment(AppModel.self) var model
   @Environment(\.dismiss) var dismiss
   var body: some View {
-    List {
-      Section("Collection") {
-        NavigationLink("Live dashboard") { LiveDashboardView() }
-        Text(model.demo ? "Synthetic demonstration" : model.bluetooth.status)
-        if let sample = model.lastSample {
-          LabeledContent("Last heart rate", value: "\(Int(sample.value)) bpm")
-          LabeledContent("Received", value: sample.timestamp.formatted())
+    TimelineView(.periodic(from: .now, by: 1)) { context in
+      List {
+        Section("Collection") {
           Text(
-            "\(SampleFreshness(timestamp: sample.timestamp, now: Date()) == .fresh ? "Recent measurement" : "Stale measurement") · \(model.devices.first { $0.id == sample.deviceID }?.name ?? "Recorded source")"
-          ).font(.caption).foregroundStyle(.secondary)
-        }
-        NavigationLink("Collection health") { CollectionHealthView() }
-      }
-      Section("History continuity") { SyncStatusRow() }
-      Section("Bands and placement") {
-        Text(
-          "Live heart rate and wear status are separate. A band can supply heart rate without the optional contact flag; ‘Wear not reported’ does not mean off-body."
-        ).font(.caption).foregroundStyle(.secondary)
-        ForEach(model.devices) { device in
-          NavigationLink {
-            PlacementView(device: device)
-          } label: {
-            VStack(alignment: .leading) {
-              Text(device.name)
-              Text(
-                "\(model.bluetooth.bandStatus(device.id)) · \(model.bluetooth.wearStatus(device.id))\(model.selector.activeID == device.id ? " · Selected source" : "")"
-              ).font(.caption).foregroundStyle(.secondary)
-              Text(
-                PlacementTimeline.resolve(
-                  deviceID: device.id, at: Date(), records: model.placements
-                ).title
-              ).font(.caption).foregroundStyle(.secondary)
-            }
+            model.demo
+              ? "Synthetic demonstration" : model.collectionReading(at: context.date).statusTitle
+          ).font(.subheadline)
+          if let sample = model.collectionReading(at: context.date).sample {
+            LabeledContent("Last heart rate", value: "\(Int(sample.value)) bpm")
+            LabeledContent(
+              "HR received", value: sample.timestamp.formatted(date: .abbreviated, time: .standard))
           }
+          NavigationLink("Live dashboard") { LiveDashboardView() }
         }
-        NavigationLink("Manage and reconnect bands") { DevicesView() }
+        Section("Your bands") {
+          ForEach(model.devices) { device in
+            VStack(alignment: .leading, spacing: 8) {
+              HStack {
+                Text(device.name).font(.headline)
+                Spacer()
+                if model.selector.activeID == device.id {
+                  Text("Selected source").font(.caption).foregroundStyle(.secondary)
+                }
+              }
+              LabeledContent(
+                "Connection",
+                value: model.demo ? "Demo · not connected" : model.bluetooth.bandStatus(device.id))
+              LabeledContent(
+                "Wear evidence",
+                value: model.demo
+                  ? "Not available in demo"
+                  : model.bluetooth.wearStatus(device.id, now: context.date))
+              let placement = PlacementTimeline.resolve(
+                deviceID: device.id, at: context.date, records: model.placements)
+              NavigationLink("Placement · \(placement.title)") { PlacementView(device: device) }
+              HStack {
+                if model.bluetooth.state(device.id) == .disconnected {
+                  Button("Reconnect") { model.bluetooth.connect(deviceID: device.id) }
+                    .disabled(model.demo).accessibilityLabel("Reconnect \(device.name)")
+                } else {
+                  Button("Disconnect") {
+                    model.mutate { try await model.disconnectBand(device.id) }
+                  }
+                  .disabled(model.demo || model.bluetooth.state(device.id) == .disconnecting)
+                  .accessibilityLabel("Disconnect \(device.name)")
+                }
+                Spacer()
+                NavigationLink("Details") { DeviceDetailView(device: device) }
+                  .accessibilityLabel("Details for \(device.name)")
+              }.buttonStyle(.bordered)
+            }.font(.subheadline).padding(.vertical, 4)
+          }
+          Text(
+            "Wear not reported means the contact flag is unavailable, not off-body. Heart rate and wear evidence are separate."
+          )
+          .font(.caption).foregroundStyle(.secondary)
+          NavigationLink("Manage and reconnect bands") { DevicesView() }
+        }
+        Section("History retrieval") {
+          LabeledContent("Band history retrieval", value: "Unavailable in this build")
+          Text("Live receipt is separate from retrieving stored band history.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        Section("iCloud") { SyncStatusRow() }
+        Section { NavigationLink("Collection health") { CollectionHealthView() } }
+      }.navigationTitle("Band status").toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
       }
-    }.navigationTitle("Band status").toolbar {
-      ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
     }
+  }
+}
+
+extension AppModel {
+  var collectionDevice: RegisteredDevice? {
+    activeDevice ?? lastSample.flatMap { sample in devices.first { $0.id == sample.deviceID } }
+      ?? devices.first { bluetooth.isConnected($0.id) }
+  }
+  func collectionReading(at now: Date) -> CollectionPresentation {
+    let sample = lastSample.flatMap { sample in
+      devices.contains { $0.id == sample.deviceID } ? sample : nil
+    }
+    let id = collectionDevice?.id ?? sample?.deviceID
+    let connected = id.map { bluetooth.isConnected($0) } ?? false
+    let wear =
+      id.map { WearEvidence.current(bluetooth.lastSamples[$0], connected: connected, now: now) }
+      ?? .unknown
+    return CollectionPresentation(
+      sample: sample, connected: connected, wear: wear, now: now, allowSynthetic: demo,
+      selectedDeviceID: id)
   }
 }
 struct ActiveWorkoutAccessory: View {
@@ -174,115 +227,120 @@ struct SyncStatusRow: View {
 
 struct LiveDashboardView: View {
   @Environment(AppModel.self) var model
+  @ScaledMetric(relativeTo: .largeTitle) private var readingSize = 60
+  @State private var confirmFinish = false
   var body: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
-      let sample =
-        model.activeDevice.flatMap { model.bluetooth.lastSamples[$0.id] }.flatMap {
-          $0.valid ? $0 : nil
-        } ?? model.lastSample
-      let state = LiveReadingState(
-        timestamp: sample?.timestamp,
-        connected: sample.map {
-          model.bluetooth.isConnected($0.deviceID)
-            && WearEvidence.current(
-              model.bluetooth.lastSamples[$0.deviceID], connected: true, now: context.date)
-              != .offBody
-        } ?? false,
-        now: context.date)
+      let reading = model.collectionReading(at: context.date)
+      let sample = reading.sample
+      let sourceID = model.collectionDevice?.id
       let recent = CanonicalTimeline.select(
         model.measurements.filter {
-          $0.kind == .heartRate && $0.valid && $0.timestamp >= context.date.addingTimeInterval(-300)
-            && $0.timestamp <= context.date && (sample == nil || $0.deviceID == sample?.deviceID)
+          $0.kind == .heartRate && $0.valid && (25...240).contains($0.value)
+            && ($0.origin == .measured || (model.demo && $0.origin == .synthetic))
+            && $0.timestamp >= context.date.addingTimeInterval(-300) && $0.timestamp <= context.date
+            && sourceID != nil && $0.deviceID == sourceID
         }, sourceSegments: model.sourceSegments)
       let load = CardiovascularLoad.calculate(recent, maxHeartRate: model.maxHeartRate)
       List {
         Section {
-          VStack(alignment: .leading, spacing: 8) {
-            Text(model.demo ? "Synthetic demonstration" : label(state)).font(.subheadline)
-              .foregroundStyle(.secondary)
+          VStack(alignment: .leading, spacing: 10) {
+            Text(model.demo ? "Synthetic demonstration" : reading.statusTitle)
+              .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+              Text(reading.displayedBPM.map { $0.formatted() } ?? "—")
+                .font(.system(size: readingSize, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .accessibilityIdentifier("live-primary-reading")
+              Text("bpm").foregroundStyle(.secondary)
+            }.accessibilityElement(children: .combine)
             if let sample {
-              HStack(alignment: .firstTextBaseline) {
-                Text(Int(sample.value).formatted()).font(
-                  .system(.largeTitle, design: .rounded).weight(.semibold)
-                ).monospacedDigit()
-                Text("bpm").foregroundStyle(.secondary)
-              }.accessibilityElement(children: .combine)
-              Text(sample.timestamp, format: .dateTime.hour().minute().second()).font(.caption)
-                .foregroundStyle(.secondary)
-              if state == .live && !model.demo {
-                Text(
-                  sample.value / model.maxHeartRate < 0.5
-                    ? "Below training zones"
-                    : "Zone \(max(1, min(5, Int(floor((sample.value / model.maxHeartRate - 0.5) * 10)) + 1))) · estimate"
-                )
+              if reading.state == .stale {
+                Text("Last recorded: \(Int(sample.value)) bpm · stale")
+                  .font(.subheadline).foregroundStyle(.secondary)
+              }
+              Text("Received \(sample.timestamp.formatted(date: .omitted, time: .standard))")
+                .font(.caption).foregroundStyle(.secondary)
+                .accessibilityIdentifier("live-received-time")
+              if reading.state == .live && !model.demo {
+                let live = WorkoutLiveReading(
+                  sample: sample, connected: true, wear: .unknown,
+                  now: context.date, maximumHeartRate: model.maxHeartRate)
+                Text(live.zone.map { "Zone \($0) · estimate" } ?? "Below configured training zones")
+                  .font(.subheadline).foregroundStyle(.secondary)
               }
             } else {
-              Text("Waiting for a heart-rate measurement").font(.headline)
+              Text("Waiting for a heart-rate measurement").font(.subheadline).foregroundStyle(
+                .secondary)
             }
           }.padding(.vertical, 8)
-          if state != .live && !model.demo {
+          if reading.state != .live && !model.demo {
             Text(
-              "A connection alone does not guarantee measurements. Enable heart-rate broadcast on the band where supported."
-            ).font(.caption).foregroundStyle(.secondary)
+              "A connection alone does not guarantee readings. Check the band’s heart-rate broadcast setting where supported."
+            )
+            .font(.caption).foregroundStyle(.secondary)
           }
         }
         Section("Last five minutes") {
-          if recent.count >= 2 {
-            Chart {
-              ForEach(Array(recent.enumerated()), id: \.element.id) { index, point in
-                // A separate series after each gap avoids drawing through missing observations.
-                let segment = recent.prefix(index + 1).enumerated().filter { i, p in
-                  i > 0 && p.timestamp.timeIntervalSince(recent[i - 1].timestamp) > 10
-                }.count
-                LineMark(
-                  x: .value("Time", point.timestamp), y: .value("Heart rate", point.value),
-                  series: .value("Coverage", segment)
-                ).foregroundStyle(.teal)
-              }
-            }.chartLegend(.hidden).chartYScale(domain: 25...240).frame(height: 180)
-              .accessibilityLabel(
-                "Heart rate over the last five minutes; gaps represent missing readings")
+          if !recent.isEmpty {
+            liveChart(recent)
           } else {
-            Text("Recent coverage is still building.").foregroundStyle(.secondary)
+            ContentUnavailableView(
+              "No recent readings", systemImage: "waveform.path.ecg",
+              description: Text("Your history stays available. Missing periods remain gaps."))
           }
-          LabeledContent("Covered time", value: durationText(load?.coveredSeconds ?? 0))
-          if let average = load?.average {
-            LabeledContent("Covered-time average", value: "\(Int(average)) bpm")
+          ViewThatFits(in: .horizontal) {
+            HStack {
+              liveStatistic("Covered", value: durationText(load?.coveredSeconds ?? 0))
+              Spacer()
+              liveStatistic("Average", value: load?.average.map { "\(Int($0)) bpm" } ?? "—")
+              Spacer()
+              liveStatistic("Range", value: observedRange(recent))
+            }
+            VStack(alignment: .leading, spacing: 12) {
+              liveStatistic("Covered", value: durationText(load?.coveredSeconds ?? 0))
+              liveStatistic("Average", value: load?.average.map { "\(Int($0)) bpm" } ?? "—")
+              liveStatistic("Range", value: observedRange(recent))
+            }
           }
-          if let minimum = recent.map(\.value).min(), let maximum = recent.map(\.value).max() {
-            LabeledContent("Observed range", value: "\(Int(minimum))–\(Int(maximum)) bpm")
-          }
-          Text(
-            "Direct heart rate; zones depend on your configured maximum heart rate. Missing periods are excluded."
-          ).font(.caption).foregroundStyle(.secondary)
+          Text("Average uses covered time. Gaps are excluded.").font(.caption).foregroundStyle(
+            .secondary)
         }
-        Section("Source and collection") {
-          if let sample {
-            Text(model.devices.first { $0.id == sample.deviceID }?.name ?? "Recorded source")
-            Text(
-              model.demo
-                ? "Synthetic data · no band connection"
-                : model.bluetooth.bandStatus(sample.deviceID))
-            Text(
-              model.demo
-                ? "Wear status unavailable in demo" : model.bluetooth.wearStatus(sample.deviceID))
-            if !model.demo, model.bluetooth.wearStatus(sample.deviceID) == "Wear not reported" {
-              Text(
-                "This Bluetooth feed does not currently report contact. Heart-rate collection still works; Tempo does not turn a plausible pulse into a confirmed wear report."
-              ).font(.caption).foregroundStyle(.secondary)
-            }
-            if !sample.rrMilliseconds.isEmpty {
-              LabeledContent(
-                "Latest band-supplied R–R",
-                value:
-                  "\(sample.rrMilliseconds.map { Int($0).formatted() }.joined(separator: ", ")) ms")
-              Text("Intervals are not an overnight HRV result.").font(.caption).foregroundStyle(
-                .secondary)
-            }
+        Section {
+          if let device = model.collectionDevice {
+            LabeledContent("Source", value: device.name)
+            LabeledContent(
+              "Connection",
+              value: model.demo ? "Demo · not connected" : model.bluetooth.bandStatus(device.id))
           }
-          Text(
-            "Battery, oxygen and temperature remain unavailable until a supported data path is verified."
-          ).font(.caption).foregroundStyle(.secondary)
+          DisclosureGroup("Source and measurement evidence") {
+            if let sample {
+              LabeledContent("Origin", value: model.demo ? "Synthetic" : "Direct measurement")
+              Text(
+                sample.timestamp, format: .dateTime.year().month().day().hour().minute().second())
+              LabeledContent(
+                "Wear evidence",
+                value: model.demo
+                  ? "Unavailable in demo" : model.bluetooth.wearStatus(sample.deviceID))
+              Text(
+                "Wear not reported means no usable contact flag. A plausible pulse is separate from confirmed wear."
+              )
+              .font(.caption).foregroundStyle(.secondary)
+              if !sample.rrMilliseconds.isEmpty {
+                LabeledContent(
+                  "Latest band-supplied R–R",
+                  value:
+                    "\(sample.rrMilliseconds.prefix(8).map { Int($0).formatted() }.joined(separator: ", ")) ms"
+                )
+                Text("Intervals are not an overnight HRV result.").font(.caption).foregroundStyle(
+                  .secondary)
+              }
+            }
+            Text(
+              "Battery, oxygen and temperature remain unavailable until a supported data path is verified."
+            )
+            .font(.caption).foregroundStyle(.secondary)
+          }
           NavigationLink("Manage bands") { DevicesView() }
           NavigationLink("Collection health") { CollectionHealthView() }
         }
@@ -294,21 +352,48 @@ struct LiveDashboardView: View {
             Button(workout.pausedAt == nil ? "Pause workout" : "Resume workout") {
               model.mutate { try await model.pauseResume() }
             }
-            Button("Finish workout") { model.mutate { try await model.finishWorkout() } }
+            Button("Finish workout") { confirmFinish = true }
           }
         }
-        Section("History continuity") { SyncStatusRow() }
+        Section("iCloud") { SyncStatusRow() }
       }.navigationTitle("Live dashboard")
+    }.alert("Finish this workout?", isPresented: $confirmFinish) {
+      Button("Finish workout", role: .destructive) {
+        model.mutate { try await model.finishWorkout() }
+      }
+      Button("Cancel", role: .cancel) {}
     }
   }
-  private func label(_ state: LiveReadingState) -> String {
-    switch state {
-    case .live: "Receiving live heart rate"
-    case .recent: "Recent reading · not confirmed live"
-    case .stale: "Stale reading"
-    case .waiting: "No reading yet"
-    }
+  private func liveChart(_ samples: [TempoCore.Measurement]) -> some View {
+    let points = LiveChartSeries.points(samples)
+    let low = max(25, (samples.map(\.value).min() ?? 60) - 8)
+    let high = min(240, (samples.map(\.value).max() ?? 100) + 8)
+    return Chart(points) { point in
+      LineMark(
+        x: .value("Time", point.sample.timestamp), y: .value("Heart rate", point.sample.value),
+        series: .value("Coverage", point.segment)
+      ).foregroundStyle(.teal)
+      PointMark(
+        x: .value("Time", point.sample.timestamp), y: .value("Heart rate", point.sample.value)
+      )
+      .symbolSize(8).foregroundStyle(.teal)
+    }.chartLegend(.hidden).chartYScale(domain: low...high).chartYAxisLabel("bpm")
+      .frame(height: 180).accessibilityLabel(
+        "Heart rate over the last five minutes; gaps represent missing readings")
   }
+  private func liveStatistic(_ title: String, value: String) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
+      Text(title).font(.caption).foregroundStyle(.secondary)
+    }.accessibilityElement(children: .combine)
+  }
+  private func observedRange(_ samples: [TempoCore.Measurement]) -> String {
+    guard let low = samples.map(\.value).min(), let high = samples.map(\.value).max() else {
+      return "—"
+    }
+    return "\(Int(low))–\(Int(high)) bpm"
+  }
+
 }
 
 struct TodayCollectionPanel: View {
@@ -347,9 +432,11 @@ struct TodayCollectionPanel: View {
       }
       Divider()
       BandStatusControl()
-      TimelineView(.periodic(from: .now, by: 15)) { _ in
+      TimelineView(.periodic(from: .now, by: 15)) { context in
         VStack(alignment: .leading, spacing: 3) {
-          if let sample = model.lastSample {
+          if let sample = model.lastSample,
+            model.collectionReading(at: context.date).state == .stale
+          {
             HStack(spacing: 4) {
               Text("Last reading")
               Text(sample.timestamp, style: .relative)

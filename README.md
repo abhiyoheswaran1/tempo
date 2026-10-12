@@ -110,7 +110,7 @@ UI tests additionally use `--ui-testing` for an isolated in-memory dataset. Add 
 
 ## Screenshots
 
-These are real screenshots captured from Tempo running in the iOS simulator, with synthetic demonstration data. They are not mockups or physical-iPhone captures and do not validate band connectivity. Tap an image to open it at full resolution.
+These are real screenshots captured from Tempo running in the iOS simulator, with synthetic demonstration data or an isolated empty test dataset. They are not mockups or physical-iPhone captures and do not validate band connectivity. Tap an image to open it at full resolution.
 
 | Today | Activity | Trends |
 |---|---|---|
@@ -126,7 +126,12 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 
 [<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
 
-All ten captures come from the current simulator test runs. Activity now puts sport selection and Start first, with a focused timer, pause/resume controls and a cancelable Finish alert during workouts. Today places live collection immediately below readiness. Pull down or tap the circular Refresh control to check collection and request enabled cloud sync; feedback distinguishes real success, local-only operation and retries. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+All thirteen captures come from successful simulator tests. Today brings collection first while a baseline builds, with compact progress instead of an empty score. Available readiness keeps its evidence entry. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and gap-preserving chart first, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+
+| Baseline building · empty test dataset | Band status · empty test dataset | Sleep trends · synthetic demo |
+|---|---|---|
+| [<img src="docs/screenshots/today-baseline-empty.png" width="240" alt="Today with no records and compact baseline progress">](docs/screenshots/today-baseline-empty.png) | [<img src="docs/screenshots/band-status-empty.png" width="240" alt="Band status separating unavailable history retrieval from iCloud">](docs/screenshots/band-status-empty.png) | [<img src="docs/screenshots/sleep-trends-demo.png" width="240" alt="Selected sleep metric with synthetic sessions and provenance">](docs/screenshots/sleep-trends-demo.png) |
+
 
 ## Logo and Xcode assets
 
@@ -213,7 +218,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **74 core tests passed. The updated simulator suite passes all 12 tests, including ten real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **79 core tests passed. The updated simulator suite passes all 15 tests, including thirteen real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode on Today, Trends and Live; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 

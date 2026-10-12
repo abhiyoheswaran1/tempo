@@ -117,7 +117,8 @@ extension TempoUITests {
       timeout: 30)
     settings.tap()
     app.buttons["Manage and reconnect bands"].tap()
-    app.staticTexts["Synthetic band"].tap()
+    app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'registered-band-'")).firstMatch
+      .tap()
     app.buttons["Record wearing placement"].tap()
     XCTAssertTrue(app.navigationBars["Wearing placement"].waitForExistence(timeout: 5))
     app.buttons["Now: Wrist"].tap()
@@ -214,15 +215,22 @@ extension TempoUITests {
     app.buttons["Live dashboard"].tap()
     XCTAssertTrue(app.navigationBars["Live dashboard"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Synthetic demonstration"].exists)
+    XCTAssertTrue(app.staticTexts["live-received-time"].exists)
     XCTAssertFalse(app.staticTexts["Receiving live heart rate"].exists)
     let live = XCTAttachment(screenshot: app.screenshot())
     live.name = "live-dashboard-demo"
     live.lifetime = .keepAlways
     add(live)
+    let evidence = app.buttons["Source and measurement evidence"]
+    for _ in 0..<4 where !evidence.isHittable { app.swipeUp() }
+    XCTAssertTrue(evidence.isHittable)
+    evidence.tap()
+    XCTAssertTrue(app.staticTexts["Intervals are not an overnight HRV result."].exists)
     for _ in 0..<4 where !app.buttons["Manage bands"].isHittable { app.swipeUp() }
     app.buttons["Manage bands"].tap()
     XCTAssertTrue(app.staticTexts["Synthetic band"].waitForExistence(timeout: 5))
-    app.staticTexts["Synthetic band"].tap()
+    app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'registered-band-'")).firstMatch
+      .tap()
     XCTAssertTrue(app.navigationBars["Synthetic band"].waitForExistence(timeout: 5))
     for _ in 0..<6 where !app.buttons["Disconnect"].exists { app.swipeUp() }
     XCTAssertTrue(app.buttons["Disconnect"].exists)
@@ -233,6 +241,20 @@ extension TempoUITests {
     app.buttons["confirm-remove-band"].firstMatch.tap()
     XCTAssertTrue(app.navigationBars["Your bands"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.staticTexts["Synthetic band"].exists)
+    app.navigationBars["Your bands"].buttons.firstMatch.tap()
+    XCTAssertTrue(app.navigationBars["Live dashboard"].waitForExistence(timeout: 5))
+    for _ in 0..<5 where !app.staticTexts["Waiting for a heart-rate measurement"].isHittable {
+      app.swipeDown()
+    }
+    XCTAssertTrue(app.staticTexts["Waiting for a heart-rate measurement"].exists)
+    XCTAssertTrue(app.staticTexts["No recent readings"].exists)
+    app.tabBars.buttons["Trends"].tap()
+    let calculation = app.buttons["Source and calculation"]
+    for _ in 0..<4 where !calculation.isHittable { app.swipeUp() }
+    XCTAssertTrue(calculation.isHittable)
+    calculation.tap()
+    XCTAssertTrue(app.staticTexts["Synthetic band · archived"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["trend-selected-value"].exists)
   }
 }
 
@@ -324,5 +346,102 @@ extension TempoUITests {
     app.buttons["Finish"].tap()
     app.buttons["confirm-finish-workout"].firstMatch.tap()
     XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testBaselineBuildingShowsCollectionBeforeCompactProgress() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing"]
+    app.launch()
+    let live = app.buttons["Live dashboard"]
+    XCTAssertTrue(live.waitForExistence(timeout: 15))
+    let progress = app.staticTexts["baseline-progress"].firstMatch
+    XCTAssertTrue(progress.waitForExistence(timeout: 5))
+    XCTAssertLessThan(live.frame.minY, progress.frame.minY)
+    XCTAssertFalse(app.staticTexts["Readiness unavailable"].exists)
+    XCTAssertTrue(app.buttons["See inputs and calculation"].exists)
+    let today = XCTAttachment(screenshot: app.screenshot())
+    today.name = "today-baseline-empty"
+    today.lifetime = .keepAlways
+    add(today)
+    app.buttons["band-status-control"].tap()
+    for _ in 0..<3 where !app.staticTexts["Band history retrieval"].exists { app.swipeUp() }
+    XCTAssertTrue(app.staticTexts["Band history retrieval"].waitForExistence(timeout: 5))
+    XCTAssertTrue(
+      app.staticTexts.matching(
+        NSPredicate(format: "label CONTAINS %@", "Unavailable in this build")
+      ).firstMatch.exists)
+    for _ in 0..<3 where !app.buttons["Manage and reconnect bands"].isHittable { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Manage and reconnect bands"].isHittable)
+    let status = XCTAttachment(screenshot: app.screenshot())
+    status.name = "band-status-empty"
+    status.lifetime = .keepAlways
+    add(status)
+  }
+  @MainActor func testTrendsSelectsOneMetricAndAccessibleDayEvidence() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    app.tabBars.buttons["Trends"].tap()
+    XCTAssertTrue(app.buttons["Measurement"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["Sleep duration"].exists)
+    app.buttons["Daily values and evidence"].tap()
+    let day = app.buttons["trend-day-0"]
+    XCTAssertTrue(day.waitForExistence(timeout: 5))
+    day.tap()
+    XCTAssertTrue(app.staticTexts["trend-selected-value"].exists)
+    app.buttons["Measurement"].tap()
+    app.buttons["Sleep duration"].tap()
+    XCTAssertTrue(app.staticTexts["Sleep duration"].waitForExistence(timeout: 5))
+    XCTAssertFalse(
+      app.staticTexts["Average during measured periods, not an all-day or resting heart rate."]
+        .exists)
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "sleep-trends-demo"
+    shot.lifetime = .keepAlways
+    add(shot)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testLargeTextTrendsAndLiveKeepEvidenceReachable() {
+    let app = XCUIApplication()
+    app.launchArguments = [
+      "--ui-testing", "--demo", "--live-dashboard-demo", "--large-text", "--dark",
+    ]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    app.tabBars.buttons["Trends"].tap()
+    XCTAssertTrue(app.buttons["Measurement"].isHittable)
+    let daily = app.buttons["Daily values and evidence"]
+    for _ in 0..<6 where !daily.isHittable { app.swipeUp() }
+    XCTAssertTrue(daily.isHittable)
+    daily.tap()
+    let row = app.buttons["trend-day-0"]
+    for _ in 0..<4 where !row.isHittable { app.swipeUp() }
+    XCTAssertTrue(row.isHittable)
+    row.tap()
+    XCTAssertTrue(app.staticTexts["trend-selected-value"].exists)
+    app.tabBars.buttons["Today"].tap()
+    let live = app.buttons["Live dashboard"]
+    for _ in 0..<6 where !live.isHittable { app.swipeUp() }
+    XCTAssertTrue(live.isHittable)
+    live.tap()
+    let evidence = app.buttons["Source and measurement evidence"]
+    for _ in 0..<6 where !evidence.isHittable { app.swipeUp() }
+    XCTAssertTrue(evidence.isHittable)
+    evidence.tap()
+    for _ in 0..<4 where !app.buttons["Manage bands"].isHittable { app.swipeUp() }
+    XCTAssertTrue(app.buttons["Manage bands"].isHittable)
   }
 }

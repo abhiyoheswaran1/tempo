@@ -9,6 +9,11 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 | D01 | P1 awaiting hardware | Exact QuartzCore message reproduced in independent minimal NavigationStack app without BLE/cloud; [evidence](RenderingDiagnostics.md). Confirm physical OS/action and any freeze/flicker/crash before an app workaround. No log suppression or fixed claim. |
 | D02 | P1 awaiting physical validation | CFPrefs App Group diagnostic: local signed app/widget groups match signatures and provisioning; verify isolated runtime canary and document actual failure signals. No group renaming to suppress logs. |
 | D03 | P1 awaiting physical validation | PointerUI non-launching-port diagnostic: check minimal native/runtime logs, distinguish input service from BLE/cloud and retain physical OS/failure boundary. |
+| UX12 | P1 in progress | Collection status: current source, HR age and wear separately; history retrieval explicitly unavailable; cloud success distinct; direct connect/disconnect plus diagnostics. Simulator states and physical C01/C03 remain separate. |
+| UX13 | P1 in progress | Today without a score: compact baseline progress, no empty score, available collection/sleep/activity first; retain calculation entry and existing score when justified. |
+| UX14 | P1 in progress | Trends: one selected metric including sleep, clear units/range, select only same-day data rather than nearest across gaps, evidence and accessible daily rows. Preserve provenance and corrections. |
+| UX15 | P1 in progress | Live: dominant current/recent reading, stale value separated, five-minute gap-preserving chart and compact coverage; source/R-R/limits disclosed on demand, timestamp always available. |
+| UX16 | P2 open | Fast journal: energy/soreness/mood first, optional behaviours afterwards, Today check-in completion with Edit; unknown answers stay unknown. Routine check-in under 30 seconds requires usability validation. |
 | UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
 
 UX01–UX08 and UX10 are closed in [Completed.md](Completed.md). Physical audit V05 stays open.
