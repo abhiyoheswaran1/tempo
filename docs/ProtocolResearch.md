@@ -35,3 +35,9 @@ No firmware flashing, reboot/power-down, trim/delete, certificate transfer, auth
 ## Body placement boundary
 
 The public command reference reviewed for this update does not establish a validated wearing-location read/write contract implemented in Tempo. Standard HR/contact notifications do not identify wrist, bicep or underwear. Tempo therefore stores manual placement reports independently of the BLE adapter and sends no placement command. [WearingPlacement.md](WearingPlacement.md) documents official placement-sensitive feature evidence and the limits of the original analytics.
+
+## Wear-status reassessment — 2026-10-12
+
+Rechecked [current command reference](https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_COMMANDS.md) without copying implementation. Command84 is documented for Whoop4 41.17.6.0 and Whoop5/MG50.42.1.0. The latter revision1 cached-status reply is four bytes: revision, fixed zero, fixed255, then on-body0/1. The middle fields are placeholders, not measured location/confidence. Outer success/result validation matters: failure can carry an initialized body. The Whoop4 legacy reply contract is different and is not supplied an interchangeable Whoop5 decoder. Command148 forces worn state and disables detection; it is excluded from Tempo.
+
+These facts do not enable a safe production path by themselves. Tempo currently uses standard HRS contact flags, not a proprietary link/firmware-bound body query. GenericHR reception establishes neither the encrypted proprietary link nor the application firmware identity. Until the relevant adapter/link/result/firmware paths and physical wear interpretation are validated, unknown stays unknown internally and the UI says Wear not reported. No speculative Bluetooth writes were added in this refinement.

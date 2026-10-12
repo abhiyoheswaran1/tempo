@@ -7,6 +7,8 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
 | D01 | P1 awaiting hardware | Exact QuartzCore message reproduced in independent minimal NavigationStack app without BLE/cloud; [evidence](RenderingDiagnostics.md). Confirm physical OS/action and any freeze/flicker/crash before an app workaround. No log suppression or fixed claim. |
+| D02 | P1 awaiting physical validation | CFPrefs App Group diagnostic: local signed app/widget groups match signatures and provisioning; verify isolated runtime canary and document actual failure signals. No group renaming to suppress logs. |
+| D03 | P1 awaiting physical validation | PointerUI non-launching-port diagnostic: check minimal native/runtime logs, distinguish input service from BLE/cloud and retain physical OS/failure boundary. |
 | UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
 
 UX01–UX08 and UX10 are closed in [Completed.md](Completed.md). Physical audit V05 stays open.

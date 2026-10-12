@@ -15,6 +15,8 @@ final class TempoUITests: XCTestCase {
     app.buttons["Pause"].tap()
     XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
     app.buttons["Finish"].tap()
+    XCTAssertTrue(app.buttons["confirm-finish-workout"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["confirm-finish-workout"].firstMatch.tap()
     XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
     app.buttons["Done"].tap()
     app.tabBars.buttons["Trends"].tap()
@@ -56,6 +58,8 @@ extension TempoUITests {
     XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
     capture("workout-demo")
     app.buttons["Finish"].tap()
+    XCTAssertTrue(app.buttons["confirm-finish-workout"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["confirm-finish-workout"].firstMatch.tap()
     XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
     capture("workout-summary-demo")
     app.buttons["Done"].tap()
@@ -150,6 +154,8 @@ extension TempoUITests {
     app.buttons["Open active workout"].tap()
     XCTAssertTrue(app.navigationBars["Active workout"].waitForExistence(timeout: 5))
     app.buttons["Finish"].tap()
+    XCTAssertTrue(app.buttons["confirm-finish-workout"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["confirm-finish-workout"].firstMatch.tap()
     XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
   }
 }
@@ -291,5 +297,32 @@ extension TempoUITests {
     XCTAssertTrue(
       app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Entered'")).firstMatch
         .waitForExistence(timeout: 5))
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testActivitySelectionAndCancelableFinish() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing"]
+    app.launch()
+    XCTAssertTrue(app.tabBars.buttons["Activity"].waitForExistence(timeout: 15))
+    app.tabBars.buttons["Activity"].tap()
+    XCTAssertTrue(app.buttons["Running"].isHittable)
+    app.buttons["Running"].tap()
+    app.buttons["Start Running"].tap()
+    XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+    XCTAssertTrue(
+      (app.staticTexts["Active workout duration"].value as? String)?.contains(":") == true)
+    app.buttons["Finish"].tap()
+    XCTAssertTrue(app.buttons["confirm-finish-workout"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["Cancel"].firstMatch.tap()
+    XCTAssertTrue(app.buttons["Pause"].exists)
+    XCTAssertFalse(app.navigationBars["Workout summary"].exists)
+    app.buttons["Pause"].tap()
+    XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+    app.buttons["Resume"].tap()
+    app.buttons["Finish"].tap()
+    app.buttons["confirm-finish-workout"].firstMatch.tap()
+    XCTAssertTrue(app.navigationBars["Workout summary"].waitForExistence(timeout: 5))
   }
 }

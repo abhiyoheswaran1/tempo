@@ -4,8 +4,8 @@ Current evidence only. Completed IDs live in Completed.md; older investigations 
 
 | Check | Result |
 |---|---|
-| Swift core suite | 73 tests passed,0 failures |
-| iPhone simulator suite | 11 tests passed,0 failures |
+| Swift core suite | 74 tests passed,0 failures |
+| iPhone simulator suite | 12 tests passed,0 failures |
 | Native executable | Tempo workspace/scheme builds Tempo.app/Tempo, app/widget/UI runner; minimum iOS26 |
 | Unsigned generic iPhoneOS build | BUILD SUCCEEDED after final product changes |
 | Captures | ten actual, unmodified successful-test XCTest attachments; source/timestamp/dimensions/SHA-256 manifest |
@@ -22,3 +22,5 @@ Red/green evidence covered the live action's old placement and absent manual ref
 Reproduce with README/Setup commands. Local artifacts: `/private/tmp/tempo-today-core-final.log`, `/private/tmp/tempo-today-delivery-ui.log`, `/private/tmp/tempo-today-delivery-ui.xcresult`, `/private/tmp/tempo-today-device.log`. Probe/runtime details are in [RenderingDiagnostics.md](RenderingDiagnostics.md). Capture provenance is in the screenshot manifest.
 
 Physical bands tested:0. Signed CloudKit/HealthKit phone sessions:0. iOS26 runtime, physical VoiceOver/background reliability, wear/contact accuracy and cross-phone restore remain unverified. The user's physical rendering diagnostic requires OS/behavior confirmation (D01). A passing unsigned build does not provision a phone or establish daily-use readiness. Complete proprietary historical retrieval remains unavailable.
+
+Activity refinement: sport selection, pause/resume, explicit Cancel/Finish alert and timer accessibility value verified in the simulator. New live-reading policy rejects stale/imported observations and off-body live claims. Artifacts: `/private/tmp/tempo-activity-core-final.log`, `/private/tmp/tempo-activity-delivery-ui.xcresult`, `/private/tmp/tempo-activity-device.log`. Ten gallery captures were refreshed without postprocessing. PointerUI also reproduced in the independent native probe. Actual signed App Group entitlements match; cross-process delivery remains unverified (D02), with an inconclusive ad-hoc canary documented in AppGroupDiagnostics.md.

@@ -21,3 +21,5 @@
 For any other firmware, proprietary fields remain unknown. Standard services remain experimental until actually discovered. A successfully parsed packet proves software parsing only. A successful write would prove neither wear nor haptic motor operation. Future promotion requires a dated validation entry with generation, firmware and procedure results.
 
 Registered devices, connected peripherals and selected measurement source are distinct. The production transport maintains one connection at a time. Pure state-machine tests do not prove concurrent band connectivity or wear-based switching on hardware.
+
+Wear-status clarification: production standardHRS can report contact only when its optional flag is supplied. LiveHR with no flag remains wear-unreported, not off-body. Community firmware-specific command84 schemas exist (see the reassessment in ProtocolResearch), but no proprietary body-status transport is production-enabled; source-selection hardware gates remain open.

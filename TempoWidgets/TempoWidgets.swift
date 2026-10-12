@@ -25,11 +25,12 @@ struct SummaryProvider: TimelineProvider {
       ?? "group.app.tempo.personal"
     let d = UserDefaults(suiteName: group)
     let timestamp = d?.double(forKey: "updated") ?? 0
-    let readiness = d?.integer(forKey: "readiness") ?? -1
+    let readiness = d?.object(forKey: "readiness") as? Int
     let sleep = d?.double(forKey: "sleep") ?? -1
     return SummaryEntry(
       date: Date(), updated: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil,
-      readiness: readiness >= 0 ? readiness : nil, sleep: sleep > 0 ? sleep : nil,
+      readiness: readiness.flatMap { (0...100).contains($0) ? $0 : nil },
+      sleep: sleep > 0 ? sleep : nil,
       privateMode: d?.object(forKey: "private") as? Bool ?? true)
   }
 }

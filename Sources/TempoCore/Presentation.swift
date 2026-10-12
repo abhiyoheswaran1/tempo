@@ -140,3 +140,28 @@ public enum ManualRefreshOutcome: Equatable, Sendable {
     }
   }
 }
+
+public struct WorkoutLiveReading: Sendable {
+  public let state: LiveReadingState
+  public let bpm: Int?
+  public let zone: Int?
+  public init(
+    sample: Measurement?, connected: Bool, wear: WearState, now: Date,
+    maximumHeartRate: Double, allowSynthetic: Bool = false
+  ) {
+    let valid = LiveSampleSelection.latest(
+      sample.map { [$0] } ?? [], selectedDeviceID: nil,
+      now: now, allowSynthetic: allowSynthetic)
+    state = LiveReadingState(
+      timestamp: valid?.timestamp, connected: connected && wear != .offBody, now: now)
+    bpm = state == .live || state == .recent ? valid.map { Int($0.value) } : nil
+    if state == .live, let valid, (100...240).contains(maximumHeartRate),
+      valid.value >= maximumHeartRate * 0.5
+    {
+      zone = max(
+        1, min(5, Int(floor((valid.value / maximumHeartRate - 0.5) * 10 + 0.000000001)) + 1))
+    } else {
+      zone = nil
+    }
+  }
+}

@@ -6,60 +6,147 @@ struct ActivityView: View {
   @Environment(AppModel.self) var model
   var title = "Activity"
   @State private var selected: TempoCore.Activity = .padel
+  @State private var confirmFinish = false
+  @ScaledMetric(relativeTo: .largeTitle) private var timerSize = 48
+  private var completed: [Workout] { model.workouts.filter { $0.end != nil } }
   var body: some View {
     List {
       if let workout = model.activeWorkout {
-        Section("In progress") {
+        Section {
           TimelineView(.periodic(from: .now, by: 1)) { context in
-            VStack(alignment: .leading, spacing: 12) {
-              Text(workout.activity.rawValue.capitalized).font(.title2.weight(.semibold))
+            let sample = model.lastSample
+            let wear =
+              sample.map {
+                WearEvidence.current(
+                  model.bluetooth.lastSamples[$0.deviceID],
+                  connected: model.bluetooth.isConnected($0.deviceID), now: context.date)
+              } ?? .unknown
+            let reading = WorkoutLiveReading(
+              sample: sample,
+              connected: sample.map { model.bluetooth.isConnected($0.deviceID) } ?? false,
+              wear: wear, now: context.date, maximumHeartRate: model.maxHeartRate,
+              allowSynthetic: model.demo)
+            VStack(alignment: .leading, spacing: 16) {
+              HStack {
+                Label(workout.activity.rawValue.capitalized, systemImage: workout.activity.symbol)
+                  .font(.headline)
+                Spacer()
+                Label(
+                  workout.pausedAt == nil ? "Recording" : "Paused",
+                  systemImage: workout.pausedAt == nil ? "record.circle" : "pause.circle"
+                ).font(.caption).foregroundStyle(.secondary)
+              }
               Text(
                 Duration.seconds(workout.activeDuration(at: context.date)).formatted(
                   .time(pattern: .hourMinuteSecond))
-              ).font(.largeTitle)
-                .monospacedDigit()
-              Text(workout.pausedAt == nil ? "Recording" : "Paused").foregroundStyle(
-                .secondary)
-              if let sample = model.lastSample,
-                SampleFreshness(timestamp: sample.timestamp, now: context.date) == .fresh
-              {
-                Text("\(Int(sample.value)) bpm").font(.title)
-                Text(
-                  sample.value < model.maxHeartRate * 0.5
-                    ? "Below training zones"
-                    : "Zone \(max(1, min(5, Int(floor((sample.value / model.maxHeartRate - 0.5) * 10)) + 1)))"
-                ).font(.subheadline).foregroundStyle(.secondary)
-                Text(
-                  "Source: \(model.devices.first { $0.id == sample.deviceID }?.name ?? "Recorded band")"
-                ).font(.caption)
-              } else {
-                Text("Waiting for heart rate").foregroundStyle(.secondary)
+              )
+              .font(.system(size: timerSize, weight: .semibold, design: .rounded)).monospacedDigit()
+              .accessibilityLabel("Active workout duration")
+              .accessibilityValue(
+                Duration.seconds(workout.activeDuration(at: context.date)).formatted(
+                  .time(pattern: .hourMinuteSecond)))
+              HStack(spacing: 12) {
+                Button(workout.pausedAt == nil ? "Pause" : "Resume") {
+                  model.mutate { try await model.pauseResume() }
+                }
+                .buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+                Button("Finish") { confirmFinish = true }.buttonStyle(.bordered).controlSize(.large)
+                  .tint(.primary)
               }
-            }
-          }
-          HStack {
-            Button(workout.pausedAt == nil ? "Pause" : "Resume") {
-              model.mutate { try await model.pauseResume() }
-            }.buttonStyle(.bordered)
-            Spacer()
-            Button("Finish") { model.mutate { try await model.finishWorkout() } }.buttonStyle(
-              .borderedProminent)
+              Divider()
+              ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline) {
+                  heartRate(reading)
+                  Spacer()
+                  readingLabel(reading, sample: sample)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                  heartRate(reading)
+                  readingLabel(reading, sample: sample)
+                }
+              }
+              if let zone = reading.zone {
+                Text("Zone \(zone) · estimate").font(.caption).foregroundStyle(.secondary)
+              }
+              if reading.state == .waiting || reading.state == .stale {
+                Text("Your timer keeps going. Missing heart-rate periods remain gaps.").font(
+                  .caption
+                ).foregroundStyle(.secondary)
+              }
+              let observations = CanonicalTimeline.select(
+                model.measurements.filter {
+                  $0.kind == .heartRate && $0.timestamp >= workout.start
+                    && $0.timestamp <= context.date
+                    && ($0.origin == .measured || (model.demo && $0.origin == .synthetic))
+                }, sourceSegments: model.sourceSegments)
+              let load = CardiovascularLoad.calculate(
+                observations, maxHeartRate: model.maxHeartRate, workout: workout)
+              if let load, load.coveredSeconds > 0 {
+                ViewThatFits(in: .horizontal) {
+                  HStack(spacing: 24) {
+                    average(load)
+                    maximum(load)
+                    coverage(load)
+                  }
+                  VStack(alignment: .leading, spacing: 10) {
+                    average(load)
+                    maximum(load)
+                    coverage(load)
+                  }
+                }
+              } else {
+                Text("Session averages need recorded heart rate.").font(.caption).foregroundStyle(
+                  .secondary)
+              }
+            }.padding(.vertical, 8)
           }
         }
+        Section("Source & readings") {
+          BandStatusControl()
+          NavigationLink("Live dashboard") { LiveDashboardView() }
+        }
       } else {
-        Section("Start a workout") {
-          Picker("Activity", selection: $selected) {
-            ForEach(WorkoutPresentation.orderedActivities(model.workouts), id: \.self) {
-              Text($0.rawValue.capitalized).tag($0)
+        Section {
+          VStack(alignment: .leading, spacing: 16) {
+            Text("What are you doing?").font(.title2.weight(.semibold))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 10)], spacing: 10) {
+              ForEach(WorkoutPresentation.orderedActivities(model.workouts), id: \.self) {
+                activity in
+                Button {
+                  selected = activity
+                } label: {
+                  HStack(spacing: 8) {
+                    Image(systemName: activity.symbol).accessibilityHidden(true)
+                    Text(activity.rawValue.capitalized).font(.subheadline.weight(.medium))
+                    Spacer(minLength: 0)
+                    if selected == activity {
+                      Image(systemName: "checkmark").accessibilityHidden(true)
+                    }
+                  }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(
+                    .horizontal, 10
+                  )
+                  .background(
+                    selected == activity
+                      ? Color.teal.opacity(0.12) : Color(uiColor: .tertiarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 12))
+                }.buttonStyle(.plain).accessibilityLabel(activity.rawValue.capitalized)
+                  .accessibilityAddTraits(selected == activity ? [.isSelected] : [])
+              }
             }
-          }
-          Button("Start \(selected.rawValue.capitalized)") {
-            model.mutate { try await model.startWorkout(selected) }
-          }.buttonStyle(.borderedProminent)
+            Button {
+              model.mutate { try await model.startWorkout(selected) }
+            } label: {
+              Text("Start \(selected.rawValue.capitalized)").frame(
+                maxWidth: .infinity, minHeight: 32)
+            }.buttonStyle(.borderedProminent).controlSize(.large)
+            Text("Record time even without a band. Heart-rate metrics need measurements.").font(
+              .caption
+            ).foregroundStyle(.secondary)
+          }.padding(.vertical, 8)
         }
       }
       if !model.pendingDetectedActivities.isEmpty {
-        Section("Potential workouts · review required") {
+        Section("Suggested sessions") {
           ForEach(model.pendingDetectedActivities) { decision in
             NavigationLink {
               DetectedActivityReviewView(decision: decision)
@@ -67,60 +154,137 @@ struct ActivityView: View {
               VStack(alignment: .leading, spacing: 4) {
                 Text("Potential workout").font(.headline)
                 Text(
-                  "\(decision.candidate.start.formatted(date:.abbreviated,time:.shortened)) · \(durationText(decision.candidate.end.timeIntervalSince(decision.candidate.start)))"
-                ).font(.caption).foregroundStyle(.secondary)
-                Text("Heart-rate estimate · \(Int(decision.candidate.coverage*100))% coverage")
-                  .font(.caption).foregroundStyle(.secondary)
+                  "\(decision.candidate.start.formatted(date: .abbreviated, time: .shortened)) · \(durationText(decision.candidate.end.timeIntervalSince(decision.candidate.start)))"
+                )
+                .font(.caption).foregroundStyle(.secondary)
+                Text("Heart-rate estimate · review required").font(.caption).foregroundStyle(
+                  .secondary)
               }
             }
           }
         }
       }
-      Section("Automatic detection") {
-        NavigationLink(
-          model.automaticDetectionEnabled
-            ? "Experimental detection is on" : "Set up automatic detection"
-        ) { ActivityDetectionSettingsView() }
-        if model.automaticDetectionEnabled {
-          Button("Scan recent measurements") {
-            model.mutate { try await model.scanAutomaticActivities() }
-          }.disabled(model.activityScanning)
-          Text("Suggestions need confirmation. Activity type is not inferred from heart rate.")
-            .font(.caption).foregroundStyle(.secondary)
-        }
-      }
-      Section("History") {
-        ForEach(model.workouts.filter { $0.end != nil }) { w in
+      Section("Recent workouts") {
+        ForEach(completed) { workout in
           NavigationLink {
-            WorkoutDetailView(workout: w)
+            WorkoutDetailView(workout: workout)
           } label: {
-            VStack(alignment: .leading) {
-              Text(w.activity.rawValue.capitalized).font(.headline)
-              if w.detectionID != nil {
-                Text("Confirmed activity estimate").font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+              Image(systemName: workout.activity.symbol).foregroundStyle(.teal).accessibilityHidden(
+                true)
+              VStack(alignment: .leading, spacing: 4) {
+                Text(workout.activity.rawValue.capitalized).font(.headline)
+                Text(workout.start.formatted(date: .abbreviated, time: .shortened)).font(.caption)
+                  .foregroundStyle(.secondary)
+                if workout.detectionID != nil {
+                  Text("Confirmed activity estimate").font(.caption).foregroundStyle(.secondary)
+                }
               }
-              Text(
-                "\(w.start.formatted(date:.abbreviated,time:.shortened)) · \(durationText(w.activeDuration(at:w.end ?? Date())))"
-              ).font(.caption).foregroundStyle(.secondary)
+              Spacer()
+              Text(durationText(workout.activeDuration(at: workout.end ?? Date()))).font(
+                .subheadline
+              ).monospacedDigit()
             }
           }
         }.onDelete { indices in
-          let rows = model.workouts.filter { $0.end != nil }
+          let rows = completed
           for i in indices {
             model.mutate { try await model.delete(id: rows[i].id, kind: "workout") }
           }
         }
-        if model.workouts.isEmpty {
-          Text(
-            "Start a workout to begin your activity history."
-          ).foregroundStyle(.secondary)
+        if completed.isEmpty {
+          Text("Your finished sessions will appear here.").font(.subheadline).foregroundStyle(
+            .secondary)
+        }
+      }
+      Section {
+        NavigationLink {
+          ActivityDetectionSettingsView()
+        } label: {
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Automatic detection")
+            Text(model.automaticDetectionEnabled ? "Experimental · on" : "Optional · off").font(
+              .caption
+            ).foregroundStyle(.secondary)
+          }
+        }
+        if model.automaticDetectionEnabled {
+          Button("Scan recent measurements") {
+            model.mutate { try await model.scanAutomaticActivities() }
+          }.disabled(model.activityScanning)
+          Text("Suggestions need confirmation. Heart rate does not identify the activity type.")
+            .font(.caption).foregroundStyle(.secondary)
         }
       }
     }.navigationTitle(title).onAppear {
       selected = WorkoutPresentation.orderedActivities(model.workouts).first ?? .padel
     }
+    .alert(
+      "Finish this workout?", isPresented: $confirmFinish
+    ) {
+      Button("Finish workout", role: .destructive) {
+        model.mutate { try await model.finishWorkout() }
+      }
+      .accessibilityIdentifier("confirm-finish-workout")
+      Button("Cancel", role: .cancel) {}
+    }
+  }
+  private func heartRate(_ reading: WorkoutLiveReading) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 4) {
+      Text(reading.bpm.map(String.init) ?? "—").font(.title.weight(.semibold)).monospacedDigit()
+      if reading.bpm != nil { Text("bpm").font(.subheadline).foregroundStyle(.secondary) }
+    }.accessibilityElement(children: .combine)
+  }
+  private func readingLabel(_ reading: WorkoutLiveReading, sample: TempoCore.Measurement?)
+    -> some View
+  {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(
+        model.demo && reading.bpm != nil
+          ? "Demo reading"
+          : reading.state == .live
+            ? "Live heart rate" : reading.state == .recent ? "Recent reading" : "No live reading"
+      )
+      .font(.subheadline).foregroundStyle(.secondary)
+      if let sample {
+        Text(sample.timestamp, style: .relative).font(.caption).foregroundStyle(.secondary)
+      }
+    }
+  }
+  private func average(_ load: LoadResult) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text("Average HR").font(.caption).foregroundStyle(.secondary)
+      Text(load.average.map { "\(Int($0)) bpm" } ?? "—").font(.subheadline.weight(.medium))
+        .monospacedDigit()
+    }
+  }
+  private func maximum(_ load: LoadResult) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text("Maximum HR").font(.caption).foregroundStyle(.secondary)
+      Text(load.maximum.map { "\(Int($0)) bpm" } ?? "—").font(.subheadline.weight(.medium))
+        .monospacedDigit()
+    }
+  }
+  private func coverage(_ load: LoadResult) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text("HR coverage").font(.caption).foregroundStyle(.secondary)
+      Text(durationText(load.coveredSeconds)).font(.subheadline.weight(.medium)).monospacedDigit()
+    }
   }
 }
+extension TempoCore.Activity {
+  fileprivate var symbol: String {
+    switch self {
+    case .padel: "sportscourt"
+    case .cycling: "bicycle"
+    case .running: "figure.run"
+    case .strength: "dumbbell"
+    case .walking: "figure.walk"
+    case .other: "figure.mixed.cardio"
+    }
+  }
+}
+
 struct WorkoutDetailView: View {
   @Environment(AppModel.self) var model
   let workout: Workout

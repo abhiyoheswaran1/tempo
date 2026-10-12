@@ -36,7 +36,7 @@ struct BandStatusControl: View {
     let location = placement == .unknown ? "Placement unrecorded" : placement.title
     if model.demo { return "Synthetic sample · \(location)" }
     if model.bluetooth.isConnected(sample.deviceID), freshness == .fresh {
-      return "Connected · \(model.bluetooth.wearStatus(sample.deviceID)) · \(location)"
+      return "Connected · recent reading · \(model.bluetooth.wearStatus(sample.deviceID)) · \(location)"
     }
     return
       "\(model.bluetooth.isConnected(sample.deviceID) ? "Data stale" : "Disconnected") · last \(sample.timestamp.formatted(date: .abbreviated, time: .shortened))"
@@ -61,6 +61,9 @@ struct BandStatusSheet: View {
       }
       Section("History continuity") { SyncStatusRow() }
       Section("Bands and placement") {
+        Text(
+          "Live heart rate and wear status are separate. A band can supply heart rate without the optional contact flag; ‘Wear not reported’ does not mean off-body."
+        ).font(.caption).foregroundStyle(.secondary)
         ForEach(model.devices) { device in
           NavigationLink {
             PlacementView(device: device)
@@ -263,6 +266,11 @@ struct LiveDashboardView: View {
             Text(
               model.demo
                 ? "Wear status unavailable in demo" : model.bluetooth.wearStatus(sample.deviceID))
+            if !model.demo, model.bluetooth.wearStatus(sample.deviceID) == "Wear not reported" {
+              Text(
+                "This Bluetooth feed does not currently report contact. Heart-rate collection still works; Tempo does not turn a plausible pulse into a confirmed wear report."
+              ).font(.caption).foregroundStyle(.secondary)
+            }
             if !sample.rrMilliseconds.isEmpty {
               LabeledContent(
                 "Latest band-supplied R–R",

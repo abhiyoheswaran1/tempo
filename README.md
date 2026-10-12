@@ -126,7 +126,7 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 
 [<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
 
-All ten captures come from the current simulator test runs. Today places live collection immediately below readiness. Pull down or tap the circular Refresh control to check collection and request enabled cloud sync; feedback distinguishes real success, local-only operation and retries. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+All ten captures come from the current simulator test runs. Activity now puts sport selection and Start first, with a focused timer, pause/resume controls and a cancelable Finish alert during workouts. Today places live collection immediately below readiness. Pull down or tap the circular Refresh control to check collection and request enabled cloud sync; feedback distinguishes real success, local-only operation and retries. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
 
 ## Logo and Xcode assets
 
@@ -213,7 +213,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **73 core tests passed. The updated simulator suite passes all 11 tests, including ten real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **74 core tests passed. The updated simulator suite passes all 12 tests, including ten real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 
@@ -293,3 +293,5 @@ Tempo is independent and is not affiliated with or endorsed by WHOOP. Use only h
 - [Active improvement tracker](docs/Improvements.md)
 - [Compact completion log](docs/Completed.md)
 - [Implementation plan and execution ledger](docs/ImplementationPlan.md)
+
+Wear “not reported” means the current heart-rate connection did not supply a supported contact flag; it does not mean off-body. Live heart rate and confirmed wear remain separate evidence. See [band management](docs/BandManagement.md), [rendering diagnostics](docs/RenderingDiagnostics.md) and [App Group diagnostics](docs/AppGroupDiagnostics.md) for the current integration and warning boundaries.

@@ -126,7 +126,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     switch WearEvidence.current(lastSamples[id], connected: isConnected(id), now: now) {
     case .onBody: return "On-body reported"
     case .offBody: return "Off-body reported"
-    case .unknown: return "Wear unknown"
+    case .unknown: return "Wear not reported"
     }
   }
   func disconnect(deviceID: UUID) {

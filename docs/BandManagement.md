@@ -5,7 +5,7 @@ Tempo keeps these concepts separate:
 - **Registered:** a portable identity with retained history, independent of phone-specific Bluetooth identifiers.
 - **Nearby:** a recently discovered advertisement, not a connection or proof of wear. Discovery is limited to the service filters and broadcast/pairing modes the band exposes; Tempo cannot list every band in radio range.
 - **Connected:** Core Bluetooth has reported a connection. A connection can exist without heart-rate notifications.
-- **On-body reported / Off-body reported:** a valid, at-most-90-second-old connected Heart Rate Service sample supplies a supported contact flag. Absent contact support, wear is unknown. Contact accuracy at wrist, arm and underwear still requires hardware validation.
+- **On-body reported / Off-body reported:** a valid, at-most-90-second-old connected Heart Rate Service sample supplies a supported contact flag. Absent contact support, the interface says **Wear not reported** (the internal state remains unknown). This does not mean the band reports off-body. Contact accuracy at wrist, arm and underwear still requires hardware validation.
 - **Selected source:** the band used for the canonical timeline and live workout. Manual placement reports are context, not proof of wear.
 
 One connection is maintained until concurrent-band behavior is validated. Consequently, an unconnected nearby band cannot have its current wear status verified. If both bands supply usable evidence, automatic selection retains the active usable source. No overlapping activity is summed. The core selector uses90-second sample freshness,60-second disconnection grace and30-second candidate stability. A sequential fallback probe is rate-limited to once per180seconds. Charging/off-body evidence disqualifies a source; proximity does not qualify it. These are software policies, not verified hardware outcomes.
@@ -17,6 +17,12 @@ Connect is idempotent while a request is pending or a band is connected. Disconn
 Remove band writes a registry deletion revision and stops local collection. Physiological observations, workouts and source history are retained. A removed identity can be restored through the discovery registry-match picker. Match a physical band explicitly on another phone; names do not prove identity and CloudKit does not restore Bluetooth bonds. Remapping to a different peripheral while connecting/connected/disconnecting is rejected to prevent delayed callbacks stranding the replacement connection.
 
 Generation is determined only from an exclusive known Whoop4/5 service advertisement or discovered service. Unknown generation requires explicit confirmation; ambiguous services are not guessed. An existing incorrect generation can be corrected in band details, preserving identity and observations. Only default names are renamed automatically; custom names are retained.
+
+## Why HR can work while wear is not reported
+
+The current production adapter subscribes to standard Heart Rate Service. Its contact-support bit is optional; if absent, Tempo receives pulse measurements without a wear assertion. A live plausible pulse is usable physiological evidence, not a substituted contact flag. The interface shows “Receiving heart rate” and “Wear not reported” separately; the status sheet and dashboard explain this distinction.
+
+Current community documentation describes proprietary command84, but that is not implemented in Tempo's production transport. Whoop4 has a firmware-bounded legacy response; Whoop5/MG50.42.1.0 has a revisioned cached-status reply with fixed location/confidence placeholders. Firmware identity, link setup, response/result correlation and physical interpretation need validation before enabling it. No wear override command is sent, no status is fabricated, and the Whoop5 placeholders cannot identify wrist/arm/underwear. See [protocol notes](ProtocolResearch.md).
 
 ## Live dashboard
 

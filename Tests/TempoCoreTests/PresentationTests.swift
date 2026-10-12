@@ -100,3 +100,37 @@ extension PresentationTests {
         lastSuccess: nil, startedAt: now), .localOnly)
   }
 }
+
+extension PresentationTests {
+  func testWorkoutHeartRateRejectsStaleImportedAndOffBodyAsLive() {
+    let now = Date()
+    let id = UUID()
+    var sample = Measurement(
+      deviceID: id, kind: .heartRate, timestamp: now, value: 126, origin: .measured,
+      transport: "fixture")
+    let live = WorkoutLiveReading(
+      sample: sample, connected: true, wear: .onBody, now: now, maximumHeartRate: 180)
+    XCTAssertEqual(live.state, .live)
+    XCTAssertEqual(live.bpm, 126)
+    XCTAssertEqual(live.zone, 3)
+    let disconnected = WorkoutLiveReading(
+      sample: sample, connected: false, wear: .unknown, now: now, maximumHeartRate: 180)
+    XCTAssertEqual(disconnected.state, .recent)
+    XCTAssertNil(disconnected.zone)
+    let offBody = WorkoutLiveReading(
+      sample: sample, connected: true, wear: .offBody, now: now, maximumHeartRate: 180)
+    XCTAssertNotEqual(offBody.state, .live)
+    XCTAssertNil(offBody.zone)
+    sample.timestamp = now.addingTimeInterval(-100)
+    XCTAssertNil(
+      WorkoutLiveReading(
+        sample: sample, connected: true, wear: .onBody, now: now, maximumHeartRate: 180
+      ).bpm)
+    sample.timestamp = now
+    sample.origin = .imported
+    XCTAssertNil(
+      WorkoutLiveReading(
+        sample: sample, connected: true, wear: .onBody, now: now, maximumHeartRate: 180
+      ).bpm)
+  }
+}
