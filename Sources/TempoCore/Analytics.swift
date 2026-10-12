@@ -45,11 +45,12 @@ public struct ReadinessResult: Sendable {
   public var headline: String
   public var factors: [String]
   public var baselineDays: Int
-  public var algorithmVersion = "readiness-1.0"
+  public var algorithmVersion = "readiness-1.1"
 }
 public enum Readiness {
   public static func calculate(
-    current: [String: Double], baseline: [PersonalBaseline], deviceChange: Bool = false
+    current: [String: Double], baseline: [PersonalBaseline], deviceChange: Bool = false,
+    placementChange: Bool = false
   )
     -> ReadinessResult
   {
@@ -84,9 +85,15 @@ public enum Readiness {
       Int((60 + components.reduce(0, +) / Double(components.count) * 15).rounded() / 5) * 5
     let confidence =
       min(1, Double(days) / 21) * Double(components.count) / 3 * (deviceChange ? 0.5 : 1)
+      * (placementChange ? 0.75 : 1)
     if deviceChange {
       factors.append(
         "Band sources changed; confidence reduced because device offsets are not calibrated.")
+    }
+    if placementChange {
+      factors.append(
+        "Reported body placement varied in available overnight samples; confidence conservatively reduced. No physiological correction applied."
+      )
     }
     return ReadinessResult(
       score: score, confidence: confidence,

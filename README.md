@@ -25,6 +25,7 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 | Native interface | Today, Activity, Trends, band management, settings, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
 | Bluetooth | Discovery, explicit registration/reconnection, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
 | Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop 4 history decoder | Constructed fixtures; complete history transfer is disabled |
+| Wearing placement | Per-band wrist, upper-arm/bicep and underwear reports with effective times, corrections and session context | User-reported; no automatic location detection or unverified sensor correction |
 | Multiple bands | Portable device identities, separate phone peripheral mappings, preferences/temporary override, hysteresis selector, sequential fallback | One connection maintained; unconnected-band wear cannot be observed |
 | Local persistence | SQLite WAL/FULL transactions, immutable observations, revision ancestry, tombstones, checkpoints and durable sync outbox | Integrity/replay/rollback tests pass |
 | Automatic activity | Opt-in sustained-HR candidates, review/type/timing edits, confirmation and dismissal | Experimental HR-only rules; physical accuracy unverified |
@@ -198,7 +199,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **43 core tests passed. The updated simulator suite passes all 4 tests, including seven real screen captures and activity confirmation/repeated-scan checks; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **49 core tests passed. The updated simulator suite passes all 5 tests, including seven real screen captures and activity confirmation/repeated-scan checks; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 
@@ -223,6 +224,12 @@ Tempo.xcodeproj/        Committed Xcode project and shared Tempo scheme
 The core owns storage through a Swift actor; iOS services own their mutable state explicitly. Protocol parsers do not depend on SwiftUI or Bluetooth hardware. Local edits use transactional parent comparison, and workout mutations are serialized. Dataset transitions suspend collection and reject synthetic inputs in normal stores.
 
 After adding native source/resource files, regenerate the committed project with `python3 Scripts/generate_project.py`. The script preserves your identifier settings in `Configuration.xcconfig`. `python3 Scripts/create_icon.py` rebuilds the original geometric icon.
+
+## Wrist, upper arm and underwear
+
+Tempo records all three placements separately for each band. Open **Settings → Manage and reconnect bands → your band → Record wearing placement** whenever you move it. You can also record an earlier change or correct an existing report. Earlier, ambiguous or unreported periods remain unknown; a location report never establishes that a band was on-body.
+
+Placement context follows measurement timestamps into workout and sleep details and is included in private sync and independent backup. Known placement changes in available overnight samples lower readiness confidence without changing measured values or resetting your history. HR zones and HRV formulas are unchanged; motion-specific steps and muscular-load algorithms remain unavailable. See [evidence, use and limitations](docs/WearingPlacement.md).
 
 ## Automatic activity detection
 
@@ -260,6 +267,7 @@ Tempo is independent and is not affiliated with or endorsed by WHOOP. Use only h
 - [Private CloudKit schema and restore](docs/CloudKit.md)
 - [Analytics methodology](docs/Analytics.md)
 - [Automatic activity rules and validation](docs/AutomaticActivity.md)
+- [Wearing placement evidence and behavior](docs/WearingPlacement.md)
 - [Independent export format](docs/ExportFormat.md)
 - [Physical validation checklist](docs/HardwareValidation.md)
 - [Known limitations and acceptance status](docs/KnownLimitations.md)

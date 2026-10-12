@@ -23,3 +23,9 @@ Haptics, alarms, motion-based sleep, calibrated temperature/respiration/SpO2, co
 6. With explicit Health workout export permission, export a confirmed session twice: verify one Health workout with Tempo provenance, and verify Health import excludes Tempo's own export. Demo suggestions must never export or sync.
 
 These steps validate behavior on owned devices; passing simulator tests does not establish detection sensitivity or accuracy.
+
+## Three wearing positions
+
+For both bands, repeat live HR/RR collection, a manual workout, potential-workout review and overnight coverage checks at wrist, upper arm and the designated underwear sensor pocket. Record each move in Tempo. Compare HR where practical against an independent reference and note fit/contact failures; do not infer temperature or oxygen availability from position. Move one band during a workout and verify one session with both placement contexts, without source-history reset. Restore reports on a second phone and verify its own Bluetooth pairing remains separate. Resolve concurrent report corrections and verify disputed periods show unknown until resolved.
+
+Physical comparison is needed before claiming equal accuracy or adding placement-specific thresholds.

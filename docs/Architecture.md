@@ -21,3 +21,7 @@ Latest integrity refinements: normal database instances reject synthetic inputs;
 ## Activity suggestions
 
 A pure core detector consumes canonical measured HR and outputs versioned candidates with input digest, source IDs and coverage. AppModel serializes bounded recent scans and user decisions through the mutation queue. Candidates and decisions use immutable revisions and deterministic identities, enabling sync/backup replay. Confirmation persists a deterministic workout before marking its decision confirmed; interrupted confirmation is repaired on the next scan. Pending suggestions never count as workouts. Manual/imported overlapping sessions suppress proposals. Synthetic revisions are validated both on save and transactional archive import.
+
+## Wearing placement context
+
+Placement reports are separate immutable revision entities keyed to portable device IDs and UTC effective instants. They are user-entered metadata; transport and measured values remain unchanged. A pure projection retains conflicted reports as unknown boundaries, avoiding fallback to a formerly known position. Session context joins actual valid measured samples to the per-device report timeline. Known overnight position changes reduce readiness confidence through an explicit versioned heuristic; placement-specific physiological or motion models are not claimed.

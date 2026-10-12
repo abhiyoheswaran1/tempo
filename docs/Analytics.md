@@ -35,3 +35,7 @@ Algorithm identifiers: readiness-1.0; night-v1 cache; backup tempo-1.0. Cached n
 ## Experimental activity suggestions
 
 The original heart-rate-only candidate model is documented in [AutomaticActivity.md](AutomaticActivity.md). It identifies sustained elevation, requires explicit user confirmation, and does not classify sports. Confirmed workouts retain estimated provenance and algorithm version; no medical or WHOOP-equivalence claim is made.
+
+## Placement context in readiness v1.1
+
+Reported wrist/upper-arm/underwear changes within available measured overnight samples multiply confidence by0.75, a conservative product heuristic without validation as a probability of accuracy. The readiness score, input values and retained baseline are unchanged. Current comparison uses the two-day in-memory sample window and cannot audit all28 baseline days. No placement-specific sensor correction is claimed. Unknown/conflicted contexts remain unknown. See [WearingPlacement.md](WearingPlacement.md).

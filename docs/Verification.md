@@ -41,3 +41,12 @@ The updated simulator suite passes all3 tests, including real six-screen capture
 - The first activity UI run exposed repeated readiness timeline computation. Reusing the per-calculation projection and per-render readiness result resolved the delay; rerun passes. A subsequent test needed to scroll to the confirmation control in the native Form; corrected test navigation passes.
 
 Physical-band detection accuracy, background input coverage, signed Health export and two-phone sync remain unverified. This update does not complete the outstanding original acceptance criteria.
+
+## Wearing placement update (2026-10-12)
+
+- Core:49 XCTest tests passed,0 failures, including six placement tests for effective-time boundaries, per-band separation, contradictory reports, replay/immutable measurements, readiness confidence and conflicting moved-timestamp projections.
+- Simulator:5 UI tests passed,0 failures, including reporting wrist, upper arm and underwear without losing earlier reports. Seven existing screenshots refreshed from actual simulator attachments; checksums/capture timestamps updated.
+- Unsigned generic iPhone app and extension build:BUILD SUCCEEDED. `git diff --check` passes.
+- Review identified two conflict projection cases: an older known location resurfacing and an intervening report masking disputed moved timestamps. Regression tests failed before fixes and pass afterward. Final read-only review reports no remaining important defect.
+
+All positions are manual context. No physical-band placement/accuracy testing was performed; no firmware location commands or new motion models are implemented. Readiness v1.1 uses a documented conservative confidence heuristic, not calibrated accuracy. Full28-day placement calibration remains future work.

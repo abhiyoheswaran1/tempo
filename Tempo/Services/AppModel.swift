@@ -37,6 +37,7 @@ import WidgetKit
   private var lastProbe: Date?
   private var collectionTask: Task<Void, Never>?
   private var mutationTail: Task<Void, Never>?
+  var placements: [PlacementRecord] = []
   var activeDevice: RegisteredDevice? { devices.first { $0.id == selector.activeID } }
   var canonical: [TempoCore.Measurement] {
     CanonicalTimeline.select(measurements, sourceSegments: sourceSegments)
@@ -57,12 +58,17 @@ import WidgetKit
               .map(
                 \.deviceID))))
     }
+    let overnightSamples = selectedMeasurements.filter { sample in
+      nights.suffix(29).contains { sample.timestamp >= $0.start && sample.timestamp < $0.end }
+    }
+    let locations = PlacementTimeline.locations(samples: overnightSamples, records: placements)
+      .subtracting([.unknown])
     let current = nights.last.map { nightInputs($0) } ?? [:]
     return Readiness.calculate(
       current: current, baseline: Array(baseline.dropLast()),
       deviceChange: Set(
         sourceSegments.filter { $0.start > Date().addingTimeInterval(-28 * 86400) }.map(\.deviceID)
-      ).count > 1)
+      ).count > 1, placementChange: locations.count > 1)
   }
   func nightInputs(_ sleep: SleepSession) -> [String: Double] {
     nightMetrics[sleep.id] ?? ["sleepHours": sleep.duration / 3600]
@@ -204,6 +210,7 @@ import WidgetKit
     devices = unique.filter { $0.kind == "device" }.compactMap {
       try? decoder.decode(RegisteredDevice.self, from: $0.payload)
     }
+    placements = PlacementTimeline.project(revisions)
     workouts = SessionReconciliation.workouts(
       unique.filter { $0.kind == "workout" }.compactMap {
         try? decoder.decode(Workout.self, from: $0.payload)
@@ -419,6 +426,21 @@ import WidgetKit
     updated.status = .confirmed
     try await save(updated, kind: "detectedActivity")
   }
+  func recordPlacement(
+    deviceID: UUID, placement: BodyPlacement, effectiveFrom: Date, existing: PlacementRecord? = nil
+  ) async throws {
+    guard devices.contains(where: { $0.id == deviceID }), effectiveFrom <= Date() else {
+      throw ModelError.invalidPlacement
+    }
+    var record =
+      existing
+      ?? PlacementRecord(deviceID: deviceID, placement: placement, effectiveFrom: effectiveFrom)
+    guard record.deviceID == deviceID else { throw ModelError.invalidPlacement }
+    record.placement = placement
+    record.effectiveFrom = effectiveFrom
+    record.timeZoneID = TimeZone.current.identifier
+    try await save(record, kind: "placement")
+  }
   func setPreference(_ preference: SourcePreference) async throws {
     selector.preference = preference
     selector.overrideID = nil
@@ -544,11 +566,13 @@ import WidgetKit
     var automaticDetectionEnabled: Bool? = nil
   }
   enum ModelError: LocalizedError {
-    case unresolvedConflict, invalidDetectedTiming, overlappingWorkout
+    case unresolvedConflict, invalidDetectedTiming, overlappingWorkout, invalidPlacement
     var errorDescription: String? {
       switch self {
       case .unresolvedConflict:
         return "This item has concurrent edits. Resolve them in Settings before changing it."
+      case .invalidPlacement:
+        return "Choose a registered band and a placement change in the past or present."
       case .invalidDetectedTiming:
         return "Review the proposed timing; it must be a completed session shorter than 24 hours."
       case .overlappingWorkout:

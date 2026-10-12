@@ -237,6 +237,13 @@ struct DeviceDetailView: View {
           "Hardware identifier",
           value: device.hardwareIdentityHash == nil ? "Unresolved" : "Serial hash retained")
       }
+      Section("Wearing placement") {
+        NavigationLink("Record wearing placement") { PlacementView(device: device) }
+        Text(
+          PlacementTimeline.resolve(deviceID: device.id, at: Date(), records: model.placements)
+            .title
+        ).font(.caption)
+      }
       Section("Connection") {
         Button("Connect this band") { model.bluetooth.connect(deviceID: device.id) }
         Button("Use temporarily") { model.override(device.id) }

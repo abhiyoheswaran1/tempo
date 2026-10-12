@@ -46,3 +46,7 @@ Portable preferences sync as revisions; Bluetooth connection state stays local. 
 ## Experimental automatic activity
 
 Opt-in heart-rate-based potential workouts support confirmation, timing/type edits, dismissal and durable decisions. They do not classify sports or match WHOOP detection. Rules are software-tested; physical accuracy and background input coverage are unverified. See [methodology](AutomaticActivity.md).
+
+## Wearing placement
+
+Wrist, upper-arm and underwear reports are implemented per band with effective timestamps and revision-backed corrections. They are user context, not device-detected location. Placement-specific offsets, full baseline-window comparability auditing, motion classification and raw optical calibration remain unimplemented/unvalidated. Conflicting reports project to unknown. See [WearingPlacement.md](WearingPlacement.md).

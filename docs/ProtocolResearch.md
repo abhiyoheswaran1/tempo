@@ -31,3 +31,7 @@ Public evidence shows Whoop 4 41.17.6.0 can emit v24 or v25. The former supports
 Command22/body00 starts Whoop4 offload in observed captures. END acknowledgement23/body01+opaque8-byte token can permit reclamation. Tempo's user scope forbids destructive commands, so this build does not transmit history acknowledgements or claim complete backfill. The transactional checkpoint API and firmware-gated decoder are implemented/tested, but a production history transfer session requires hardware validation and a non-destructive completion policy. There is no history retention-duration guarantee.
 
 No firmware flashing, reboot/power-down, trim/delete, certificate transfer, authentication bypass, sensor-enable probing or cloud service authentication is implemented.
+
+## Body placement boundary
+
+The public command reference reviewed for this update does not establish a validated wearing-location read/write contract implemented in Tempo. Standard HR/contact notifications do not identify wrist, bicep or underwear. Tempo therefore stores manual placement reports independently of the BLE adapter and sends no placement command. [WearingPlacement.md](WearingPlacement.md) documents official placement-sensitive feature evidence and the limits of the original analytics.

@@ -95,3 +95,29 @@ extension TempoUITests {
     XCTAssertFalse(app.staticTexts["Potential workout"].exists)
   }
 }
+
+extension TempoUITests {
+  @MainActor func testPlacementCanChangeWithoutReplacingBandHistory() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 15))
+    wait(
+      for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)],
+      timeout: 30)
+    settings.tap()
+    app.buttons["Manage and reconnect bands"].tap()
+    app.staticTexts["Synthetic band"].tap()
+    app.buttons["Record wearing placement"].tap()
+    XCTAssertTrue(app.navigationBars["Wearing placement"].waitForExistence(timeout: 5))
+    app.buttons["Now: Wrist"].tap()
+    XCTAssertTrue(app.staticTexts["Wrist"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["Now: Upper arm / bicep"].tap()
+    XCTAssertTrue(app.staticTexts["Upper arm / bicep"].firstMatch.waitForExistence(timeout: 5))
+    app.buttons["Now: Underwear / WHOOP Body"].tap()
+    XCTAssertTrue(app.staticTexts["Underwear / WHOOP Body"].firstMatch.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Wrist"].exists)
+    XCTAssertTrue(app.staticTexts["Upper arm / bicep"].exists)
+  }
+}

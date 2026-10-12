@@ -36,3 +36,5 @@ Install same configuration on a second iPhone using same Apple account. Enable s
 ## Encryption
 
 Sensitive payloads use CloudKit encrypted fields and private database permissions. Local SQLite protection is completeUntilFirstUserAuthentication, needed for supported background access after first unlock. Apple manages iCloud credentials; Tempo stores no cloud passwords/API keys. Backups are plaintext JSON and require secure handling. This implementation makes no end-to-end encryption claim; protection depends on CloudKit semantics, account settings and platform conditions.
+
+Placement reports/corrections also use encrypted immutable revision payloads. They are portable per-band context, not phone-specific Bluetooth state. Conflicting edits remain available for resolution and project as unknown placement intervals until resolved.

@@ -128,6 +128,9 @@ struct WorkoutDetailView: View {
           MetricRow(label: "Provenance", value: "Confirmed estimate", detail: version)
         }
         MetricRow(
+          label: "Reported placement",
+          value: PlacementTimeline.description(samples: observations, records: model.placements))
+        MetricRow(
           label: "Duration", value: durationText(workout.activeDuration(at: workout.end ?? Date())))
         let load = CardiovascularLoad.calculate(
           observations, maxHeartRate: model.maxHeartRate, workout: workout)

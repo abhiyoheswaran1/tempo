@@ -106,6 +106,7 @@ struct SleepDetailView: View {
   @Environment(AppModel.self) var model
   let sleep: SleepSession
   @State private var edit = false
+  @State private var placementDescription = "No band measurements to associate"
   var body: some View {
     List {
       Section {
@@ -113,6 +114,7 @@ struct SleepDetailView: View {
         Text("\(sleep.start.formatted()) – \(sleep.end.formatted())")
         Text("Timezone: \(sleep.timeZoneID)")
         Text("Source: \(sleep.origin.rawValue)")
+        Text("Reported placement: \(placementDescription)")
       }
       Section("Overnight evidence") {
         let inputs = model.nightInputs(sleep)
@@ -132,7 +134,16 @@ struct SleepDetailView: View {
           model.mutate { try await model.delete(id: sleep.id, kind: "sleep") }
         }
       }
-    }.navigationTitle("Sleep").sheet(isPresented: $edit) {
+    }.navigationTitle("Sleep").task(id: model.placements) {
+      if let store = model.store,
+        let samples = try? await store.measurements(
+          from: sleep.start, to: sleep.end, kinds: [.heartRate])
+      {
+        placementDescription = PlacementTimeline.description(
+          samples: CanonicalTimeline.select(samples, sourceSegments: model.sourceSegments),
+          records: model.placements)
+      }
+    }.sheet(isPresented: $edit) {
       NavigationStack { SleepEditor(existing: sleep) }
     }
   }
