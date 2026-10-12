@@ -1,1 +1,224 @@
-# tempo
+# Tempo
+
+**Two bands. One continuous history. Your data, across your iPhones.**
+
+Tempo is an original native iPhone app for personally owned Whoop 4.0 and Whoop 5.0 bands. It uses Swift, SwiftUI, direct Bluetooth, local SQLite storage, on-device analytics, optional Apple Health integration, and a private CloudKit database. It requires no Tempo account, custom backend, advertising SDK, or Whoop cloud connection for its implemented collection path.
+
+> **Current status: buildable engineering implementation, not a complete or physically validated daily-use release.** Simulator and unsigned iPhone builds pass. Live Bluetooth behavior, signed HealthKit operation, and two-phone CloudKit restore have not been validated on physical devices. Full historical retrieval and several requested features remain unfinished. See [acceptance status and remaining work](docs/KnownLimitations.md) before relying on collection.
+
+## What is implemented
+
+| Area | Current implementation | Verification boundary |
+|---|---|---|
+| Native interface | Today, Activity, Trends, band management, settings, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
+| Bluetooth | Discovery, explicit registration/reconnection, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
+| Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop 4 history decoder | Constructed fixtures; complete history transfer is disabled |
+| Multiple bands | Portable device identities, separate phone peripheral mappings, preferences/temporary override, hysteresis selector, sequential fallback | One connection maintained; unconnected-band wear cannot be observed |
+| Local persistence | SQLite WAL/FULL transactions, immutable observations, revision ancestry, tombstones, checkpoints and durable sync outbox | Integrity/replay/rollback tests pass |
+| Workouts | Padel, cycling, running, strength, walking and other; start/pause/resume/finish; persisted state, source segments, HR chart, zones, load, notes and exertion | Domain and simulator tests pass; physical continuity pending |
+| Sleep and journal | Entered/imported sleep, naps flag, timezone retention, manual corrections; optional energy, mood, soreness and behaviours | Automatic sleep detection and staging unavailable |
+| Analytics | Quality-gated RMSSD/SDNN, conservative personal readiness, Edwards cardiovascular load, source-change confidence reduction | Transparent rules tested; no medical or proprietary-algorithm validation |
+| Trends | Bounded 7/28/90-day measurement and sleep views, point/source inspection | Full metric catalogue, custom ranges and personal-insight pairing unfinished |
+| Private sync | Compressed bounded batches, incremental zone tokens, durable retries, immutable edit conflicts, logical deletions and account binding | Adapter compiles; signed two-phone integration pending |
+| Apple Health | Optional selected imports and measured HR/manual sleep/recorded workout exports; provenance and own-source exclusion | Physical permission, reconciliation and export behavior pending |
+| Backup | Versioned JSON archive, manifest fields, SHA-256 validation and transactional idempotent restore | Core tests pass; large streaming archives unfinished |
+| Extensions | Summary widget and workout Live Activity, stale timestamps and widget privacy option | Targets compile; physical Lock Screen behavior pending |
+| Demo | Labelled synthetic data in a separate in-memory database, with real integrations disabled | UI tests and normal-store synthetic rejection tested |
+
+The app does not fabricate unsupported sensor values. Battery, calibrated temperature, respiration, SpO₂, proprietary wear detection, band haptics and firmware alarms remain unavailable or hidden until supported implementation and physical validation exist.
+
+## Requirements
+
+- An iPhone running **iOS 26 or later** for physical installation.
+- Xcode 26 or newer with an appropriate iOS SDK and Swift 6 toolchain.
+- Your Apple developer account and provisioning that supports CloudKit, HealthKit and App Groups for the full configured app. A free personal team is not equivalent to those entitlements.
+- Owned Whoop bands for Bluetooth validation. The current live path requires the standard Heart Rate Service to be exposed, including supported pairing/broadcast settings where necessary.
+- The same Apple account on participating iPhones for private iCloud restoration.
+- Python 3 only if regenerating the Xcode project or geometric app icon.
+
+There are no third-party package downloads. `TempoCore` is a local Swift package; SQLite is provided by the operating system. Its macOS build exists for core tests, not as a macOS product.
+
+The recorded development environment was Apple Silicon, Xcode 27.0 (27A266a), and the iOS 27 simulator SDK/runtime. Deployment remains iOS 26; no iOS 27-specific APIs were assumed. **An iOS 26 runtime has not been tested here.**
+
+## Open and run in Xcode
+
+```sh
+git clone https://github.com/abhiyoheswaran1/tempo.git
+cd tempo
+open Tempo.xcodeproj
+```
+
+1. Open **Xcode → Settings → Accounts** and add your Apple developer account.
+2. Edit [Configuration.xcconfig](Configuration.xcconfig) using identifiers you own:
+
+   ```xcconfig
+   TEMPO_BUNDLE_ID = your.unique.tempo.identifier
+   TEMPO_APP_GROUP = group.your.unique.tempo.identifier
+   TEMPO_CLOUD_CONTAINER = iCloud.your.unique.tempo.identifier
+   DEVELOPMENT_TEAM = YOUR_TEAM_ID
+   ```
+
+3. In Signing & Capabilities, keep automatic signing enabled for **Tempo** and **TempoWidgets**. The widget identifier is the app identifier with `.widgets` appended.
+4. Register the App Group and CloudKit container. Tempo needs **iCloud/CloudKit, HealthKit and App Groups**; TempoWidgets needs the same App Group. Check that the provisioning profiles contain the configured capabilities.
+5. Select the **Tempo** scheme and an installed iPhone simulator to explore the interface, or your connected iPhone for real collection. Enable Developer Mode and trust the developer profile on the phone if prompted.
+6. Build and Run. Provision CloudKit before enabling sync. Do not commit passwords, signing certificates, provisioning profiles or personal health exports.
+
+The checked-in identifiers are examples and `DEVELOPMENT_TEAM` is intentionally blank. An unsigned device build does not prove signing, installation, Bluetooth permissions or cloud capabilities.
+
+See [complete installation instructions](docs/Setup.md) and [CloudKit setup](docs/CloudKit.md).
+
+## First physical-band test
+
+1. Leave demo mode off. Open **Settings → Manage and reconnect bands**.
+2. Choose the generation and scan while your owned band is in its supported pairing/broadcast state. Explicitly identify the physical band; a generic name, proximity or RSSI does not prove identity or wear.
+3. Register the first band, then the second. On a restored installation select **Reconnect [existing band]** rather than creating a new portable identity.
+4. Test each band separately: confirm that actual heart-rate notifications arrive, timestamps advance and measurements persist after relaunch. RR intervals are used only when present in the packet.
+5. Record a short workout, pause/resume it, finish, relaunch and inspect coverage/source segments. Repeat offline and through a brief Bluetooth interruption.
+6. Export a backup and follow the [physical validation checklist](docs/HardwareValidation.md). Record generation, firmware, iOS version and results.
+
+Only one band connection is maintained by default. Automatic selection software has hysteresis and interruption grace, but does not establish reliable automatic wear detection on an unconnected band. Historical catch-up is not enabled, so interruptions can leave unrecoverable gaps. iOS background restoration is supported configuration, not a guarantee of continuous execution after force-quit or system termination.
+
+## Simulator demo
+
+Enable **Settings → Simulator demo**, or add `--demo` to the scheme's launch arguments. A visible banner identifies every demonstration as synthetic. Demo mode uses a separate in-memory store and suspends real collection; CloudKit, Health exports and normal backup export are disabled. Turning it off reopens the real local dataset.
+
+UI tests additionally use `--ui-testing` for an isolated in-memory dataset. These arguments never establish physical Bluetooth support.
+
+![Today screen with explicitly labelled synthetic data](docs/screenshots/today-demo.png)
+
+## CloudKit and another iPhone
+
+Sync is optional and defaults off. Local collection, workouts, journal entries and existing history do not depend on network availability.
+
+Provision the configured private container, then enable sync in Settings. The adapter uses an account-namespaced custom zone and record type `TempoPayload`:
+
+| Field | Type |
+|---|---|
+| `kind` | String |
+| `schemaVersion` | Int64 |
+| `payload` | Encrypted Bytes, written through `CKRecord.encryptedValues` |
+| `checksum` | String |
+
+Sensor uploads use 15-minute UTC buckets instead of a CloudKit record per high-frequency sample. Observations have stable IDs; edits are immutable revisions with parent ancestry. Concurrent edits remain available for resolution. Downloads advance their token after page commits, and failed uploads remain queued with backoff. Account binding prevents automatic transfer of an existing dataset into a different Apple account.
+
+On another signed iPhone using the same configuration and Apple account, enable sync, verify restored records, and explicitly reconnect the physical bands. **CloudKit does not restore Bluetooth bonds or phone peripheral identifiers.** Actual two-phone restore, quota failure and account-change behavior require physical validation. Sync currently runs on activation/manual action; background push scheduling is unfinished.
+
+Follow the [schema, encryption and restore instructions](docs/CloudKit.md).
+
+## Optional Apple Health
+
+Choose individual import/export types in Tempo's Health settings before requesting permissions. Denying permissions must not prevent local band collection or manual entries.
+
+- Imports include selected HR, resting HR, SDNN, sleep, workouts and weight.
+- Exports include supported measured HR, manually entered sleep as asleep-unspecified, and recorded workouts. Padel uses Health's Other activity with Tempo metadata rather than being mislabeled as another sport.
+- Tempo excludes its own source from imports and preserves external sample UUID provenance.
+- **RMSSD is never written into HealthKit's SDNN field.**
+
+Imports are bounded to 1,000 records per type per action; repeat to continue. HR exports are bounded to 500 samples per action. Deleting app history does not automatically delete its Health exports. Source reconciliation and actual permission/export behavior require further physical testing; see [limitations](docs/KnownLimitations.md).
+
+## Analytics and missing data
+
+Tempo's readiness model is its own transparent estimate, not Whoop's proprietary recovery score. It needs qualifying personal history and sufficient available inputs; otherwise it displays an unavailable/building-baseline state.
+
+- RR preprocessing rejects implausible intervals and artefacts; RMSSD needs valid beat-to-beat data, not a low-frequency HR series.
+- Readiness compares available overnight inputs with a personal baseline; 7 prior nights permit provisional calculations and 21 establish the baseline. Missing inputs are omitted rather than filled with zero.
+- Band source changes preserve history and lower confidence because device offsets are not calibrated.
+- Cardiovascular load uses weighted HR-zone minutes and an editable maximum-HR assumption. Gaps and workout pauses are excluded; HR does not quantify muscular load during strength training.
+- Unanswered journal items remain unknown. The association primitive requires sufficient observations; its UI pairing workflow is unfinished.
+
+Every score explanation includes assumptions and an algorithm identifier. See [methodology and exact thresholds](docs/Analytics.md). Outputs are personal training guidance, not diagnoses or clinically validated measurements.
+
+## Privacy, storage and independent backup
+
+There are no advertising, tracking or third-party analytics SDKs. Routine diagnostics exclude health payloads. Apple manages account credentials; Tempo stores no cloud passwords or API keys.
+
+Local files use protection compatible with supported background access after first unlock. Private CloudKit payloads use encrypted fields. **This implementation does not claim end-to-end encryption.** Protection depends on platform behavior and account conditions.
+
+Export/restore is separate from synchronization. A backup includes version/algorithm metadata, immutable observations, provenance, correction ancestry and deletion markers. Restore checks schema and SHA-256 before a transaction, rejects conflicting same-ID values, and is idempotent for repeated imports. Bluetooth bonds and cloud/Health anchors are not portable backup state.
+
+**Exports are plaintext health data.** Checksums detect alteration but do not encrypt or authenticate an archive. Keep backups securely. The v1 archive is built in memory and has a 256 MiB decoded limit; streaming multi-gigabyte backups and local high-frequency compaction remain unfinished. Current JSON observation rows can accumulate substantial storage; raw high-frequency optical/IMU streams are not enabled.
+
+See [storage decisions](docs/Architecture.md) and [backup format](docs/ExportFormat.md).
+
+## Build and test from the command line
+
+Use Xcode's developer directory without changing global `xcode-select` settings:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+
+# Hardware-independent core tests
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift test --scratch-path /tmp/tempo-core-tests
+
+# Unsigned simulator build
+xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/tempo-simulator CODE_SIGNING_ALLOWED=NO build
+
+# List installed simulators, then select one for UI tests
+xcrun simctl list devices available
+xcodebuild -project Tempo.xcodeproj -scheme Tempo -destination 'platform=iOS Simulator,name=iPhone 18 Pro' -derivedDataPath /tmp/tempo-ui-tests ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test
+
+# Unsigned device compilation, without installation or hardware validation
+xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath /tmp/tempo-device CODE_SIGNING_ALLOWED=NO build
+```
+
+Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
+
+Recorded verification: **33 core tests and 2 simulator UI tests passed; fresh simulator and unsigned iPhone builds succeeded.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+
+The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
+
+## Source layout
+
+```text
+Tempo/                  SwiftUI app, screens and iOS service adapters
+Tempo/Resources/        App assets, Info.plist, entitlements, privacy manifest
+Sources/TempoCore/      Domain models, parsers, SQLite, reconciliation and analytics
+Sources/CSQLite/        System SQLite module bridge
+Shared/                 Workout Live Activity attributes
+TempoWidgets/           WidgetKit and ActivityKit extension
+Tests/TempoCoreTests/   Hardware-independent regression tests
+Tests/TempoUITests/     Simulator interaction tests
+Scripts/                Deterministic project and geometric icon generators
+docs/                   Architecture, protocols, methodology and validation
+Configuration.xcconfig  Personal signing and container identifiers
+Tempo.xcodeproj/        Committed Xcode project and shared Tempo scheme
+```
+
+The core owns storage through a Swift actor; iOS services own their mutable state explicitly. Protocol parsers do not depend on SwiftUI or Bluetooth hardware. Local edits use transactional parent comparison, and workout mutations are serialized. Dataset transitions suspend collection and reject synthetic inputs in normal stores.
+
+After adding native source/resource files, regenerate the committed project with `python3 Scripts/generate_project.py`. The script preserves your identifier settings in `Configuration.xcconfig`. `python3 Scripts/create_icon.py` rebuilds the original geometric icon.
+
+## Remaining work
+
+The full requested product is not complete. Major unfinished areas include:
+
+- Safe, firmware-specific historical transfer and interrupted catch-up.
+- Dependable physical automatic switching, deeper Whoop 5 inputs, authoritative battery and validated haptic/alarm controls.
+- Automatic sleep detection, richer nightly aggregation, sleep consistency and device-offset calibration.
+- Full trend catalogue/custom ranges, journal-to-metric insights, route recording, notifications, automatic workout confirmation and breathing/haptic sessions.
+- Background sync scheduling, fuller Health source/deletion policies, high-volume local compaction and streaming backups.
+- Signed two-phone testing, iOS 26 runtime testing and a full accessibility/background reliability audit.
+
+The [acceptance-status document](docs/KnownLimitations.md) distinguishes implementation gaps from physical validation gates. Unsupported measurements remain unavailable instead of being presented as successful features.
+
+## Protocol research, attribution and licence
+
+Tempo is an original implementation, not a fork of [Noop](https://github.com/ryanbr/noop). Public interoperability facts informed the separate firmware-bounded parsers; no Noop source implementation or documentation prose was copied. Noop's original code/documentation uses PolyForm Noncommercial 1.0.0 and explicitly distinguishes factual wire information. It credits `johnmiddleton12/my-whoop` and `b-nnett/goose` for earlier interoperability work.
+
+See [research, evidence boundaries and attribution](docs/ProtocolResearch.md) and the [runtime capability matrix](docs/CapabilityMatrix.md). Future code reuse requires a fresh licence assessment and any required notices. Tempo's own repository licence is [MIT](LICENSE).
+
+Tempo is independent and is not affiliated with or endorsed by WHOOP. Use only hardware you own or are authorized to access. Firmware flashing, destructive commands, service-authentication bypasses and unsupported sensor probing are not implemented.
+
+## Documentation index
+
+- [Build and installation](docs/Setup.md)
+- [Architecture](docs/Architecture.md)
+- [Protocol research and attribution](docs/ProtocolResearch.md)
+- [Capability matrix](docs/CapabilityMatrix.md)
+- [Private CloudKit schema and restore](docs/CloudKit.md)
+- [Analytics methodology](docs/Analytics.md)
+- [Independent export format](docs/ExportFormat.md)
+- [Physical validation checklist](docs/HardwareValidation.md)
+- [Known limitations and acceptance status](docs/KnownLimitations.md)
+- [Verification ledger](docs/Verification.md)
+- [Implementation plan and execution ledger](docs/ImplementationPlan.md)

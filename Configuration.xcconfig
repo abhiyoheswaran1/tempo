@@ -1,0 +1,5 @@
+// Replace identifiers with ones you register in your Apple developer account.
+TEMPO_BUNDLE_ID = app.tempo.personal
+TEMPO_APP_GROUP = group.app.tempo.personal
+TEMPO_CLOUD_CONTAINER = iCloud.app.tempo.personal
+DEVELOPMENT_TEAM =

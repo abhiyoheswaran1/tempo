@@ -1,0 +1,31 @@
+# Protocol research and attribution
+
+Research date: 2026-10-12. Public main-branch references can evolve; evidence is version bounded. No physical Tempo captures have been obtained. All test packets in this repository are constructed examples, not recorded hardware fixtures.
+
+Sources inspected:
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL.md — central scope and firmware boundaries.
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_CONCEPTS.md — standard SIG services and integrity contracts.
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_WHOOP4.md — 41.17.6.0 / 17.2.2.0 services and framing.
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_WHOOP5.md — 50.42.1.0 service, format 1, distinct handshake.
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_TRANSPORT.md — frame validation and durable history boundary.
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_SENSORS.md — type 40, historical v24/v25, R18 limits.
+- https://github.com/ryanbr/noop/blob/main/docs/PROTOCOL_COMMANDS.md — version-specific read contracts and negative space.
+- https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0/ — standard Heart Rate Service.
+
+Noop credits johnmiddleton12/my-whoop for Whoop 4 and b-nnett/goose for Whoop 5. Tempo is an original codebase, not a fork. No source implementation or prose from Noop has been copied. Noop's original code/documentation uses PolyForm Noncommercial 1.0.0 (Copyright 2026 NoopApp). Its licence explicitly excludes factual wire identifiers/layouts/CRC parameters from copyright claims. Tempo reuses those interoperability facts and independently implements parsers. Any future copying requires separate licence assessment and notices; the existing Tempo licence does not relicense third-party material.
+
+## Implemented facts
+
+Standard path (both): service 180D, characteristic 2A37. Flags select HR width, contact support/status, energy field and RR words in 1/1024 s. Receipt timestamps are phone UTC instants; the HRS packet has no device timestamp. Device Information service 180A exposes firmware 2A26 and, where available, serial 2A25. Serial identity is hashed and never routinely logged. A Whoop 4 DIS firmware value may describe the Bluetooth processor rather than the application firmware; it must not unlock proprietary history.
+
+Whoop 4: service 61080001-8d6d-82b8-614a-1c8cb0f8dcc6, command 0002, notifications 0003/0004/0005. Envelope AA, u16le declared length, CRC8 length bytes (poly07), inner offset4, CRC32 at declared length, full size length+4. Reflected CRC32 EDB88320 with initial/final FFFFFFFF. Type40 maps HR at12, RR count13 and ms words14; device seconds6, unresolved fraction10. History type47/v24 maps seconds11, HR21, RR count22, words23; raw optical/thermal/respiratory fields are not calibrated physiological values. v25 is a separate84-byte layout with no mapped per-second HR. Unknown layout is rejected, never interpreted as v24.
+
+Whoop 5: service fd4b0001-cce1-4033-93ce-002d5875f58a, command0002, notifications0003/0004/0005/0007. Format1 has AA01, u16le complete-minus8, CRC16-Modbus over bytes0–5 (A001/FFFF), inner offset8, body padded to four bytes, CRC32 over padded inner. Type40 seconds10, HR16, RR count17 and tick words18; fraction14 unresolved. The documented fixed hello is tested solely as an envelope arithmetic example; it is not sent by the production transport. R18 temperature/quality meanings and historical negotiation have not been enabled.
+
+## Historical boundary
+
+Public evidence shows Whoop 4 41.17.6.0 can emit v24 or v25. The former supports some overnight inputs; the latter must not be used to invent HR. Whoop 5 live HR has public hardware reports, while deeper overnight input availability remains incomplete. Firmware50.42.1.0 documentation is not equivalent to runtime validation on an owned band.
+
+Command22/body00 starts Whoop4 offload in observed captures. END acknowledgement23/body01+opaque8-byte token can permit reclamation. Tempo's user scope forbids destructive commands, so this build does not transmit history acknowledgements or claim complete backfill. The transactional checkpoint API and firmware-gated decoder are implemented/tested, but a production history transfer session requires hardware validation and a non-destructive completion policy. There is no history retention-duration guarantee.
+
+No firmware flashing, reboot/power-down, trim/delete, certificate transfer, authentication bypass, sensor-enable probing or cloud service authentication is implemented.
