@@ -25,3 +25,9 @@ Local artifacts are in /tmp/tempo-core-tests.log, /tmp/tempo-ui-tests.log and /t
 Hardware validation:0 bands tested. CloudKit/HealthKit physical integration:0 signed-phone validation sessions. No daily-use readiness claim.
 
 Visual review found and corrected demo banner/navigation overlap. The final UI regression includes a geometry assertion. Workout detail now reads its historical range, and a core test verifies bounded chart projection with separated gap segments.
+
+## Branding and screenshot update (2026-10-12)
+
+Original rounded-T vector branding exported as SVG, RGB 1024px icon, transparent PNG and Xcode-ready asset folders. Icon dimensions/no-alpha and byte-identical app/export assets validated. Today and Settings display the mark; the widget uses the same template geometry. The branding UI assertion was observed failing before integration and passes afterward.
+
+The updated simulator suite passes all3 tests, including real six-screen capture via XCTest attachments. Screenshots were visually inspected and copied without postprocessing; their source-test/timestamp/dimensions/checksums are in docs/screenshots/capture-manifest.json. Synthetic/demo data only, no physical-band validation. Fresh unsigned iPhone build:BUILD SUCCEEDED. Core logic unchanged; prior33 core tests remain the recorded core verification.

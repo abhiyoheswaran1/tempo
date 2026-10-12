@@ -1,0 +1,68 @@
+[
+  {
+    "file": "settings-demo.png",
+    "sha256": "28fc01fdb34af9db4b54e702c8aae4d8a5024b67ad721d7c2a3cb541a4a426fd",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791798504.679,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "postprocessing": "none"
+  },
+  {
+    "file": "readiness-demo.png",
+    "sha256": "9bd834b5f429261a2d5f54f59fa352f6cb65a1e8e02fb9ccc999bf259b59e2d6",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791798501.882,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "postprocessing": "none"
+  },
+  {
+    "file": "trends-demo.png",
+    "sha256": "7712a97fe1bda8af27bf2920c33d114a94068f064b7d94e1c7caefcaebb5f1dc",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791798491.121,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "postprocessing": "none"
+  },
+  {
+    "file": "workout-demo.png",
+    "sha256": "65ec43e93934f19d5003d353253a07adf7a51ce3faca91d938e23b8d98e389a2",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791798471.927,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "postprocessing": "none"
+  },
+  {
+    "file": "activity-demo.png",
+    "sha256": "959a4cc6e02278ba17f42e24dc076631c5cdf08931ee6f68cfc700c237578840",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791798468.621,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "postprocessing": "none"
+  },
+  {
+    "file": "today-demo.png",
+    "sha256": "0b08bb69df3051a35ae908cbb30458e110c1de391d496dc1080ee0864cfd4b44",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791798465.125,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "postprocessing": "none"
+  }
+]

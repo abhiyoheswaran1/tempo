@@ -8,8 +8,15 @@ struct TodayView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
-        Text(Date(), format: .dateTime.weekday(.wide).month().day()).font(.subheadline)
-          .foregroundStyle(.secondary)
+        HStack(spacing: 8) {
+          Image("TempoMark").resizable().scaledToFit().foregroundStyle(.teal)
+            .frame(width: 44, height: 44).accessibilityHidden(true)
+          VStack(alignment: .leading, spacing: 2) {
+            Text("Tempo").font(.headline).accessibilityIdentifier("tempo-brand-name")
+            Text(Date(), format: .dateTime.weekday(.wide).month().day()).font(.subheadline)
+              .foregroundStyle(.secondary)
+          }
+        }
         Text(model.readiness.headline).font(.largeTitle.weight(.semibold)).fixedSize(
           horizontal: false, vertical: true)
         ContentSection(

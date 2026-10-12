@@ -1,5 +1,7 @@
 # Tempo
 
+<img src="Branding/tempo-mark.svg" alt="Tempo logo" width="72">
+
 **A personal companion for your wearable data.**
 
 Tempo is an independent, open-source iPhone app for collecting, understanding and keeping your own wearable measurements. It brings daily context, workouts, sleep records, journalling and transparent personal analytics into a native, local-first experience. The current interoperability work targets personally owned WHOOP 4.0 and WHOOP 5.0 hardware.
@@ -94,7 +96,25 @@ Enable **Settings → Simulator demo**, or add `--demo` to the scheme's launch a
 
 UI tests additionally use `--ui-testing` for an isolated in-memory dataset. These arguments never establish physical Bluetooth support.
 
-![Today screen with explicitly labelled synthetic data](docs/screenshots/today-demo.png)
+## Screenshots
+
+These are real screenshots captured from Tempo running in the iOS simulator, with synthetic demonstration data. They are not mockups or physical-iPhone captures and do not validate band connectivity. Tap an image to open it at full resolution.
+
+| Today | Activity | Trends |
+|---|---|---|
+| [<img src="docs/screenshots/today-demo.png" width="240" alt="Tempo Today with synthetic demo data">](docs/screenshots/today-demo.png) | [<img src="docs/screenshots/activity-demo.png" width="240" alt="Tempo activity selection in demo mode">](docs/screenshots/activity-demo.png) | [<img src="docs/screenshots/trends-demo.png" width="240" alt="Tempo trends using synthetic observations">](docs/screenshots/trends-demo.png) |
+
+| Workout | Readiness explanation | Settings |
+|---|---|---|
+| [<img src="docs/screenshots/workout-demo.png" width="240" alt="A demo workout with unavailable live heart rate">](docs/screenshots/workout-demo.png) | [<img src="docs/screenshots/readiness-demo.png" width="240" alt="Tempo readiness inputs and methodology">](docs/screenshots/readiness-demo.png) | [<img src="docs/screenshots/settings-demo.png" width="240" alt="Tempo settings with the new logo">](docs/screenshots/settings-demo.png) |
+
+## Logo and Xcode assets
+
+The original Tempo mark is a rounded T with a curved stem, in teal and deep ink. The same mark appears inside the app and widget and is already configured as the Home Screen icon.
+
+[<img src="Branding/tempo-app-icon-1024.png" width="128" alt="Tempo app icon">](Branding/tempo-app-icon-1024.png)
+
+Download the [logo kit ZIP](Branding/Tempo-Logo-Kit.zip), or use the [Branding folder](Branding/README.md). It contains editable SVGs, a transparent PNG logo, an opaque 1024-pixel icon, and ready-to-import `AppIcon.appiconset` and `TempoMark.imageset` folders. In this project, the assets are already installed: build and run through Xcode to put the icon on your phone. For another project, drag those folders into its asset catalog and select `AppIcon` as the App Icons Source.
 
 ## CloudKit and another iPhone
 
@@ -173,7 +193,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **33 core tests and 2 simulator UI tests passed; fresh simulator and unsigned iPhone builds succeeded.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **33 core tests passed. The updated simulator suite passes all 3 tests, including the six-screen capture flow; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 
@@ -188,7 +208,8 @@ Shared/                 Workout Live Activity attributes
 TempoWidgets/           WidgetKit and ActivityKit extension
 Tests/TempoCoreTests/   Hardware-independent regression tests
 Tests/TempoUITests/     Simulator interaction tests
-Scripts/                Deterministic project and geometric icon generators
+Scripts/                Deterministic project and vector branding generators
+Branding/               Editable logos and Xcode-ready exported assets
 docs/                   Architecture, protocols, methodology and validation
 Configuration.xcconfig  Personal signing and container identifiers
 Tempo.xcodeproj/        Committed Xcode project and shared Tempo scheme

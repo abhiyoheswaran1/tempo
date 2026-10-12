@@ -23,6 +23,16 @@ struct SettingsView: View {
   var body: some View {
     @Bindable var m = model
     List {
+      Section {
+        HStack(spacing: 12) {
+          Image("TempoMark").resizable().scaledToFit().foregroundStyle(.teal)
+            .frame(width: 52, height: 52).accessibilityHidden(true)
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Tempo").font(.title2.weight(.semibold))
+            Text("Your personal wearable companion").font(.caption).foregroundStyle(.secondary)
+          }
+        }.padding(.vertical, 4)
+      }
       Section("Bands") {
         NavigationLink("Manage and reconnect bands") { DevicesView() }
         Picker(

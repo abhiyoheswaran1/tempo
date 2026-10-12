@@ -47,9 +47,11 @@ A6635B5FEDD6FB619279BD2B = {isa = PBXSourcesBuildPhase; buildActionMask = 214748
 9080D1D7DBAF7AF47AA059CD = {isa = PBXFileReference; lastKnownFileType = text.xml; path = TempoWidgets/PrivacyInfo.xcprivacy; sourceTree = "<group>";};
 2E03FC9C8D896B37E45626A1 = {isa = PBXBuildFile; fileRef = 3685E330EC5277A9DD5661C6;};
 B93EAB822BDD986D83ECF091 = {isa = PBXBuildFile; fileRef = 1C141A4163D7988DED093EA6;};
+6242848B1EA9D363E137EF08 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = TempoWidgets/Assets.xcassets; sourceTree = "<group>";};
+5FAC3C4A5ABC5DF7C5DA22C5 = {isa = PBXBuildFile; fileRef = 6242848B1EA9D363E137EF08;};
 C82BEAC9E400D8473AEDC67E = {isa = PBXBuildFile; fileRef = 9080D1D7DBAF7AF47AA059CD;};
 364863F9F2E558B0F50473FC = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (2E03FC9C8D896B37E45626A1,B93EAB822BDD986D83ECF091,); runOnlyForDeploymentPostprocessing = 0;};
-FE608D3A8638F8175D740C08 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (C82BEAC9E400D8473AEDC67E,); runOnlyForDeploymentPostprocessing = 0;};
+FE608D3A8638F8175D740C08 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (C82BEAC9E400D8473AEDC67E,5FAC3C4A5ABC5DF7C5DA22C5,); runOnlyForDeploymentPostprocessing = 0;};
 78AE8C6BEB2A40A6D824CCEE = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (ABFE60E429B642B2B45ADF15,); runOnlyForDeploymentPostprocessing = 0;};
 7683A40AB86681224A5404DF = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
 22FE77B0395ED580F0DD7F07 = {isa = PBXBuildFile; fileRef = F231F6FE549E641636571AA6; settings = {ATTRIBUTES = (RemoveHeadersOnCopy,);};};

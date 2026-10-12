@@ -37,7 +37,11 @@ struct SummaryWidgetView: View {
   var entry: SummaryEntry
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Label("Tempo", systemImage: "waveform.path.ecg").font(.headline).foregroundStyle(.teal)
+      Label {
+        Text("Tempo")
+      } icon: {
+        Image("TempoMark").resizable().scaledToFit().frame(width: 28, height: 28)
+      }.font(.headline).foregroundStyle(.teal)
       if entry.privateMode {
         Text("Your day, at a glance").font(.subheadline)
         Text("Open Tempo to see your measurements").font(.caption).foregroundStyle(.secondary)
