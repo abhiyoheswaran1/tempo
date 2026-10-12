@@ -1,0 +1,8 @@
+# Completed improvements
+
+Compact index only: ID · outcome · commit · verification. Remove closed tickets from Improvements.md; retain lasting behavior in technical docs. Git history holds superseded detail. A software closure does not close a separate physical-validation gate.
+
+- BASE · native integrity/collection/sync/analytics foundation · 4b9cb58 · initial tests/builds; physical gates remain open.
+- BRAND · original icon and seven real synthetic simulator captures · 1887391 / acd98a5 · asset checks and simulator captures.
+- ACT · experimental HR-only activity confirmation/replay/isolation · acd98a5 · 43 core /4 UI tests; accuracy gate A04 open.
+- PLACE · per-band timed placement reports/corrections/conflict projection · ee73f5f · 49 core /5 UI tests; calibration A02 and hardware C01 open.
