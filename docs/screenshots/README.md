@@ -4,6 +4,8 @@ These PNGs are actual screen captures from the running Tempo iOS app on the iPho
 
 Captured through `TempoUITests.testCaptureProductScreenshots` with `--ui-testing --demo`. The test waits for the isolated demo dataset to finish loading, navigates the native screens and attaches each screenshot to its Xcode result bundle. Files are copied directly from those attachments without cropping, overlays or other postprocessing. `capture-manifest.json` records the source test, capture timestamps, dimensions and SHA-256 checksums.
 
+Today now includes the live/collection panel directly below readiness and a circular manual Refresh control; pull-to-refresh invokes the same action.
+
 Screens: Today, activity selection, active workout, completed workout summary, trends, readiness explanation, settings, experimental activity review, and maximum Dynamic Type in dark mode. The activity review comes from `testDetectedActivityRequiresConfirmationAndDoesNotRepeat` with `--activity-detection-demo`. The dark/maximum-text capture comes from `testLargeTextDarkModeKeepsPrimaryActionsAccessible` with `--large-text --dark`. The live dashboard comes from `testLiveDashboardAndBandManagementKeepDemoHonest` with `--live-dashboard-demo`; it never fakes a Bluetooth connection. All ten use isolated synthetic data.
 
 To reproduce, run the Tempo scheme's UI tests with an installed iPhone simulator. Export attachments from the resulting `.xcresult` bundle:

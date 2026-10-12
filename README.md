@@ -22,7 +22,7 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 
 | Area | Current implementation | Verification boundary |
 |---|---|---|
-| Native interface | Five-minute live dashboard with freshness/coverage/source evidence, compact Today, evidence categories, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
+| Native interface | Prominent Today live/collection panel with pull-to-refresh and manual Refresh, five-minute live dashboard with freshness/coverage/source evidence, compact sleep timing, evidence categories, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
 | Bluetooth | Discovery, generation correction, disconnect/remove with history retained, foreground reconnection, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
 | Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop 4 history decoder | Constructed fixtures; complete history transfer is disabled |
 | Wearing placement | Per-band wrist, upper-arm/bicep and underwear reports with effective times, corrections and session context | User-reported; no automatic location detection or unverified sensor correction |
@@ -39,9 +39,13 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 | Extensions | Summary widget and workout Live Activity, stale timestamps and widget privacy option | Targets compile; physical Lock Screen behavior pending |
 | Demo | Labelled synthetic data in a separate in-memory database, with real integrations disabled | UI tests and normal-store synthetic rejection tested |
 
+On Today, the live dashboard sits directly below readiness, with an accessible Refresh control and pull-to-refresh. Last reading and last successful iCloud sync remain separate; refresh does not imply historical backfill. Sleep timing is a compact tappable summary; its detail supports correction and adding another session.
+
 Connection and wearing are separate: nearby advertisements are not connected bands, contact reports are not inferred from proximity, and automatic mode retains a usable selected source even if both bands are worn. See [band controls, live dashboard and automatic refresh](docs/BandManagement.md) for thresholds and physical retest steps.
 
 The app does not fabricate unsupported sensor values. Battery, calibrated temperature, respiration, SpO₂, proprietary wear detection, band haptics and firmware alarms remain unavailable or hidden until supported implementation and physical validation exist.
+
+Rendering diagnostics such as the reported QuartzCore handler message are documented in [RenderingDiagnostics.md](docs/RenderingDiagnostics.md), including a reproduction independent of Tempo’s Bluetooth and cloud code.
 
 ## Requirements
 
@@ -122,7 +126,7 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 
 [<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
 
-All ten captures come from the current simulator test runs. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+All ten captures come from the current simulator test runs. Today places live collection immediately below readiness. Pull down or tap the circular Refresh control to check collection and request enabled cloud sync; feedback distinguishes real success, local-only operation and retries. The maximum-text view scrolls naturally; essential controls remain reachable. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
 
 ## Logo and Xcode assets
 
@@ -209,7 +213,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **72 core tests passed. The updated simulator suite passes all 9 tests, including ten real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **73 core tests passed. The updated simulator suite passes all 11 tests, including ten real screen captures, cross-tab workout controls, completion summaries, stale-sleep handling and maximum-text dark mode; simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 

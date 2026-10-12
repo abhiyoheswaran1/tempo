@@ -4,20 +4,21 @@ Current evidence only. Completed IDs live in Completed.md; older investigations 
 
 | Check | Result |
 |---|---|
-| Swift core suite | 72 tests passed,0 failures |
-| iPhone simulator suite | 9 tests passed,0 failures; final contact-status change additionally passes focused dashboard/removal rerun |
+| Swift core suite | 73 tests passed,0 failures |
+| iPhone simulator suite | 11 tests passed,0 failures |
 | Native executable | Tempo workspace/scheme builds Tempo.app/Tempo, app/widget/UI runner; minimum iOS26 |
-| Unsigned generic iPhoneOS build | BUILD SUCCEEDED after final contact-status change |
+| Unsigned generic iPhoneOS build | BUILD SUCCEEDED after final product changes |
 | Captures | ten actual, unmodified successful-test XCTest attachments; source/timestamp/dimensions/SHA-256 manifest |
-| Band policy | pending/connected connection idempotence, explicit pause across ledger restoration, interrupted link intent, late callbacks, generation evidence, history-preserving registry deletion/restoration |
-| Wearing/selection | both usable worn sources retain current automatic selection; fresh connected measured contact reports required; off-body physiology excluded while contact remains visible |
-| Workout integrity | manual disconnect closes source, same-band reconnect starts another segment, finishing never extends an already-closed source gap |
-| Sync | five-minute freshness/pending-change policy,60-second automatic cooldown, failed-pass backoff, dataset identity guards after awaits; actual CloudKit behavior needs signed validation |
-| UI | live dashboard/demo honesty, removal confirmation, Today/tabs, cross-tab workout controls, stale sleep, placement changes, maximum text/dark mode |
-| Review | remapping/sync dataset races and finish-gap findings fixed; final contact evidence review has no important unresolved finding |
+| Today | live action below readiness, accessible manual Refresh, pull-to-refresh and honest demo result; sleep/movement remain visible |
+| Sleep continuity | adding another session after existing history works; correction retains original identity |
+| Accessibility simulation | maximum accessibility Dynamic Type/dark mode, status/navigation actions reachable |
+| Integrity policies | existing connection, wear/overlap/source-gap, baseline/date, revisions/sync/backup and synthetic-isolation tests remain green |
+| Refresh results | an old cloud success never becomes a new successful-sync claim; demo/local-only/error outcomes remain distinct |
+| Rendering diagnostic | exact QuartzCore handler message reproduced in independent NavigationStack/text app without Tempo/BLE/cloud; no speculative workaround applied |
+| Read-only review | repeat-sleep entry regression corrected; final review has no important unresolved product-change finding |
 
-Red/green checks covered absent connection/freshness APIs, disconnected source gaps and off-body contact evidence. Simulator runs caught offscreen controls and duplicate accessibility representations of a native confirmation button; removal is moved ahead of the capability list and the test targets the explicit confirmation action.
+Red/green evidence covered the live action's old placement and absent manual refresh, old-success projection, and missing repeat-sleep action. An inherited identifier on the new collection container masked the existing band-status control; removing it restored native accessibility queries and maximum-text tests. Both manual button and pull gesture are tested from clean initial states.
 
-Reproduce with README/Setup commands. Local session artifacts: `/private/tmp/tempo-band-final-core.log`, `/private/tmp/tempo-band-delivery-ui.log`, `/private/tmp/tempo-band-delivery-ui.xcresult`, `/private/tmp/tempo-band-contact-ui.log`, `/private/tmp/tempo-band-contact-ui.xcresult`, `/private/tmp/tempo-band-device.log`. Captures come from the full simulator run and final focused live-dashboard run. See the manifest for each source test.
+Reproduce with README/Setup commands. Local artifacts: `/private/tmp/tempo-today-core-final.log`, `/private/tmp/tempo-today-delivery-ui.log`, `/private/tmp/tempo-today-delivery-ui.xcresult`, `/private/tmp/tempo-today-device.log`. Probe/runtime details are in [RenderingDiagnostics.md](RenderingDiagnostics.md). Capture provenance is in the screenshot manifest.
 
-Physical bands tested:0. Signed CloudKit/HealthKit phone sessions:0. iOS26 runtime, VoiceOver, actual background reliability, wear/contact accuracy at all placements and cross-phone restore remain unverified. A passing unsigned build neither provisions an iPhone nor establishes daily-use readiness. Complete proprietary historical retrieval is still unavailable.
+Physical bands tested:0. Signed CloudKit/HealthKit phone sessions:0. iOS26 runtime, physical VoiceOver/background reliability, wear/contact accuracy and cross-phone restore remain unverified. The user's physical rendering diagnostic requires OS/behavior confirmation (D01). A passing unsigned build does not provision a phone or establish daily-use readiness. Complete proprietary historical retrieval remains unavailable.

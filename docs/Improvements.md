@@ -6,9 +6,10 @@ Single working backlog. Update when scope changes or evidence closes an item. Pr
 
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
+| D01 | P1 awaiting hardware | Exact QuartzCore message reproduced in independent minimal NavigationStack app without BLE/cloud; [evidence](RenderingDiagnostics.md). Confirm physical OS/action and any freeze/flicker/crash before an app workaround. No log suppression or fixed claim. |
 | UX09 | P2 open | Session-detail progressive disclosure: make notes/exertion easier to reach and reduce repeated unavailable fields in empty workout summaries. Keep coverage/source evidence inspectable. |
 
-The approved UX01–UX08 pass is closed in [Completed.md](Completed.md). Physical audit V05 stays open.
+UX01–UX08 and UX10 are closed in [Completed.md](Completed.md). Physical audit V05 stays open.
 
 Band feedback B01–B06 is implemented and software-verified in [Completed.md](Completed.md). The [connection/live/refresh contract](BandManagement.md) includes physical retest steps; C01/C03/C04/S01 remain open.
 
