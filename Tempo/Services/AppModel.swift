@@ -10,6 +10,7 @@ import WidgetKit
   var bluetooth = BluetoothService()
   var cloud: CloudSyncService?
   var health: HealthService?
+  var reliability = ReliabilityMonitor()
   var devices: [RegisteredDevice] = []
   var archivedDevices: [RegisteredDevice] = []
   var lastCloudSync: Date?
@@ -816,6 +817,7 @@ import WidgetKit
     finishedWorkout = nil
     refreshOutcome = nil
     transitioningDataset = true
+    reliability.setDemo(enabled)
     refreshTask?.cancel()
     refreshTask = nil
     refreshOwner = nil

@@ -25,4 +25,6 @@ Today equal-card capture comes from `testTodaySummaryCardsHaveEqualHeight`, incl
 
 Day explorer, sleep rhythm, daily observation evidence and the updated Today capture come from the successful final feature tests on the isolated Tempo audit simulator. The gallery has21 captures; original attachment pixels and provenance are retained in the manifest.
 
-Sleep rhythm discoverability captures refresh Trends and Sleep detail from `testSleepRhythmIsFeaturedInTrendsAndLinkedFromSleep` and the standard Trends evidence flow. The Live source/sync capture comes from the successful Live dashboard regression and shows no idle workout row. All22 captures remain unmodified synthetic/empty simulator evidence; hardware validation is separate.
+Sleep rhythm discoverability captures refresh Trends and Sleep detail from `testSleepRhythmIsFeaturedInTrendsAndLinkedFromSleep` and the standard Trends evidence flow. The Live source/sync capture comes from the successful Live dashboard regression and shows no idle workout row. All23 captures remain unmodified synthetic/empty simulator evidence; hardware validation is separate.
+
+Today and Recorded coverage were captured by `testTodayRecordedCoverageExplainsGapsAndReliabilityIsOptIn`; the system reporting screen contains no fabricated reports.

@@ -222,7 +222,7 @@ xcodebuild -project Tempo.xcodeproj -scheme Tempo -sdk iphoneos -destination 'ge
 
 Replace the simulator name with one installed locally. The explicit arm64 UI command is for Apple Silicon. If build caches report stale local-package modules, use a fresh derived-data directory. Do not interpret an unsigned build as a successful signed deployment.
 
-Recorded verification: **122 core tests passed. All19 simulator tests passed, followed by four affected-screen checks and final capture reruns. Fourteen real simulator captures cover synthetic and empty states. Simulator and unsigned iPhone builds pass.** Tests cover parser corruption/truncation/fragmentation, unsupported firmware, duplicate history, atomic checkpoints, overlap selection, source hysteresis, workout persistence, DST duration, RR quality, insufficient baselines, sensor-change confidence, revisions/conflicts/deletions, backup checksums/replay, outbox races/backoff, restored Health provenance, synthetic rejection, bounded reads and gap-aware charts.
+Recorded verification: **182 core tests passed in Debug and Release, with one optional benchmark skipped. The previous broad 30-test UI run and current focused coverage/accessibility checks passed. Signed Release and simulator builds pass.** See [latest verification](docs/Verification.md) for exact scope and physical checks still pending.
 
 The UI suite exercises missing-data tabs, workout actions and the labelled demo/navigation layout. It does not establish VoiceOver quality, physical radio operation, real CloudKit synchronization or HealthKit behavior. See the [verification ledger](docs/Verification.md).
 
@@ -350,3 +350,9 @@ Live dashboard source and sync controls, without an empty workout container:
 <img src="docs/screenshots/live-source-sync-demo.png" width="240" alt="Synthetic Live dashboard source and sync status" />
 
 Performance work preserves immediate durable collection while coalescing large UI snapshots and calculating daily summaries outside the UI actor. Benchmarks, refresh policies and remaining physical validation are documented in [Performance](docs/Performance.md).
+
+### Recorded coverage and reliability
+
+Today links to 12/24-hour stored band HR coverage, latest record time and missing periods. Optional CPU/memory reports stay on the phone, off by default. See [collection methodology and the overnight check](docs/CollectionReliability.md).
+
+[<img src="docs/screenshots/recorded-coverage-demo.png" width="280" alt="Synthetic recorded heart-rate coverage with explicit missing periods">](docs/screenshots/recorded-coverage-demo.png)

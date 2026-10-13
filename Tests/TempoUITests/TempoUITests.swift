@@ -845,4 +845,28 @@ extension TempoUITests {
     XCTAssertTrue(app.staticTexts["Synthetic band"].waitForExistence(timeout: 10))
   }
 
+  @MainActor func testTodayRecordedCoverageExplainsGapsAndReliabilityIsOptIn() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--live-dashboard-demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout:20))
+    wait(for:[expectation(for:NSPredicate(format:"enabled == true"),evaluatedWith:settings)],timeout:30)
+    let link = app.buttons["today-recorded-coverage"]
+    XCTAssertTrue(link.waitForExistence(timeout:10))
+    for _ in 0..<3 where !link.isHittable { app.swipeUp() }
+    let today = XCTAttachment(screenshot:app.screenshot());today.name="today-coverage-demo";today.lifetime = .keepAlways;add(today)
+    link.tap()
+    XCTAssertTrue(app.navigationBars["Recorded coverage"].waitForExistence(timeout:5))
+    XCTAssertTrue(app.staticTexts["coverage-amount"].waitForExistence(timeout:15))
+    XCTAssertTrue(app.buttons["24 hours"].exists)
+    let shot = XCTAttachment(screenshot:app.screenshot());shot.name="recorded-coverage-demo";shot.lifetime = .keepAlways;add(shot)
+    let reliability = app.buttons["Overnight reliability"]
+    for _ in 0..<5 where !reliability.isHittable { app.swipeUp() }
+    reliability.tap()
+    XCTAssertTrue(app.staticTexts["No system reports yet"].waitForExistence(timeout:5))
+    XCTAssertTrue(app.switches["Collect reliability reports"].exists)
+    XCTAssertFalse(app.switches["Collect reliability reports"].isEnabled)
+  }
+
 }

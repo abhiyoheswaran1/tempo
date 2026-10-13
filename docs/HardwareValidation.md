@@ -50,3 +50,7 @@ Battery check: for each generation/firmware, confirm whether a single180F/2A19 s
 6. If unsuccessful, preserve the exact history status/application version. A worn band and current HRS do not establish stored data. Do not reset, flash or force-trim it to test recovery. No personal capture should be committed to the public repo.
 
 Software parser fixtures, emulator screens and an unsigned build do not satisfy these steps.
+
+## Overnight collection and resources
+
+Follow [CollectionReliability.md](CollectionReliability.md#one-night-check). Verify actual stored overnight coverage and system resource reports on the physical phone; simulator evidence does not establish either.

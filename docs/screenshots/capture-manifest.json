@@ -216,18 +216,6 @@
     "postprocessing": "none"
   },
   {
-    "file": "today-demo.png",
-    "sha256": "61617ad4f7030140080db670af91782a4d6dcf20d34de5d22dc9f9f53bb9b91f",
-    "width": 1206,
-    "height": 2622,
-    "captureTimestampUTC": 1791911172.839,
-    "device": "iPhone 18 Pro (Tempo audit)",
-    "sourceTest": "TempoUITests/testDailyObservationShowsInspectableComparison()",
-    "data": "synthetic demo",
-    "appearance": "light / standard Dynamic Type",
-    "postprocessing": "none"
-  },
-  {
     "file": "trends-demo.png",
     "sha256": "965a89353a33709c8f38d62bdc8af1de1452c1c214628da02961545546206443",
     "width": 1206,
@@ -259,6 +247,30 @@
     "captureTimestampUTC": 1791888454.074,
     "device": "iPhone 18 Pro",
     "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
+    "file": "recorded-coverage-demo.png",
+    "sha256": "c32b6bd7de90c9e4ab8479986310f3dec7401a7edd3b79a44b2776e20569a2f6",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791925907.168,
+    "device": "iPhone 18 Pro (Tempo audit)",
+    "sourceTest": "TempoUITests/testTodayRecordedCoverageExplainsGapsAndReliabilityIsOptIn()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
+    "file": "today-demo.png",
+    "sha256": "dfffc2b43a168757f76569455bc298fc33854fbdbdeb5747a7a6dd45e5cd049a",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791925903.053,
+    "device": "iPhone 18 Pro (Tempo audit)",
+    "sourceTest": "TempoUITests/testTodayRecordedCoverageExplainsGapsAndReliabilityIsOptIn()",
     "data": "synthetic demo",
     "appearance": "light / standard Dynamic Type",
     "postprocessing": "none"

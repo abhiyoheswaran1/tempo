@@ -692,6 +692,7 @@ struct TodayCollectionPanel: View {
               Text(sample.timestamp, style: .relative)
             }
           }
+          RecordedCoverageSummary()
           if !model.demo {
             if let id = model.collectionDevice?.id, let stored = model.bluetooth.lastHistoryCommit[id] {
               HStack(spacing: 4) {

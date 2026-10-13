@@ -357,14 +357,15 @@ struct CollectionHealthView: View {
           LabeledContent("Last sample", value: date.formatted())
         }
         LabeledContent("Rejected packets", value: String(model.bluetooth.rejectedPackets))
-        LabeledContent("History retrieval", value: "Not hardware validated")
+        NavigationLink("Recorded coverage") { RecordedCoverageView() }
+        NavigationLink("Overnight reliability") { OvernightReliabilityView() }
       }
       Section("Limits and recovery") {
         Text(
           "Live heart-rate notification collection uses Core Bluetooth background mode and state restoration. Force-quit, permission revocation, phone restart, broadcast settings or competing apps can interrupt collection."
         )
         Text(
-          "History transfer is experimental on supported firmware and has not been physically validated. Concurrent-band wear detection is unavailable. Do not rely on this build for complete overnight coverage."
+          "History availability and retention vary with generation and firmware. Inspect actual stored coverage and the band's retrieval status. Missing periods remain visible until records arrive; concurrent-band wear detection is unavailable."
         )
         Text(
           "A connected band with plausible HR and unknown contact remains a source with uncertain wear. RSSI never establishes on-body status."

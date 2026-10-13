@@ -2,6 +2,13 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Stored coverage and local reliability reports
+
+- Debug and Release core suites: 182 tests, one optional benchmark skipped, zero failures. Coverage overlaps, quality versus receipt eligibility, imported/demo isolation, archive retention and numeric validation are covered.
+- New native coverage/reliability route passed after review fixes; the preceding focused run also passed large-text/dark-mode primary actions. Signed Release build passed and installed on the test iPhone. The clean public project also passed an unsigned iPhone Release build.
+- Review verified request ownership prevents stale coverage loads and both archive read/write are bounded to 64KB. Fresh synthetic Today and coverage screenshots replace/add gallery evidence.
+- MetricKit delivery and a full overnight physical resource check remain unverified. Reports are opt-in and disabled in demo/testing. See [CollectionReliability.md](CollectionReliability.md).
+
 ## Production performance and integrity pass
 
 - 177 core tests passed in Debug with the opt-in benchmark skipped, and in Release with the benchmark enabled. Original-ranking parity, stable equal-instant ordering, late/history deduplication, in-flight refresh retention, tombstone replay/reset and widget publication policies are covered.
