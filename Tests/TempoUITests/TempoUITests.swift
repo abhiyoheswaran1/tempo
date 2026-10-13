@@ -1,6 +1,21 @@
 import XCTest
 
 final class TempoUITests: XCTestCase {
+  @MainActor func testPossibleSleepRequiresReviewAndConfirmation() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--sleep-candidate-demo"]
+    app.launch()
+    let review = app.buttons["review-possible-sleep"]
+    XCTAssertTrue(review.waitForExistence(timeout: 25))
+    for _ in 0..<4 where !review.isHittable { app.swipeUp() }
+    let attachment = XCTAttachment(screenshot: app.screenshot())
+    attachment.name = "possible-sleep-demo"; attachment.lifetime = .keepAlways; add(attachment)
+    review.tap()
+    XCTAssertTrue(app.navigationBars["Review possible sleep"].waitForExistence(timeout: 5))
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.descendants(matching: .any)["today-sleep-summary"].firstMatch.waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["review-possible-sleep"].exists)
+  }
   @MainActor func testEmptyStatesAndTabs() {
     let app = XCUIApplication()
     app.launchArguments = ["--ui-testing"]

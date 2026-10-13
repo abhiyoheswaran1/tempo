@@ -30,7 +30,7 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 | Local persistence | SQLite WAL/FULL transactions, immutable observations, revision ancestry, tombstones, checkpoints and durable sync outbox | Integrity/replay/rollback tests pass |
 | Automatic activity | Opt-in sustained-HR candidates, review/type/timing edits, confirmation and dismissal | Experimental HR-only rules; physical accuracy unverified |
 | Workouts | Padel, cycling, running, strength, walking and other; start/pause/resume/finish; persisted state, source segments, HR chart, zones, load, notes and exertion | Domain and simulator tests pass; physical continuity pending |
-| Sleep and journal | Entered/imported sleep, naps flag, timezone retention, manual corrections; optional energy, mood, soreness and behaviours | Automatic sleep detection and staging unavailable |
+| Sleep and journal | Entered/imported sleep, naps flag, timezone retention, manual corrections; optional energy, mood, soreness and behaviours | Experimental HR-only possible-sleep proposals with user review; motion-backed detection and staging unavailable |
 | Analytics | Quality-gated RMSSD/SDNN, conservative personal readiness, Edwards cardiovascular load, source-change confidence reduction | Transparent rules tested; no medical or proprietary-algorithm validation |
 | Trends | Local-day covered-time HR averages, per-metric medians/latest weight, missing-day gaps, units and input/source evidence over7/28/90days | Full metric catalogue, custom ranges and personal-insight pairing unfinished |
 | Private sync | Foreground freshness checks, separate last-success/pending status, compressed bounded batches, incremental zone tokens, durable retries, immutable edit conflicts, logical deletions and account binding | Adapter compiles; signed two-phone integration pending |
@@ -128,7 +128,7 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 
 [<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
 
-All fourteen captures come from successful simulator tests. Today now uses a native large title, a prominent live-reading entry, compact readiness and paired sleep/movement summaries. At accessibility text sizes the daily summaries stack vertically. Collection comes first while a baseline builds; unavailable readiness has compact progress instead of an empty score. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and a four-hour chart first, with15-minute and one-hour options, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Journal puts Energy, Soreness and Mood first, with optional context and same-day editing. Workout details put notes/exertion ahead of collapsible measurement evidence. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+All fifteen captures come from successful simulator tests. Today now uses a native large title, a prominent live-reading entry, compact readiness and paired sleep/movement summaries. At accessibility text sizes the daily summaries stack vertically. Collection comes first while a baseline builds; unavailable readiness has compact progress instead of an empty score. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and a four-hour chart first, with15-minute and one-hour options, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Journal puts Energy, Soreness and Mood first, with optional context and same-day editing. Workout details put notes/exertion ahead of collapsible measurement evidence. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
 
 | Baseline building · empty test dataset | Band status · empty test dataset | Sleep trends · synthetic demo |
 |---|---|---|
@@ -270,7 +270,7 @@ The full requested product is not complete. Major unfinished areas include:
 
 - Safe, firmware-specific historical transfer and interrupted catch-up.
 - Dependable physical automatic switching, deeper Whoop 5 inputs, authoritative battery and validated haptic/alarm controls.
-- Automatic sleep detection, richer nightly aggregation, sleep consistency and device-offset calibration.
+- Validated motion-backed sleep detection, naps, richer nightly aggregation, sleep consistency and device-offset calibration. Experimental HR-only possible-sleep review is implemented.
 - Full trend catalogue/custom ranges, journal-to-metric insights, route recording, notifications and breathing/haptic sessions.
 - Background sync scheduling, fuller Health source/deletion policies, high-volume local compaction and streaming backups.
 - Signed two-phone testing, iOS 26 runtime testing and a full accessibility/background reliability audit.
@@ -306,3 +306,9 @@ Tempo is independent and is not affiliated with or endorsed by WHOOP. Use only h
 Wear “not reported” means the current heart-rate connection did not supply a supported contact flag; it does not mean off-body. Live heart rate and confirmed wear remain separate evidence. See [band management](docs/BandManagement.md), [rendering diagnostics](docs/RenderingDiagnostics.md) and [App Group diagnostics](docs/AppGroupDiagnostics.md) for the current integration and warning boundaries.
 
 Latest extension checks: five affected simulator flows passed for the four-hour Live chart, range switching, Today refresh and large text; the unsigned iPhone build passes. The central powered-state policy is software-tested; physical Bluetooth startup/restoration retest remains required.
+
+### Possible sleep
+
+Tempo checks recovered heart-rate history automatically for sustained-rest periods. Review the **Possible sleep** card on Today, correct the proposed times, then save or choose **Not sleep**. Proposals are experimental HR-only estimates, not WHOOP sleep records or validated staging. Sparse data and unresolved intervals stay unavailable. Confirmed timing, dismissal and provenance survive revisions and private sync. See [methodology](docs/Analytics.md#experimental-possible-sleep-detector10).
+
+[<img src="docs/screenshots/possible-sleep-demo.png" width="280" alt="Real simulator capture of an experimental possible-sleep proposal with clearly labelled synthetic data">](docs/screenshots/possible-sleep-demo.png)

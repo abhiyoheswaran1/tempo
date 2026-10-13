@@ -6,6 +6,7 @@ struct TodayView: View {
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var journal: JournalEntry?
   @State private var sleep = false
+  @State private var proposedSleep: SleepSession?
   @ScaledMetric(relativeTo: .largeTitle) private var scoreSize = 42
   var body: some View {
     TimelineView(.periodic(from: .now, by: 60)) { _ in todayContent }
@@ -65,6 +66,23 @@ struct TodayView: View {
             movementSummary
           }
         }
+        if let candidate = model.sleepCandidates.first {
+          VStack(alignment: .leading, spacing: 12) {
+            Label("Possible sleep", systemImage: "moon.zzz").font(.headline)
+            Text(durationText(candidate.session.duration)).font(.title2.weight(.semibold))
+            Text("\(candidate.session.start.formatted(date: .abbreviated, time: .shortened)) – \(candidate.session.end.formatted(date: .omitted, time: .shortened))")
+              .font(.subheadline).foregroundStyle(.secondary)
+            Text("Experimental HR-based estimate · \(Int(candidate.coverage * 100))% coverage. Quiet wakefulness may look similar. Confirm your sleep timing before it contributes to readiness.")
+              .font(.caption).foregroundStyle(.secondary)
+            HStack {
+              Button("Review sleep") { proposedSleep = candidate.session }
+                .buttonStyle(.borderedProminent).accessibilityIdentifier("review-possible-sleep")
+              Button("Not sleep") { model.mutate { try await model.dismissSleepCandidate(candidate) } }
+                .buttonStyle(.bordered)
+            }
+          }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardBackground, in: RoundedRectangle(cornerRadius: 22))
+        }
         if readiness.score == nil { baselineProgress(readiness) }
         Button {
           journal = todayJournal ?? JournalEntry()
@@ -88,6 +106,7 @@ struct TodayView: View {
       .navigationBarTitleDisplayMode(.large)
       .sheet(item: $journal) { entry in NavigationStack { JournalEditor(entry: entry) } }
       .sheet(isPresented: $sleep) { NavigationStack { SleepEditor() } }
+      .sheet(item: $proposedSleep) { session in NavigationStack { SleepEditor(existing: session) } }
   }
   private var todayJournal: JournalEntry? {
     model.journals.filter { Calendar.current.isDateInToday($0.date) }

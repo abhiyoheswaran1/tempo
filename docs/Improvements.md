@@ -33,7 +33,7 @@ Band feedback B01–B06 is implemented and software-verified in [Completed.md](C
 
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
-| A01 | P1 open | Validated sleep detection/naps/timing consistency and richer imported interval reconciliation; preserve corrections. Staging remains unavailable. |
+| A01 | P1 open | Experimental HR-only possible-sleep detection/review is implemented; validate owned-band timing, quiet-wake/charging false positives and missing-data rejection. Motion-backed automatic detection, naps/timing consistency and richer imported reconciliation remain open; staging unavailable. |
 | A02 | P1 open | Full baseline-window placement/source audit and device/placement distribution calibration; [placement](WearingPlacement.md). No invented offsets. |
 | A03 | P1 open | Full trends catalogue/custom ranges, nightly aggregation, journal pairing and uncertainty-aware associations. |
 | A04 | P1 awaiting hardware | Evaluate HR-only activity suggestion false positives/misses at each placement; [rules](AutomaticActivity.md). |

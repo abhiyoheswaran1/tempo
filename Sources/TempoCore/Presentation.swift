@@ -279,3 +279,54 @@ public struct BatteryReading: Sendable {
     return age.isFinite && age >= -5 && age <= 3600
   }
 }
+
+/// Experimental sustained-rest proposals. HR alone cannot distinguish sleep from quiet wakefulness.
+public struct SleepCandidate: Codable, Sendable, Identifiable, Equatable {
+  public var id: UUID { session.id }
+  public var session: SleepSession
+  public var coverage: Double
+  public var inputIDs: [String]
+}
+public enum SleepDetection {
+  public static func candidates(_ input: [Measurement], now: Date) -> [SleepCandidate] {
+    let valid = input.filter { $0.kind == .heartRate && $0.valid && $0.value >= 30 && $0.value <= 220 && $0.timestamp <= now && $0.timestamp >= now.addingTimeInterval(-48*3600) }
+    // One canonical observation per second; repeated imports cannot inflate coverage.
+    let seconds = Dictionary(grouping: valid, by: { Int($0.timestamp.timeIntervalSince1970) })
+      .values.compactMap { $0.sorted { $0.id < $1.id }.first }
+    guard seconds.count >= 4*3600 else { return [] }
+    let values = seconds.map(\.value).sorted()
+    let low = values[values.count/5], high = values[values.count*9/10]
+    guard high - low >= 10 else { return [] }
+    let threshold = min(80, low + 5)
+    let bins = Dictionary(grouping: seconds, by: { Int(floor($0.timestamp.timeIntervalSince1970 / 300)) })
+    let quiet = bins.keys.filter { key in
+      let samples = bins[key]!, sorted = samples.map(\.value).sorted()
+      let times = samples.map { $0.timestamp.timeIntervalSince1970 }.sorted()
+      let edges = [Double(key*300)] + times + [Double((key+1)*300)]
+      let maximumGap = zip(edges, edges.dropFirst()).map { $1 - $0 }.max() ?? 300
+      return samples.count >= 240 && maximumGap <= 30 && sorted[sorted.count/2] <= threshold
+    }.sorted()
+    var runs: [[Int]] = []
+    for bin in quiet {
+      if let last = runs.last?.last, bin == last + 1 { runs[runs.count-1].append(bin) }
+      else { runs.append([bin]) }
+    }
+    return runs.compactMap { run -> SleepCandidate? in
+      guard run.count >= 24, let first = run.first, let last = run.last else { return nil }
+      let begin = Date(timeIntervalSince1970: Double(first*300))
+      let end = Date(timeIntervalSince1970: Double((last+1)*300))
+      guard now.timeIntervalSince(end) >= 1800,
+        seconds.contains(where: { $0.timestamp >= end && $0.timestamp <= end.addingTimeInterval(3600) && $0.value > threshold }) else { return nil }
+      let samples = run.flatMap { bins[$0] ?? [] }
+      var session = SleepSession(start: begin, end: end, timeZoneID: TimeZone.current.identifier, origin: .derived)
+      let hex = StableID.hash("sleep-candidate-1.0|\(first)|\(last)")
+      let uuid = "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20).prefix(12))"
+      session.id = UUID(uuidString: uuid)!
+      session.algorithmVersion = "sleep-candidate-1.0"
+      session.detectionCoverage = Double(samples.count)/session.duration
+      session.detectionInputDigest = StableID.hash(samples.map(\.id).sorted().joined(separator: "|"))
+      session.detectionInputCount = samples.count
+      return SleepCandidate(session: session, coverage: Double(samples.count)/session.duration, inputIDs: samples.map(\.id).sorted())
+    }
+  }
+}

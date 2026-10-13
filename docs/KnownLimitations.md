@@ -24,7 +24,7 @@ Portable preferences sync as revisions; Bluetooth connection state stays local. 
 
 ## Remaining product/software work
 
-- Motion-backed automatic sleep detection, sleep timing consistency and naps detection; current sleep is entered/imported. Detailed staging is intentionally unavailable.
+- Experimental sustained-rest proposals require manual review/confirmation. Motion-backed automatic sleep detection, sleep timing consistency and naps under2hours remain unavailable; current confirmed sleep is entered/imported or reviewed. Detailed staging is intentionally unavailable.
 - Device-specific distribution offsets and calibrated confidence models; source changes conservatively halve readiness confidence.
 - Rich nightly aggregation/stage-interval merging; imported sleep intervals are retained, but conservative overlap projection can exclude an overlapping interval rather than reconstruct a full night.
 - Custom trend ranges and full trend catalogue; current charts cover measured/imported metrics and entered sleep over7/28/90days. Personal association engine exists, but journal-to-metric pairing/insight presentation is not connected.

@@ -121,6 +121,9 @@ public struct Workout: Codable, Sendable, Identifiable, Equatable {
   }
 }
 public struct SleepSession: Codable, Sendable, Identifiable, Equatable {
+  public var detectionInputDigest: String?
+  public var detectionInputCount: Int?
+  public var detectionCoverage: Double?
   public var id = UUID()
   public var start: Date
   public var end: Date

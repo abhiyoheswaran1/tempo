@@ -109,7 +109,7 @@ struct SleepEditor: View {
           "Manual corrections retain their own revision and survive recomputation. Duration uses elapsed UTC time; local timezone is retained."
         ).font(.caption).foregroundStyle(.secondary)
       }
-    }.navigationTitle(existing == nil ? "Record sleep" : "Correct sleep").toolbar {
+    }.navigationTitle(existing?.origin == .derived ? "Review possible sleep" : existing == nil ? "Record sleep" : "Correct sleep").toolbar {
       ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
       ToolbarItem(placement: .confirmationAction) {
         Button("Save") {
@@ -117,7 +117,13 @@ struct SleepEditor: View {
             var s = SleepSession(
               start: start, end: end, timeZoneID: TimeZone.current.identifier, origin: .manual)
             s.isNap = nap
-            if let existing { s.id = existing.id }
+            if let existing {
+              s.id = existing.id
+              s.algorithmVersion = existing.algorithmVersion
+              s.detectionInputDigest = existing.detectionInputDigest
+              s.detectionInputCount = existing.detectionInputCount
+              s.detectionCoverage = existing.detectionCoverage
+            }
             try await model.save(s, kind: "sleep")
             dismiss()
           }

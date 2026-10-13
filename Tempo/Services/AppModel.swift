@@ -29,6 +29,8 @@ import WidgetKit
   var activityLastScan: Date?
   private var lastActivityScanRequest: Date?
   var sleeps: [SleepSession] = []
+  var sleepCandidates: [SleepCandidate] = []
+  private var sleepAnalysisGeneration = 0
   var journals: [JournalEntry] = []
   var sourceSegments: [SourceSegment] = []
   var conflictEntities: [UUID] = []
@@ -235,6 +237,7 @@ import WidgetKit
           }
         }
         self.historyGeneration &+= 1
+        await self.refreshSleepCandidates()
         self.refreshPresentedSummary()
         self.scheduleSnapshot()
       } catch {
@@ -382,6 +385,7 @@ import WidgetKit
         try? decoder.decode(SourceSegment.self, from: $0.payload)
       }
     ).sorted { $0.start < $1.start }
+    await refreshSleepCandidates()
     for night in sleeps.prefix(29) {
       let values = try await store.nightInputs(night, sourceSegments: sourceSegments)
       guard generation == loadGeneration, self.store === store else { return }
@@ -423,6 +427,30 @@ import WidgetKit
     latestReadings.ingest(measurements, now: Date(), allowSynthetic: demo)
     refreshPresentedSummary()
     writeWidget()
+  }
+  private func refreshSleepCandidates() async {
+    guard let store, !transitioningDataset else { sleepCandidates = []; return }
+    sleepAnalysisGeneration += 1
+    let generation = sleepAnalysisGeneration
+    let records = measurements
+    let segments = sourceSegments
+    let sessions = workouts
+    let now = Date()
+    let revisions = (try? await store.revisions()) ?? []
+    let excluded = revisions.filter { $0.kind == "sleep" || $0.kind == "sleepDismissal" }
+      .compactMap { try? JSONDecoder().decode(SleepSession.self, from: $0.payload) }
+    let proposed = await Task.detached(priority: .utility) {
+      let canonical = CanonicalTimeline.select(records, sourceSegments: segments)
+        .filter { sample in !sessions.contains { $0.isActive(at: sample.timestamp) } }
+      return SleepDetection.candidates(canonical, now: now).filter { candidate in
+        !excluded.contains { $0.start < candidate.session.end && $0.end > candidate.session.start }
+      }
+    }.value
+    guard generation == sleepAnalysisGeneration, self.store === store, !transitioningDataset else { return }
+    sleepCandidates = proposed.sorted { $0.session.end > $1.session.end }
+  }
+  func dismissSleepCandidate(_ candidate: SleepCandidate) async throws {
+    try await save(candidate.session, kind: "sleepDismissal")
   }
   func save<T: Codable & Identifiable>(_ value: T, kind: String) async throws where T.ID == UUID {
     guard let store else { return }
@@ -786,7 +814,7 @@ import WidgetKit
         let sleep = SleepSession(
           start: end.addingTimeInterval(-7.5 * 3600), end: end,
           timeZoneID: TimeZone.current.identifier, origin: .synthetic)
-        if !ProcessInfo.processInfo.arguments.contains("--stale-sleep-demo") || day >= 3 {
+        if !ProcessInfo.processInfo.arguments.contains("--sleep-candidate-demo"), !ProcessInfo.processInfo.arguments.contains("--stale-sleep-demo") || day >= 3 {
           try? await save(sleep, kind: "sleep")
         }
         for i in 0..<300 {
@@ -817,8 +845,20 @@ import WidgetKit
               value: i < 900 ? 140 : 70, origin: .synthetic, transport: "demo"))
         }
       }
+      if ProcessInfo.processInfo.arguments.contains("--sleep-candidate-demo") {
+        records = []
+        let start = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970 / 300)*300 - 6*3600)
+        for i in 0..<5*3600 {
+          records.append(TempoCore.Measurement(deviceID: d.id, kind: .heartRate,
+            timestamp: start.addingTimeInterval(Double(i)), value: i >= 3600 && i < 4*3600 ? 55 : 85,
+            origin: .synthetic, transport: "demo"))
+        }
+      }
       try? await store?.insert(records)
       try? await load()
+      if ProcessInfo.processInfo.arguments.contains("--sleep-candidate-demo") {
+        sleepCandidates = SleepDetection.candidates(records, now: now)
+      }
     } else {
       store = nil
       demo = false
