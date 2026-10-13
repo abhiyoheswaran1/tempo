@@ -142,6 +142,7 @@ struct TrendsView: View {
           }.padding(18).background(
             Color(uiColor: .secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 24))
+          NavigationLink("Sleep rhythm") { SleepRhythmView() }.font(.subheadline)
           DisclosureGroup("About these trends") {
             Text("Typical recorded day is the median of daily values, with each recorded day weighted equally. Missing days are excluded.")
             Text("Empty days mean missing qualifying data, not zero. A change in band, wearing placement or recording coverage can change the pattern.")

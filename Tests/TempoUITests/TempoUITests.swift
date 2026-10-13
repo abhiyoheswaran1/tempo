@@ -690,3 +690,96 @@ extension TempoUITests {
     add(shot)
   }
 }
+
+extension TempoUITests {
+  @MainActor func testDayExplorerAndSleepRhythmKeepEvidenceAccessible() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    XCTAssertTrue(app.buttons["day-explorer"].waitForExistence(timeout: 5))
+    app.buttons["day-explorer"].tap()
+    XCTAssertTrue(app.navigationBars["Your days"].waitForExistence(timeout: 5))
+    app.buttons["day-previous"].tap()
+    XCTAssertTrue(app.buttons["day-next"].isEnabled)
+    XCTAssertTrue(app.staticTexts["Recorded coverage"].waitForExistence(timeout: 10))
+    let day = XCTAttachment(screenshot: app.screenshot())
+    day.name = "day-explorer-demo"; day.lifetime = .keepAlways; add(day)
+    app.buttons["Sleep rhythm"].tap()
+    XCTAssertTrue(app.navigationBars["Sleep rhythm"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["sleep-rhythm-coverage"].exists)
+    let rhythm = XCTAttachment(screenshot: app.screenshot())
+    rhythm.name = "sleep-rhythm-demo"; rhythm.lifetime = .keepAlways; add(rhythm)
+  }
+}
+
+
+extension TempoUITests {
+  @MainActor func testDailyObservationShowsInspectableComparison() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    let observation = app.buttons["daily-observation"]
+    for _ in 0..<5 where !observation.isHittable { app.swipeUp() }
+    XCTAssertTrue(observation.isHittable)
+    let today = XCTAttachment(screenshot: app.screenshot())
+    today.name = "today-observation-demo"; today.lifetime = .keepAlways; add(today)
+    observation.tap()
+    XCTAssertTrue(app.navigationBars["What stands out"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Your usual duration"].exists)
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "observation-detail-demo"; shot.lifetime = .keepAlways; add(shot)
+  }
+  @MainActor func testDayExplorerPastJournalDoesNotBecomeTodayEntry() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    app.buttons["day-explorer"].tap()
+    XCTAssertTrue(app.navigationBars["Your days"].waitForExistence(timeout: 5))
+    app.buttons["day-previous"].tap()
+    let add = app.buttons["Add check-in"]
+    for _ in 0..<5 where !add.isHittable { app.swipeUp() }
+    add.tap()
+    XCTAssertTrue(app.buttons["journal-energy-3"].waitForExistence(timeout: 5))
+    app.buttons["journal-energy-3"].tap()
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.staticTexts["3/5"].waitForExistence(timeout: 10))
+    for _ in 0..<5 where !app.buttons["day-next"].isHittable { app.swipeDown() }
+    app.buttons["day-next"].tap()
+    let empty = app.staticTexts["No check-in recorded"]
+    for _ in 0..<5 where !empty.isHittable { app.swipeUp() }
+    XCTAssertTrue(empty.exists)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testDayExplorerAndRhythmLargeTextDarkMode() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--large-text", "--dark"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    let open = app.buttons["day-explorer"]
+    for _ in 0..<4 where !open.isHittable { app.swipeUp() }
+    XCTAssertTrue(open.isHittable)
+    open.tap()
+    XCTAssertTrue(app.navigationBars["Your days"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["day-previous"].isHittable)
+    app.buttons["day-previous"].tap()
+    let rhythm = app.buttons["Sleep rhythm"]
+    for _ in 0..<5 where !rhythm.isHittable { app.swipeUp() }
+    XCTAssertTrue(rhythm.isHittable)
+    rhythm.tap()
+    XCTAssertTrue(app.navigationBars["Sleep rhythm"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["sleep-rhythm-coverage"].exists)
+  }
+}

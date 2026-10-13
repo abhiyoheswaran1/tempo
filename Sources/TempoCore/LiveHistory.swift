@@ -29,12 +29,13 @@ public struct LiveHistorySnapshot: Sendable {
   public let hasUnqualifiedReadings: Bool
   public init(
     samples: [Measurement], from: Date, to: Date, sourceSegments: [SourceSegment],
-    maximumHeartRate: Double, allowSynthetic: Bool = false
+    maximumHeartRate: Double, allowSynthetic: Bool = false, includeImported: Bool = false
   ) {
     let valid = CanonicalTimeline.select(
       samples.filter {
         $0.kind == .heartRate && $0.valid && (25...240).contains($0.value)
-          && ($0.origin == .measured || (allowSynthetic && $0.origin == .synthetic))
+          && ($0.origin == .measured || (allowSynthetic && $0.origin == .synthetic)
+            || (includeImported && $0.origin == .imported))
           && $0.timestamp >= from && $0.timestamp <= to
       }, sourceSegments: sourceSegments)
     // Descriptive receipt coverage is separate from physiological/training-load eligibility.

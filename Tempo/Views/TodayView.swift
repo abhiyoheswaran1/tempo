@@ -28,8 +28,10 @@ struct TodayView: View {
               "tempo-brand-name")
           }
           if !textSize.isAccessibilitySize { Spacer() }
-          Text(Date(), format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
-            .font(.subheadline).foregroundStyle(.secondary)
+          NavigationLink { DayExplorerView() } label: {
+            Label(Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()), systemImage: "calendar")
+              .font(.subheadline).foregroundStyle(.secondary)
+          }.buttonStyle(.plain).accessibilityIdentifier("day-explorer")
         }
         Text(readiness.score == nil ? "Your day, at a glance" : headline(readiness))
           .font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
@@ -66,6 +68,7 @@ struct TodayView: View {
             movementSummary(fillHeight: true)
           }.fixedSize(horizontal: false, vertical: true)
         }
+        DailyObservationCard()
         if let candidate = model.sleepCandidates.first {
           VStack(alignment: .leading, spacing: 12) {
             Label("Possible sleep", systemImage: "moon.zzz").font(.headline)

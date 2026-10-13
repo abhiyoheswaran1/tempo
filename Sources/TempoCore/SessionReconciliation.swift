@@ -17,9 +17,10 @@ public enum SessionReconciliation {
     var chosen: [SleepSession] = []
     for s in sessions.sorted(by: {
       rank($0.origin) == rank($1.origin)
-        ? $0.duration > $1.duration : rank($0.origin) > rank($1.origin)
+        ? ($0.duration == $1.duration ? $0.id.uuidString < $1.id.uuidString : $0.duration > $1.duration)
+        : rank($0.origin) > rank($1.origin)
     }) {
-      guard s.end > s.start else { continue }
+      guard DayHistory.valid(s) else { continue }
       let interval = DateInterval(start: s.start, end: s.end)
       if chosen.contains(where: {
         (DateInterval(start: $0.start, end: $0.end).intersection(with: interval)?.duration ?? 0) > 0

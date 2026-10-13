@@ -17,10 +17,14 @@ The reproducer regressions failed before their respective fixes. Follow-up bound
 
 ## Remains open
 
-- C05/C02: missing overnight and some afternoon HR periods were absent from returned band records. These fixes do not reconstruct absent measurements.
+- C05/C02: earlier dated retrieval tests returned no records for some periods; the owner subsequently reports historical retrieval fixed. Remaining generation/firmware/overnight validation is tracked separately.
 - C03/D05: physical background recovery, smooth scrolling under live receipt/catch-up and CPU-resource termination require device retesting and profiling.
 - S01/H01: signed multi-phone CloudKit restore/account/permission behavior and Health source reconciliation require physical validation.
 - A05: Health sleep import currently retains stage intervals separately; continuous-night reconciliation with source provenance and manual-edit priority remains unfinished.
 - S03: multi-year compaction, streaming backup and larger-history analysis remain separate volume work.
 
 Latest run counts and installation results are maintained in [Verification.md](Verification.md); open acceptance gates are in [Improvements.md](Improvements.md).
+
+## Day-history pass
+
+Fixed input-order-dependent sleep overlap and invalid-date projections, globally reconciled corrections before day/night filtering, anchored historical caffeine clock edits to their journal date/timezone, and kept imported HR an explicit reader opt-in. Bounded day queries show truncation, reject stale dataset/day results and stop scheduled refreshes while hidden. The165-test core suite and final feature UI flows verify these contracts; see [DayHistory.md](DayHistory.md) and [Verification.md](Verification.md).

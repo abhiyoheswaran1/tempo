@@ -2,6 +2,14 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Day history, sleep context and bug pass
+
+- 165 core tests passed in both Debug and Release. Regressions cover half-open local days and DST, saved-session correction precedence, invalid dates, deterministic overlap, missing baselines, imported/demo isolation and historical caffeine dates.
+- All29 native simulator UI tests passed. Four feature flows passed again against the final source, covering day navigation, comparison evidence, past-day journalling and maximum-text dark-mode access. Visible day readers coalesce committed-history refreshes and cancel delayed work when hidden or inactive.
+- Final signed Release build succeeded and installed on the test iPhone. A clean public-project snapshot also produced an unsigned iPhone app, preserving private local signing configuration outside the commit.
+- Read-only review findings about historical caffeine dates, bounded metric warnings and hidden-screen refresh ownership were addressed; the final scoped review found no remaining important findings.
+- Four final-source, labelled synthetic simulator captures were inspected and copied unmodified. The gallery now contains21 captures. These checks establish software behavior and installation, not physical overnight detection, background CPU performance or two-phone restore.
+
 ## Today card sizing and movement details
 
 -150 core tests passed. Card equality first failed for both top alignment and height, then passed after intrinsic-height/layout correction, including a saved manual sleep revision matching the reported case.

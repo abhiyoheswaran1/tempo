@@ -24,6 +24,18 @@
     "postprocessing": "none"
   },
   {
+    "file": "day-explorer-demo.png",
+    "sha256": "7dc913731b4409bacd074431769839e968eb27b137dad6c8b2b4621a1407ed7b",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791911207.498,
+    "device": "iPhone 18 Pro (Tempo audit)",
+    "sourceTest": "TempoUITests/testDayExplorerAndSleepRhythmKeepEvidenceAccessible()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
     "file": "detected-activity-demo.png",
     "sha256": "57b988c3ca4eae6cdf7707bf807489b9a1e0f3ccc3733edc53480b785b1c7549",
     "width": 1206,
@@ -60,6 +72,30 @@
     "postprocessing": "none"
   },
   {
+    "file": "movement-detail-demo.png",
+    "sha256": "f1a0bfb74ae03d7dd0e0db7d426687e26a68b0538941800776a468cf07f87075",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791905351.057,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testTodayMovementOpensDailyEvidenceInsteadOfWorkouts()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
+    "file": "observation-detail-demo.png",
+    "sha256": "4bd8112c52af5ecd174f3f81cdf0be870566a6b66cd6925e7de6f29270e2c799",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791911175.533,
+    "device": "iPhone 18 Pro (Tempo audit)",
+    "sourceTest": "TempoUITests/testDailyObservationShowsInspectableComparison()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
     "file": "possible-sleep-demo.png",
     "sha256": "34cec850c92e1d253a4ce57a461ef216fba1a204d7f5b233140011f529f94338",
     "width": 1206,
@@ -91,6 +127,30 @@
     "captureTimestampUTC": 1791888465.394,
     "device": "iPhone 18 Pro",
     "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
+    "file": "sleep-detail-demo.png",
+    "sha256": "9e8165225404dae0b0f7c5efe6957fe312df41b4be45599a3c01d800b28c3cb0",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791904617.61,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testSleepDetailLeadsWithTimingAndUpdatesCorrection()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
+  },
+  {
+    "file": "sleep-rhythm-demo.png",
+    "sha256": "120c7f52ef31bb30808ccf55d6c46796be509ad399d2ffd115263696fe4a409e",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791911209.609,
+    "device": "iPhone 18 Pro (Tempo audit)",
+    "sourceTest": "TempoUITests/testDayExplorerAndSleepRhythmKeepEvidenceAccessible()",
     "data": "synthetic demo",
     "appearance": "light / standard Dynamic Type",
     "postprocessing": "none"
@@ -145,13 +205,13 @@
   },
   {
     "file": "today-demo.png",
-    "sha256": "921e78997b7fb1ea525795967c9b53175e08f0626b58d4f81bfd1c63aacc2278",
+    "sha256": "61617ad4f7030140080db670af91782a4d6dcf20d34de5d22dc9f9f53bb9b91f",
     "width": 1206,
     "height": 2622,
-    "captureTimestampUTC": 1791905367.589,
-    "device": "iPhone 18 Pro",
-    "sourceTest": "TempoUITests/testTodaySummaryCardsHaveEqualHeight()",
-    "data": "isolated synthetic demo with manual sleep revision",
+    "captureTimestampUTC": 1791911172.839,
+    "device": "iPhone 18 Pro (Tempo audit)",
+    "sourceTest": "TempoUITests/testDailyObservationShowsInspectableComparison()",
+    "data": "synthetic demo",
     "appearance": "light / standard Dynamic Type",
     "postprocessing": "none"
   },
@@ -187,30 +247,6 @@
     "captureTimestampUTC": 1791888454.074,
     "device": "iPhone 18 Pro",
     "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
-    "data": "synthetic demo",
-    "appearance": "light / standard Dynamic Type",
-    "postprocessing": "none"
-  },
-  {
-    "file": "sleep-detail-demo.png",
-    "sha256": "9e8165225404dae0b0f7c5efe6957fe312df41b4be45599a3c01d800b28c3cb0",
-    "width": 1206,
-    "height": 2622,
-    "captureTimestampUTC": 1791904617.61,
-    "device": "iPhone 18 Pro",
-    "sourceTest": "TempoUITests/testSleepDetailLeadsWithTimingAndUpdatesCorrection()",
-    "data": "synthetic demo",
-    "appearance": "light / standard Dynamic Type",
-    "postprocessing": "none"
-  },
-  {
-    "file": "movement-detail-demo.png",
-    "sha256": "f1a0bfb74ae03d7dd0e0db7d426687e26a68b0538941800776a468cf07f87075",
-    "width": 1206,
-    "height": 2622,
-    "captureTimestampUTC": 1791905351.057,
-    "device": "iPhone 18 Pro",
-    "sourceTest": "TempoUITests/testTodayMovementOpensDailyEvidenceInsteadOfWorkouts()",
     "data": "synthetic demo",
     "appearance": "light / standard Dynamic Type",
     "postprocessing": "none"

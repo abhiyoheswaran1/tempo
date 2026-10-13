@@ -23,13 +23,14 @@ struct JournalEditor: View {
           Toggle(
             "Add caffeine timing",
             isOn: Binding(
-              get: { entry.caffeineTime != nil }, set: { entry.caffeineTime = $0 ? Date() : nil }))
+              get: { entry.caffeineTime != nil }, set: { entry.caffeineTime = $0 ? entry.caffeineTimestamp(clock: Date()) : nil }))
           if entry.caffeineTime != nil {
             DatePicker(
               "Last caffeine",
               selection: Binding(
-                get: { entry.caffeineTime ?? Date() }, set: { entry.caffeineTime = $0 }),
+                get: { entry.caffeineTime ?? entry.date }, set: { entry.caffeineTime = entry.caffeineTimestamp(clock: $0) }),
               displayedComponents: [.hourAndMinute])
+              .environment(\.timeZone, TimeZone(identifier: entry.timeZoneID) ?? .current)
           }
         }.accessibilityIdentifier("journal-optional-context")
       }
@@ -95,6 +96,7 @@ struct SleepEditor: View {
   @Environment(AppModel.self) var model
   @Environment(\.dismiss) var dismiss
   var existing: SleepSession?
+  var initialDay: Date?
   @State private var start = Date().addingTimeInterval(-8 * 3600)
   @State private var end = Date()
   @State private var nap = false
@@ -135,6 +137,9 @@ struct SleepEditor: View {
         start = existing.start
         end = existing.end
         nap = existing.isNap
+      } else if let initialDay {
+        end = min(Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: initialDay) ?? initialDay, Date())
+        start = end.addingTimeInterval(-8 * 3600)
       }
     }
   }
