@@ -51,6 +51,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     }
   }
   private var historyLinks: [UUID: HistoryLink] = [:]
+  private var historyBondRecovery = HistoryBondRecovery()
   private static func customUUID(_ generation: DeviceGeneration, _ suffix: Int) -> CBUUID {
     CBUUID(
       string: generation == .whoop4
@@ -696,6 +697,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     else { return }
     link.transfer = transfer
     link.committedRecords += count
+    historyBondRecovery.confirmedSuccess(deviceID)
     lastHistoryCommit[deviceID] = Date()
     historyStatus[deviceID] = "\(link.committedRecords) historical HR readings stored · retrieving"
     sendHistoryCommand(deviceID, command: 23, body: body)
@@ -719,6 +721,16 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
         let detail = error as NSError
         link.requiresPairing = HistoryPairingError.requiresPairing(domain: detail.domain, code: detail.code)
         historyStatus[id] = "History Hello write failed (\(detail.domain) \(detail.code)) · normal pairing required before history"
+        if link.requiresPairing, historyBondRecovery.shouldReconnect(id) {
+          historyStatus[id] = "History encryption refused · retrying once on a fresh connection"
+          let session = link.session
+          Task { [weak self, weak peripheral] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, let peripheral, self.canUsePeripheral(peripheral),
+              self.historyLinks[id]?.session == session else { return }
+            self.poweredCommand { $0.cancelPeripheralConnection(peripheral) }
+          }
+        }
         return
       }
       historyStatus[id] = "Hello write confirmed · subscribing history channels"

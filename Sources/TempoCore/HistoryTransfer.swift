@@ -228,3 +228,11 @@ public struct Whoop5ConnectionHandshake: Sendable {
     state = succeeded ? .ready : .failed
   }
 }
+
+/// A single fresh connection can recover a transient encryption race; persistent refusal stops.
+public struct HistoryBondRecovery: Sendable {
+  private var attempted: Set<UUID> = []
+  public init() {}
+  public mutating func shouldReconnect(_ device: UUID) -> Bool { attempted.insert(device).inserted }
+  public mutating func confirmedSuccess(_ device: UUID) { attempted.remove(device) }
+}

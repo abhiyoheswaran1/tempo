@@ -294,3 +294,15 @@ final class Whoop5ConnectionHandshakeTests: XCTestCase {
     XCTAssertFalse(handshake.begin())
   }
 }
+
+final class HistoryBondRecoveryTests: XCTestCase {
+  func testOnlyOneRecoveryUntilConfirmedSuccess() {
+    var recovery = HistoryBondRecovery()
+    let device = UUID(), other = UUID()
+    XCTAssertTrue(recovery.shouldReconnect(device))
+    XCTAssertFalse(recovery.shouldReconnect(device))
+    XCTAssertTrue(recovery.shouldReconnect(other))
+    recovery.confirmedSuccess(device)
+    XCTAssertTrue(recovery.shouldReconnect(device))
+  }
+}
