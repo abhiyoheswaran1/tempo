@@ -210,3 +210,21 @@ public enum HistoryPairingError {
     domain == "CBATTErrorDomain" && [5, 8, 12, 15].contains(code)
   }
 }
+
+/// The confirmed command write precedes protected notification subscriptions on iOS.
+public struct Whoop5ConnectionHandshake: Sendable {
+  private enum State { case idle, writing, ready, failed }
+  private var state = State.idle
+  public init() {}
+  public var awaitingWrite: Bool { state == .writing }
+  public var canSubscribe: Bool { state == .ready }
+  public mutating func begin() -> Bool {
+    guard state == .idle else { return false }
+    state = .writing
+    return true
+  }
+  public mutating func finishWrite(succeeded: Bool) {
+    guard state == .writing else { return }
+    state = succeeded ? .ready : .failed
+  }
+}

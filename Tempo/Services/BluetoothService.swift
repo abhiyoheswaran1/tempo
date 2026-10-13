@@ -24,6 +24,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   private final class HistoryLink {
     let session = UUID()
     let generation: DeviceGeneration
+    var handshake = Whoop5ConnectionHandshake()
     var requiresPairing = false
     var notificationRetry = HistoryNotificationRetry()
     var sequence = 1
@@ -486,7 +487,8 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     peripherals.values.first { mapping[$0.identifier] == id && canUsePeripheral($0) }
   }
   private func prepareHistoryLink(_ p: CBPeripheral, id: UUID) {
-    guard canUsePeripheral(p), let link = historyLinks[id], !link.requiresPairing, link.lastAttempt == nil,
+    guard canUsePeripheral(p), let link = historyLinks[id], !link.requiresPairing,
+      (link.generation != .whoop5 || link.handshake.canSubscribe), link.lastAttempt == nil,
       let service = p.services?.first(where: {
         $0.uuid == (link.generation == .whoop4 ? Self.service4 : Self.service5)
       }),
@@ -701,11 +703,31 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   func peripheral(
     _ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?
   ) {
-    guard error != nil, let id = mapping[peripheral.identifier],
-      characteristic.service?.uuid == Self.service4 || characteristic.service?.uuid == Self.service5
-    else { return }
-    historyLinks[id]?.stopTransfer()
-    historyStatus[id] = "History connection write failed · live HR is separate"
+    guard canUsePeripheral(peripheral), let id = mapping[peripheral.identifier],
+      characteristic.service?.uuid == Self.service4 || characteristic.service?.uuid == Self.service5,
+      let link = historyLinks[id] else { return }
+    if link.generation == .whoop5, link.handshake.awaitingWrite {
+      link.handshake.finishWrite(succeeded: error == nil)
+      if let error {
+        let detail = error as NSError
+        link.requiresPairing = HistoryPairingError.requiresPairing(domain: detail.domain, code: detail.code)
+        historyStatus[id] = "History Hello write failed (\(detail.domain) \(detail.code)) · normal pairing required before history"
+        return
+      }
+      historyStatus[id] = "Hello write confirmed · subscribing history channels"
+      for channel in characteristic.service?.characteristics ?? []
+        where channel.uuid != Self.customUUID(.whoop5, 2) {
+        if channel.properties.contains(.notify) || channel.properties.contains(.indicate) {
+          peripheral.setNotifyValue(true, for: channel)
+        }
+      }
+      prepareHistoryLink(peripheral, id: id)
+      return
+    }
+    guard let error else { return }
+    let detail = error as NSError
+    link.stopTransfer()
+    historyStatus[id] = "History connection write failed (\(detail.domain) \(detail.code)) · live HR is separate"
   }
   func refreshBatteryIfNeeded() {
     guard !collectionSuspended, central?.state == .poweredOn else { return }
@@ -798,6 +820,25 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       if historyLinks[id] == nil {
         historyLinks[id] = HistoryLink(generation)
         historyStatus[id] = "Checking stored-history notification channels"
+      }
+      if generation == .whoop5, let link = historyLinks[id] {
+        guard let command = service.characteristics?.first(where: {
+          $0.uuid == Self.customUUID(.whoop5, 2) && $0.properties.contains(.write)
+        }), link.handshake.begin() else { return }
+        historyStatus[id] = "Establishing history connection · confirming Hello write"
+        let sequence = UInt8(link.sequence)
+        link.sequence += 1
+        peripheral.writeValue(WhoopReadProtocol.command(generation: .whoop5,
+          sequence: sequence, command: 145, body: Data([1])), for: command, type: .withResponse)
+        let session = link.session
+        Task { [weak self] in
+          try? await Task.sleep(for: .seconds(20))
+          guard let self, let current = self.historyLinks[id], current.session == session,
+            current.handshake.awaitingWrite else { return }
+          current.handshake.finishWrite(succeeded: false)
+          self.historyStatus[id] = "History Hello write timed out · reconnect to retry"
+        }
+        return
       }
       for c in service.characteristics ?? [] where c.uuid != Self.customUUID(generation, 2) {
         if c.properties.contains(.notify) || c.properties.contains(.indicate) {

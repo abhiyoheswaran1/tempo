@@ -273,3 +273,24 @@ final class HistoryPairingErrorTests: XCTestCase {
     XCTAssertFalse(HistoryPairingError.requiresPairing(domain: "Other", code: 5))
   }
 }
+
+final class Whoop5ConnectionHandshakeTests: XCTestCase {
+  func testSubscriptionsWaitForConfirmedHelloWrite() {
+    var handshake = Whoop5ConnectionHandshake()
+    XCTAssertFalse(handshake.canSubscribe)
+    XCTAssertTrue(handshake.begin())
+    XCTAssertFalse(handshake.begin())
+    XCTAssertFalse(handshake.canSubscribe)
+    handshake.finishWrite(succeeded: true)
+    XCTAssertTrue(handshake.canSubscribe)
+    XCTAssertFalse(handshake.begin())
+  }
+  func testFailedHelloDoesNotEnableSubscriptions() {
+    var handshake = Whoop5ConnectionHandshake()
+    XCTAssertTrue(handshake.begin())
+    handshake.finishWrite(succeeded: false)
+    XCTAssertFalse(handshake.canSubscribe)
+    XCTAssertFalse(handshake.awaitingWrite)
+    XCTAssertFalse(handshake.begin())
+  }
+}
