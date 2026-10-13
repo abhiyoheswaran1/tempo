@@ -45,7 +45,7 @@ Connection and wearing are separate: nearby advertisements are not connected ban
 
 The app does not fabricate unsupported sensor values. Battery, calibrated temperature, respiration, SpO₂, proprietary wear detection, band haptics and firmware alarms remain unavailable or hidden until supported implementation and physical validation exist.
 
-To inspect band history support, tap the top-right profile/battery control → **Band status and history**, then scroll to **History retrieval**. Application firmware and the actual transfer/refusal status appear there for registered bands. On Today, tapping the band-name row beneath live heart rate opens the same view.
+To inspect band history support, tap the top-right Settings gear → **Band status and history**, then scroll to **History retrieval**. Application firmware and the actual transfer/refusal status appear there for registered bands. On Today, tapping the band-name row beneath live heart rate opens the same view.
 
 Rendering diagnostics such as the reported QuartzCore handler message are documented in [RenderingDiagnostics.md](docs/RenderingDiagnostics.md), including a reproduction independent of Tempo’s Bluetooth and cloud code.
 
@@ -128,7 +128,7 @@ These are real screenshots captured from Tempo running in the iOS simulator, wit
 
 [<img src="docs/screenshots/live-dashboard-demo.png" width="240" alt="Live dashboard with clearly labelled synthetic heart rate and coverage">](docs/screenshots/live-dashboard-demo.png)
 
-All fifteen captures come from successful simulator tests. Today now uses a native large title, a prominent live-reading entry, compact readiness and paired sleep/movement summaries. At accessibility text sizes the daily summaries stack vertically. Collection comes first while a baseline builds; unavailable readiness has compact progress instead of an empty score. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and a four-hour chart first, with15-minute and one-hour options, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Journal puts Energy, Soreness and Mood first, with optional context and same-day editing. Workout details put notes/exertion ahead of collapsible measurement evidence. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
+All sixteen captures come from successful simulator tests. Today now uses a native large title, a prominent live-reading entry, compact readiness and paired sleep/movement summaries. At accessibility text sizes the daily summaries stack vertically. Collection comes first while a baseline builds; unavailable readiness has compact progress instead of an empty score. Activity puts sport selection and Start first, with focused recording controls and a cancelable Finish alert. Trends shows one selected metric, including sleep; selecting a missing day does not borrow a neighbour’s value. Live puts the current/recent reading and a four-hour chart first, with 15-minute and one-hour options, with source evidence available on demand. Pull down or tap Refresh on Today to check collection and request enabled cloud sync. Journal puts Energy, Soreness and Mood first, with optional context and same-day editing. Workout details put notes/exertion ahead of collapsible measurement evidence. Capture provenance and checksums are in [the screenshot manifest](docs/screenshots/capture-manifest.json).
 
 | Baseline building · empty test dataset | Band status · empty test dataset | Sleep trends · synthetic demo |
 |---|---|---|
@@ -312,3 +312,13 @@ Latest extension checks: five affected simulator flows passed for the four-hour 
 Tempo checks recovered heart-rate history automatically for sustained-rest periods. Review the **Possible sleep** card on Today, correct the proposed times, then save or choose **Not sleep**. Proposals are experimental HR-only estimates, not WHOOP sleep records or validated staging. Sparse data and unresolved intervals stay unavailable. Confirmed timing, dismissal and provenance survive revisions and private sync. See [methodology](docs/Analytics.md#experimental-possible-sleep-detector10).
 
 [<img src="docs/screenshots/possible-sleep-demo.png" width="280" alt="Real simulator capture of an experimental possible-sleep proposal with clearly labelled synthetic data">](docs/screenshots/possible-sleep-demo.png)
+
+### Overnight collection status
+
+Today distinguishes **Band catch-up stored** from iCloud sync and explains when recorded HR is insufficient for a possible-sleep proposal. An owned WHOOP5/50.42.1.0 has completed a physically observed historical transfer; overnight/background coverage and sleep accuracy remain pending. Large catch-ups reconnect before command-sequence exhaustion and coalesce sleep analysis after incoming chunks settle. Existing nights already offloaded elsewhere may be absent from the band’s returned range. See [history and retention](docs/HistoryRetrieval.md).
+
+### Battery and Settings
+
+Settings has a separate gear button. Today displays the reported band battery percentage beneath its header and beside the source band; stale reports are labelled separately. Missing battery reports remain unavailable.
+
+<img src="docs/screenshots/today-battery-demo.png" width="280" alt="Synthetic Today screen with separate Settings gear and visible Band 73 percent" />

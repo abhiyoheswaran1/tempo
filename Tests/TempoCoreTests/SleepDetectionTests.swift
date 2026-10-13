@@ -33,3 +33,12 @@ final class SleepDetectionTests: XCTestCase {
     XCTAssertTrue(SleepDetection.candidates(Array(records().prefix(8*3600)), now: start.addingTimeInterval(8*3600)).isEmpty)
   }
 }
+
+extension SleepDetectionTests {
+  func testSleepStatusExplainsMissingRecordsWithoutInventingTiming() {
+    XCTAssertEqual(SleepDetectionStatus.evaluate([], now: start, hasCandidate: false), .waitingForHistory)
+    XCTAssertEqual(SleepDetectionStatus.evaluate(Array(records().prefix(60)), now: start.addingTimeInterval(12*3600), hasCandidate: false), .insufficientCoverage)
+    XCTAssertEqual(SleepDetectionStatus.evaluate(records(), now: start.addingTimeInterval(12*3600), hasCandidate: true), .reviewAvailable)
+    XCTAssertEqual(SleepDetectionStatus.evaluate(records(), now: start.addingTimeInterval(12*3600), hasCandidate: false), .noCandidate)
+  }
+}

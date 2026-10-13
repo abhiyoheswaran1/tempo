@@ -306,3 +306,11 @@ final class HistoryBondRecoveryTests: XCTestCase {
     XCTAssertTrue(recovery.shouldReconnect(device))
   }
 }
+
+final class HistorySequenceBudgetTests: XCTestCase {
+  func testReconnectBeforeReusingOrTruncatingSequence() {
+    XCTAssertFalse(HistorySequenceBudget.requiresReconnect(nextSequence: 250))
+    XCTAssertTrue(HistorySequenceBudget.requiresReconnect(nextSequence: 251))
+    XCTAssertTrue(HistorySequenceBudget.requiresReconnect(nextSequence: 256))
+  }
+}

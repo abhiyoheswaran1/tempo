@@ -16,6 +16,21 @@ final class TempoUITests: XCTestCase {
     XCTAssertTrue(app.descendants(matching: .any)["today-sleep-summary"].firstMatch.waitForExistence(timeout: 10))
     XCTAssertFalse(app.buttons["review-possible-sleep"].exists)
   }
+  @MainActor func testSettingsAndReportedBatteryHaveSeparateMeaning() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--battery-ui-demo"]
+    app.launch()
+    XCTAssertTrue(app.buttons["tempo-settings"].waitForExistence(timeout: 20))
+    XCTAssertTrue(app.staticTexts["today-battery-percent"].exists)
+    XCTAssertEqual(app.staticTexts["today-battery-percent"].label, "73%")
+    XCTAssertTrue(app.staticTexts["today-header-battery-percent"].exists)
+    XCTAssertTrue(app.staticTexts["today-header-battery-percent"].isHittable)
+    XCTAssertGreaterThanOrEqual(app.staticTexts["today-header-battery-percent"].frame.width, 45)
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "today-battery-demo"; shot.lifetime = .keepAlways; add(shot)
+    app.buttons["tempo-settings"].tap()
+    XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+  }
   @MainActor func testEmptyStatesAndTabs() {
     let app = XCUIApplication()
     app.launchArguments = ["--ui-testing"]
@@ -23,6 +38,8 @@ final class TempoUITests: XCTestCase {
     XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 10))
     XCTAssertTrue(app.staticTexts["Building your baseline"].exists)
     XCTAssertTrue(app.staticTexts["tempo-brand-name"].exists)
+    XCTAssertTrue(app.staticTexts["today-history-unavailable"].exists)
+    XCTAssertTrue(app.staticTexts["sleep-collection-explanation"].exists)
     app.tabBars.buttons["Activity"].tap()
     XCTAssertTrue(app.buttons["Start Padel"].waitForExistence(timeout: 5))
     app.buttons["Start Padel"].tap()

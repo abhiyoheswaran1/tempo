@@ -236,3 +236,7 @@ public struct HistoryBondRecovery: Sendable {
   public mutating func shouldReconnect(_ device: UUID) -> Bool { attempted.insert(device).inserted }
   public mutating func confirmedSuccess(_ device: UUID) { attempted.remove(device) }
 }
+
+public enum HistorySequenceBudget {
+  public static func requiresReconnect(nextSequence: Int) -> Bool { nextSequence > 250 }
+}

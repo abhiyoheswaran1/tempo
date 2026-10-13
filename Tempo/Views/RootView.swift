@@ -70,40 +70,13 @@ struct RootView: View {
   }
   @ToolbarContentBuilder var statusControl: some ToolbarContent {
     ToolbarItem(placement: .topBarTrailing) {
-      TimelineView(.periodic(from: .now, by: 60)) { context in
-        Button {
-          settings = true
-        } label: {
-          HStack(spacing: 8) {
-            if !model.demo, let device = model.collectionDevice,
-              model.bluetooth.isConnected(device.id),
-              let battery = model.bluetooth.battery[device.id], battery.isFresh(at: context.date)
-            {
-              Label(
-                "\(battery.percent)%",
-                systemImage: battery.percent <= 25
-                  ? "battery.25percent"
-                  : (battery.percent <= 50
-                    ? "battery.50percent"
-                    : (battery.percent <= 75 ? "battery.75percent" : "battery.100percent"))
-              )
-              .font(.caption.weight(.medium)).monospacedDigit()
-            }
-            Image(
-              systemName: model.bluetooth.connected.isEmpty
-                ? "person.crop.circle" : "person.crop.circle.badge.checkmark")
-          }
-        }.accessibilityLabel("Bands, sync and settings")
-          .accessibilityValue(batteryAccessibility(at: context.date))
-      }
+      Button { settings = true } label: {
+        Image(systemName: "gearshape")
+      }.accessibilityLabel("Bands, sync and settings")
+        .accessibilityIdentifier("tempo-settings")
     }
   }
-  private func batteryAccessibility(at now: Date) -> String {
-    guard !model.demo, let device = model.collectionDevice, model.bluetooth.isConnected(device.id),
-      let battery = model.bluetooth.battery[device.id], battery.isFresh(at: now)
-    else { return "" }
-    return "\(device.name), reported battery \(battery.percent) percent"
-  }
+
 }
 struct ContentSection<Content: View>: View {
   var title: String

@@ -17,6 +17,18 @@ struct BandStatusControl: View {
           VStack(alignment: .leading, spacing: 3) {
             Text(model.collectionDevice?.name ?? "Your bands").font(.subheadline.weight(.semibold))
             Text(status(fresh, now: context.date)).font(.caption).foregroundStyle(.secondary)
+            if (!model.demo || ProcessInfo.processInfo.arguments.contains("--battery-ui-demo")),
+              let device = model.collectionDevice, let battery = model.bluetooth.battery[device.id] {
+              HStack(spacing: 5) {
+                Image(systemName: battery.percent <= 25 ? "battery.25percent" : battery.percent <= 50 ? "battery.50percent" : battery.percent <= 75 ? "battery.75percent" : "battery.100percent").accessibilityHidden(true)
+                Text("\(battery.percent)%").monospacedDigit().accessibilityIdentifier("today-battery-percent")
+                if model.demo { Text("Demo battery") }
+                else if !battery.isFresh(at: context.date) { Text("Last reported · stale") }
+                else { Text("Band battery") }
+              }.font(.caption).foregroundStyle(.secondary)
+            } else if !model.demo, model.collectionDevice != nil {
+              Text("Band battery unavailable").font(.caption).foregroundStyle(.secondary)
+            }
           }
           Spacer()
           Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
@@ -168,7 +180,7 @@ struct BandStatusSheet: View {
             }
           }
           Text(
-            "Live receipt is separate from stored history. Whoop4 retrieval is experimental for supported firmware; Whoop5 history is not validated. Gaps remain visible until actual records arrive."
+            "Live receipt is separate from stored history. Firmware-bounded retrieval is experimental. Whoop5 transfer has succeeded on the owned50.42.1.0 band; other devices and retained periods still need validation. Gaps remain visible until actual records arrive."
           )
           .font(.caption).foregroundStyle(.secondary)
         }
@@ -630,6 +642,16 @@ struct TodayCollectionPanel: View {
             HStack(spacing: 4) {
               Text("Last reading")
               Text(sample.timestamp, style: .relative)
+            }
+          }
+          if !model.demo {
+            if let id = model.collectionDevice?.id, let stored = model.bluetooth.lastHistoryCommit[id] {
+              HStack(spacing: 4) {
+                Text("Band catch-up stored")
+                Text(stored, style: .relative)
+              }.accessibilityIdentifier("today-history-received")
+            } else {
+              Text("Band history not received yet").accessibilityIdentifier("today-history-unavailable")
             }
           }
           if model.demo {

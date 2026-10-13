@@ -30,7 +30,9 @@ import WidgetKit
   private var lastActivityScanRequest: Date?
   var sleeps: [SleepSession] = []
   var sleepCandidates: [SleepCandidate] = []
+  var sleepDetectionStatus: SleepDetectionStatus = .waitingForHistory
   private var sleepAnalysisGeneration = 0
+  private var sleepAnalysisTask: Task<Void, Never>?
   var journals: [JournalEntry] = []
   var sourceSegments: [SourceSegment] = []
   var conflictEntities: [UUID] = []
@@ -229,16 +231,7 @@ import WidgetKit
         let existing = Set(self.measurements.map(\.id))
         self.measurements += samples.filter { $0.timestamp >= cutoff && !existing.contains($0.id) }
         self.latestReadings.ingest(samples, now: Date())
-        if let first = samples.map(\.timestamp).min(), let last = samples.map(\.timestamp).max() {
-          for sleep in self.sleeps.prefix(29) where sleep.start <= last && sleep.end > first {
-            let inputs = try? await store.nightInputs(sleep, sourceSegments: self.sourceSegments)
-            guard self.store === store, !self.demo else { return }
-            self.nightMetrics[sleep.id] = inputs
-          }
-        }
-        self.historyGeneration &+= 1
-        await self.refreshSleepCandidates()
-        self.refreshPresentedSummary()
+        self.scheduleSleepAnalysis()
         self.scheduleSnapshot()
       } catch {
         self.bluetooth.historyChunkFailed(
@@ -428,8 +421,25 @@ import WidgetKit
     refreshPresentedSummary()
     writeWidget()
   }
+  private func scheduleSleepAnalysis() {
+    sleepAnalysisTask?.cancel()
+    let expectedStore = store
+    sleepAnalysisTask = Task { [weak self] in
+      try? await Task.sleep(for: .seconds(2))
+      guard !Task.isCancelled, let self, self.store === expectedStore, !self.transitioningDataset else { return }
+      await self.refreshSleepCandidates()
+      guard !Task.isCancelled, !self.transitioningDataset, self.store === expectedStore, let store = expectedStore else { return }
+      for sleep in self.sleeps.prefix(29) {
+        let inputs = try? await store.nightInputs(sleep, sourceSegments: self.sourceSegments)
+        guard !Task.isCancelled, !self.transitioningDataset, self.store === expectedStore else { return }
+        self.nightMetrics[sleep.id] = inputs
+      }
+      self.historyGeneration &+= 1
+      self.refreshPresentedSummary()
+    }
+  }
   private func refreshSleepCandidates() async {
-    guard let store, !transitioningDataset else { sleepCandidates = []; return }
+    guard let store, !transitioningDataset else { sleepCandidates = []; sleepDetectionStatus = .waitingForHistory; return }
     sleepAnalysisGeneration += 1
     let generation = sleepAnalysisGeneration
     let records = measurements
@@ -442,12 +452,14 @@ import WidgetKit
     let proposed = await Task.detached(priority: .utility) {
       let canonical = CanonicalTimeline.select(records, sourceSegments: segments)
         .filter { sample in !sessions.contains { $0.isActive(at: sample.timestamp) } }
-      return SleepDetection.candidates(canonical, now: now).filter { candidate in
+      let candidates = SleepDetection.candidates(canonical, now: now).filter { candidate in
         !excluded.contains { $0.start < candidate.session.end && $0.end > candidate.session.start }
       }
+      return (candidates, SleepDetectionStatus.evaluate(canonical, now: now, hasCandidate: !candidates.isEmpty))
     }.value
-    guard generation == sleepAnalysisGeneration, self.store === store, !transitioningDataset else { return }
-    sleepCandidates = proposed.sorted { $0.session.end > $1.session.end }
+    guard !Task.isCancelled, generation == sleepAnalysisGeneration, self.store === store, !transitioningDataset else { return }
+    sleepCandidates = proposed.0.sorted { $0.session.end > $1.session.end }
+    sleepDetectionStatus = proposed.1
   }
   func dismissSleepCandidate(_ candidate: SleepCandidate) async throws {
     try await save(candidate.session, kind: "sleepDismissal")
@@ -856,8 +868,12 @@ import WidgetKit
       }
       try? await store?.insert(records)
       try? await load()
+      if ProcessInfo.processInfo.arguments.contains("--battery-ui-demo") {
+        bluetooth.battery[d.id] = try? BatteryReading.parse(Data([73]), at: Date())
+      }
       if ProcessInfo.processInfo.arguments.contains("--sleep-candidate-demo") {
         sleepCandidates = SleepDetection.candidates(records, now: now)
+        sleepDetectionStatus = SleepDetectionStatus.evaluate(records, now: now, hasCandidate: !sleepCandidates.isEmpty)
       }
     } else {
       store = nil

@@ -515,8 +515,14 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       body: Data([link.generation == .whoop4 ? 0 : 1]))
   }
   private func sendHistoryCommand(_ id: UUID, command: UInt8, body: Data) {
-    guard let p = historyPeripheral(id), let link = historyLinks[id], link.sequence <= 250,
-      link.pending.count < 4,
+    guard let p = historyPeripheral(id), let link = historyLinks[id] else { return }
+    if HistorySequenceBudget.requiresReconnect(nextSequence: link.sequence) {
+      link.stopTransfer()
+      historyStatus[id] = "Refreshing history connection · stored chunks retained"
+      poweredCommand { $0.cancelPeripheralConnection(p) }
+      return
+    }
+    guard link.pending.count < 4,
       let c = p.services?.first(where: {
         $0.uuid == (link.generation == .whoop4 ? Self.service4 : Self.service5)
       })?.characteristics?.first(where: {

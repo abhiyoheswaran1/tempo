@@ -330,3 +330,21 @@ public enum SleepDetection {
     }
   }
 }
+
+public enum SleepDetectionStatus: Sendable, Equatable {
+  case waitingForHistory, insufficientCoverage, noCandidate, reviewAvailable
+  public static func evaluate(_ input: [Measurement], now: Date, hasCandidate: Bool) -> Self {
+    if hasCandidate { return .reviewAvailable }
+    let seconds = Set(input.filter { $0.kind == .heartRate && $0.valid && $0.value >= 30 && $0.value <= 220 && $0.timestamp <= now && $0.timestamp >= now.addingTimeInterval(-48*3600) }.map { Int($0.timestamp.timeIntervalSince1970) })
+    if seconds.isEmpty { return .waitingForHistory }
+    return seconds.count < 4*3600 ? .insufficientCoverage : .noCandidate
+  }
+  public var message: String {
+    switch self {
+    case .waitingForHistory: "Waiting for recorded heart rate"
+    case .insufficientCoverage: "More recorded heart rate is needed to suggest sleep"
+    case .noCandidate: "No sleep suggestion yet; recorded heart rate does not show a qualifying pattern"
+    case .reviewAvailable: "Possible sleep is ready to review"
+    }
+  }
+}
