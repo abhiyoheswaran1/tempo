@@ -26,3 +26,7 @@ The redundant Today header battery line was removed; the percentage remains besi
 ## Live dashboard refinement
 
 Both focused UI tests passed: standard live/band interactions and maximum-text/dark evidence reachability. The new coverage/collapsed-detail assertions first failed before implementation. The final signed Release build succeeded and was installed on the connected test iPhone. The refreshed gallery image is a genuine isolated synthetic simulator capture. This visual refinement does not establish recovery of missing band records or resolve CPU reliability D05.
+
+## Dashboard refresh isolation
+
+Two focused simulator tests passed: live/band interactions and maximum-text/dark evidence reachability. Signed Release build succeeded and installed. Whole-dashboard one-second timing was replaced by independent live-reading/workout components; the history chart keeps its own refresh cadence and same-context snapshot during reload. Physical smoothness and CPU profiling remain open; no FPS improvement is asserted.

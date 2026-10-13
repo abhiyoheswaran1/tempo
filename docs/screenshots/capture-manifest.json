@@ -49,10 +49,10 @@
   },
   {
     "file": "live-dashboard-demo.png",
-    "sha256": "1cb2a44fa72886c6e19a08282fe546a48c11051a0312ecce2fcae367dd8b6fbe",
+    "sha256": "10146b9b2fd17bb0c8bcd2c17b433604f472049760cf7cfd24cafdfc5e6345a6",
     "width": 1206,
     "height": 2622,
-    "captureTimestampUTC": 1791899792.657,
+    "captureTimestampUTC": 1791900942.967,
     "device": "iPhone 18 Pro",
     "sourceTest": "TempoUITests/testLiveDashboardAndBandManagementKeepDemoHonest()",
     "data": "synthetic demo",

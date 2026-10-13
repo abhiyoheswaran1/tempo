@@ -40,3 +40,9 @@ Community reports on [Apple Developer Forums](https://developer.apple.com/forums
 ## PointerUI service-port message — 2026-10-12
 
 The exact `non-launching port is incompatible with service identifier "com.apple.PointerUI.pointeruid.default-service"` message also appears in the independent NavigationStack probe (`RenderProbe`, nativeBoardServices XPCErrors). Recorded at startup in both the TabView and NavigationStack probes; filtered evidence is `/private/tmp/tempo-pointer-baseline.log`. Those apps contain no Bluetooth, CloudKit or Tempo code. This establishes a system UI/input-service reproduction, not a fix or proof every occurrence is harmless. No private pointer-service API or entitlement workaround was added. The user's physical OS and any actual input/freeze/crash symptom still need confirmation.
+
+## Live dashboard update isolation — 2026-10-13
+
+Source inspection found a one-second TimelineView wrapping the complete dashboard List, including Charts, source details and cloud status. It was split into independently observed heart-rate, history, source and workout components. Only heart-rate freshness and workout elapsed time retain one-second timers; history keeps its separate 20-second query cadence and generation-triggered refresh. The chart retains a same-dataset/source/range snapshot during background reload; dataset/source/range changes still invalidate it. Every band observation continues to be persisted.
+
+This removes the whole-screen timer dependency; it is not a measured frame-rate or CPU improvement claim. Physical scrolling with live receipt and history catch-up, plus Instruments before/after profiling, remain D05 acceptance checks.

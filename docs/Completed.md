@@ -38,3 +38,5 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - UX23 · removed redundant standalone Today battery line; retained percentage beside band and separate Settings gear · focused UI regression and signed Release build passed; fresh capture checksummed.
 
 - UX24 · refined Live dashboard with larger clean chart, coverage percentage, collapsed methodology, band history status and pull-to-refresh; sparse isolated points retained · focused standard and maximum-text/dark UI tests passed, signed Release build and fresh synthetic capture. Physical historical gaps remain C05/C02.
+
+- UX25 · isolated live BPM/workout timers from dashboard list/history, retained chart during same-context reload · two focused UI tests and signed Release build passed; installed. Physical scrolling/CPU acceptance remains D05.

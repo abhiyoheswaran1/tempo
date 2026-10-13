@@ -298,13 +298,32 @@ struct SyncStatusRow: View {
 
 struct LiveDashboardView: View {
   @Environment(AppModel.self) var model
-  @ScaledMetric(relativeTo: .largeTitle) private var readingSize = 52
   @State private var confirmFinish = false
+  var body: some View {
+    List {
+      LiveHeartRateSection()
+      LiveHistorySection()
+      LiveSourceSection()
+      LiveWorkoutSection(confirmFinish: $confirmFinish)
+      Section("iCloud") { SyncStatusRow() }
+    }.refreshable { await model.refreshToday() }
+      .navigationTitle("Live dashboard")
+      .alert("Finish this workout?", isPresented: $confirmFinish) {
+        Button("Finish workout", role: .destructive) {
+          model.mutate { try await model.finishWorkout() }
+        }
+        Button("Cancel", role: .cancel) {}
+      }
+  }
+}
+
+private struct LiveHeartRateSection: View {
+  @Environment(AppModel.self) var model
+  @ScaledMetric(relativeTo: .largeTitle) private var readingSize = 52
   var body: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
       let reading = model.collectionReading(at: context.date)
       let sample = reading.sample
-      List {
         Section {
           VStack(alignment: .leading, spacing: 10) {
             Text(model.demo ? "Synthetic demonstration" : reading.statusTitle)
@@ -343,7 +362,14 @@ struct LiveDashboardView: View {
             .font(.caption).foregroundStyle(.secondary)
           }
         }
-        LiveHistorySection()
+    }
+  }
+}
+
+private struct LiveSourceSection: View {
+  @Environment(AppModel.self) var model
+  var body: some View {
+    let sample = model.lastSample
         Section {
           if let device = model.collectionDevice {
             LabeledContent("Source", value: device.name)
@@ -387,6 +413,14 @@ struct LiveDashboardView: View {
           NavigationLink("Manage bands") { DevicesView() }
           NavigationLink("Collection health") { CollectionHealthView() }
         }
+  }
+}
+
+private struct LiveWorkoutSection: View {
+  @Environment(AppModel.self) var model
+  @Binding var confirmFinish: Bool
+  var body: some View {
+    TimelineView(.periodic(from: .now, by: 1)) { context in
         if let workout = model.activeWorkout {
           Section("Active workout") {
             LabeledContent(
@@ -398,17 +432,8 @@ struct LiveDashboardView: View {
             Button("Finish workout") { confirmFinish = true }
           }
         }
-        Section("iCloud") { SyncStatusRow() }
-      }.refreshable { await model.refreshToday() }
-        .navigationTitle("Live dashboard")
-    }.alert("Finish this workout?", isPresented: $confirmFinish) {
-      Button("Finish workout", role: .destructive) {
-        model.mutate { try await model.finishWorkout() }
-      }
-      Button("Cancel", role: .cancel) {}
     }
   }
-
 }
 
 struct LiveHistorySection: View {
@@ -435,7 +460,7 @@ struct LiveHistorySection: View {
         let ready =
           dataset == model.store.map(ObjectIdentifier.init) && demo == model.demo
           && loadedSource == model.collectionDevice?.id && loadedRange == seconds
-          && generation == model.historyGeneration && !model.transitioningDataset
+          && !model.transitioningDataset
         VStack(alignment: .leading, spacing: 14) {
           if let error {
             Text(error).font(.subheadline)
