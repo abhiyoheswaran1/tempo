@@ -190,3 +190,16 @@ public enum HistoryRequestDeadline {
     command != 22 || !streamStarted
   }
 }
+
+/// Per-connection CCCD retry budget; retries never change pairing or authentication.
+public struct HistoryNotificationRetry: Sendable {
+  private var attempts: [String: Int] = [:]
+  public init() {}
+  public mutating func nextDelay(channel: String) -> Int? {
+    let count = attempts[channel, default: 0]
+    guard count < 3 else { return nil }
+    attempts[channel] = count + 1
+    return 2 << count
+  }
+  public mutating func succeeded(channel: String) { attempts.removeValue(forKey: channel) }
+}

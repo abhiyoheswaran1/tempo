@@ -24,6 +24,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   private final class HistoryLink {
     let session = UUID()
     let generation: DeviceGeneration
+    var notificationRetry = HistoryNotificationRetry()
     var sequence = 1
     var pending: [UInt8: UInt8] = [:]
     var assemblers: [String: FrameAssembler] = [:]
@@ -836,9 +837,24 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       || characteristic.service?.uuid == Self.service5,
       let id = mapping[peripheral.identifier]
     {
-      if error != nil {
-        historyStatus[id] = "History notification subscription failed"
-      } else {
+      guard let link = historyLinks[id] else { return }
+      let channel = characteristic.uuid.uuidString
+      if let error {
+        let detail = error as NSError
+        let delay = link.notificationRetry.nextDelay(channel: channel)
+        historyStatus[id] = "History channel \(channel.prefix(8)) failed (\(detail.domain) \(detail.code)) · \(delay == nil ? "reconnect to retry" : "retrying")"
+        if let delay {
+          let session = link.session
+          Task { [weak self, weak peripheral] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, let peripheral, self.canUsePeripheral(peripheral),
+              self.historyLinks[id]?.session == session, !characteristic.isNotifying
+            else { return }
+            peripheral.setNotifyValue(true, for: characteristic)
+          }
+        }
+      } else if characteristic.isNotifying {
+        link.notificationRetry.succeeded(channel: channel)
         prepareHistoryLink(peripheral, id: id)
       }
       return

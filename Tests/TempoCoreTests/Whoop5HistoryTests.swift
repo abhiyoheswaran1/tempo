@@ -251,3 +251,16 @@ extension Whoop5HistoryTests {
       try retry.committed(token: token, attemptID: currentChunk.attemptID), Data([1]) + token)
   }
 }
+
+final class HistoryNotificationRetryTests: XCTestCase {
+  func testRetriesAreBoundedAndResetAfterSuccess() {
+    var retry = HistoryNotificationRetry()
+    XCTAssertEqual(retry.nextDelay(channel: "3"), 2)
+    XCTAssertEqual(retry.nextDelay(channel: "3"), 4)
+    XCTAssertEqual(retry.nextDelay(channel: "7"), 2)
+    XCTAssertEqual(retry.nextDelay(channel: "3"), 8)
+    XCTAssertNil(retry.nextDelay(channel: "3"))
+    retry.succeeded(channel: "3")
+    XCTAssertEqual(retry.nextDelay(channel: "3"), 2)
+  }
+}

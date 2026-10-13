@@ -17,7 +17,7 @@ Portable preferences sync as revisions; Bluetooth connection state stays local. 
 
 ## Remaining protocol/collection implementation
 
-- Full history session negotiation/recovery is not production-enabled. Whoop4 decoder/checkpoint components exist but no complete transfer is claimed. The documented acknowledgement can permit reclamation, and is excluded under the prohibition on destructive commands. A safe completion policy must be established before implementing unattended backfill.
+- Firmware-gated experimental W4/W5 history negotiation and transfer are implemented, with ordinary acknowledgement only after atomic storage. Physical recovery is not established. The owner reports continued gaps after the latest build; private phone-database inspection confirms no historical frames or retrieval checkpoints were committed. The owner status identifies a custom notification subscription failure before Hello; bounded retry and precise error diagnostics are implemented, but successful device-side subscription/offload is still required. Forced trim, erase and reset commands remain excluded.
 - Experimental Whoop5 history maps primary R18 HR only on read-confirmed50.42.1.0 with positive range. R18 RR quality, other layouts, calibrated fields and actual offload/recovery require instance evidence.
 - Standard battery reports are optional and accuracy is unverified; proprietary wear, haptic effects and firmware alarms remain unavailable. No firmware writes, authentication bypass, destructive opcodes or sensor probing.
 - Concurrency across two band connections and automatic discovery of the unconnected worn band are unverified. Source preferences/temporary override and sequential reconnect paths are available.

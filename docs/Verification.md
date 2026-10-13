@@ -2,7 +2,7 @@
 
 | Check | Evidence / boundary |
 |---|---|
-| Swift core |122 tests passed,0 failures;13 WHOOP5 history tests cover firmware/range/padding, R18 parsing, generation, idempotent archives, transaction rollback, quality exclusion, descriptive coverage, source priority, deadlines and late commits across retries |
+| Swift core |123 tests passed,0 failures;13 WHOOP5 history tests cover firmware/range/padding, R18 parsing, generation, idempotent archives, transaction rollback, quality exclusion, descriptive coverage, source priority, deadlines and late commits across retries |
 | Simulator |All19 UI tests passed; four affected-screen checks passed, followed by final capture/contrast reruns. Native app/extension compiled on installed iOS27 runtime, minimum target iOS26 |
 | iPhone compilation |Unsigned generic iPhoneOS build passes; this is not signing, installation or hardware validation |
 | Journal/workouts |Quick nullable ratings, same-day edit identity, notes/exertion first, missing-data summaries and native disclosures; read-only task reviews and UI regressions passed |
@@ -16,3 +16,5 @@ Reproducible local evidence: `/private/tmp/tempo-history-attempt-verified-core.l
 Physical bands tested by the implementation agent:0. Signed CloudKit/HealthKit integration sessions:0. The owner separately reports live Whoop5 HR, firmware50.42.1.0 and an updating widget timestamp. Those observations do not establish memory offload, overnight quality, background continuity, two-phone restore or full widget/Live Activity behavior. Actual W4/W5 history recovery remains C05/C02; signed lifecycle, source switching, cloud, Health and accessibility gates stay open in [Improvements](Improvements.md). QuartzCore/PointerUI/App Group messages remain documented without a physical-fix claim.
 
 This is a buildable engineering implementation for physical testing, not a validated daily-use acceptance sign-off. Follow [the catch-up checklist](HardwareValidation.md#whoop5-504210-catch-up-acceptance).
+
+2026-10-13 notification-recovery follow-up:123 core tests pass (`/private/tmp/tempo-subscription-green.log`), including bounded independent-channel retry/reset regression with intended red failure first. Unsigned iPhone build succeeds (`/private/tmp/tempo-subscription-phone.log`). Previous19 UI tests were not rerun for this transport-only change. Owner screenshot confirms subscription failure, not successful history offload; physical recovery remains open.
