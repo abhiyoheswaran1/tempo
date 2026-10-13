@@ -203,3 +203,10 @@ public struct HistoryNotificationRetry: Sendable {
   }
   public mutating func succeeded(channel: String) { attempts.removeValue(forKey: channel) }
 }
+
+public enum HistoryPairingError {
+  /// Apple CBError.h ATT security failures; ordinary pairing must establish access.
+  public static func requiresPairing(domain: String, code: Int) -> Bool {
+    domain == "CBATTErrorDomain" && [5, 8, 12, 15].contains(code)
+  }
+}

@@ -264,3 +264,12 @@ final class HistoryNotificationRetryTests: XCTestCase {
     XCTAssertEqual(retry.nextDelay(channel: "3"), 2)
   }
 }
+
+final class HistoryPairingErrorTests: XCTestCase {
+  func testAuthenticationFailuresRequirePairingRatherThanTimerRetries() {
+    XCTAssertTrue(HistoryPairingError.requiresPairing(domain: "CBATTErrorDomain", code: 5))
+    XCTAssertTrue(HistoryPairingError.requiresPairing(domain: "CBATTErrorDomain", code: 15))
+    XCTAssertFalse(HistoryPairingError.requiresPairing(domain: "CBATTErrorDomain", code: 14))
+    XCTAssertFalse(HistoryPairingError.requiresPairing(domain: "Other", code: 5))
+  }
+}

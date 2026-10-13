@@ -24,6 +24,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   private final class HistoryLink {
     let session = UUID()
     let generation: DeviceGeneration
+    var requiresPairing = false
     var notificationRetry = HistoryNotificationRetry()
     var sequence = 1
     var pending: [UInt8: UInt8] = [:]
@@ -485,7 +486,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
     peripherals.values.first { mapping[$0.identifier] == id && canUsePeripheral($0) }
   }
   private func prepareHistoryLink(_ p: CBPeripheral, id: UUID) {
-    guard canUsePeripheral(p), let link = historyLinks[id], link.lastAttempt == nil,
+    guard canUsePeripheral(p), let link = historyLinks[id], !link.requiresPairing, link.lastAttempt == nil,
       let service = p.services?.first(where: {
         $0.uuid == (link.generation == .whoop4 ? Self.service4 : Self.service5)
       }),
@@ -841,6 +842,12 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
       let channel = characteristic.uuid.uuidString
       if let error {
         let detail = error as NSError
+        if HistoryPairingError.requiresPairing(domain: detail.domain, code: detail.code) {
+          link.requiresPairing = true
+          link.stopTransfer()
+          historyStatus[id] = "Pairing required for stored history (\(channel.prefix(8)), ATT \(detail.code)). Close other band apps, put your band in pairing mode, then disconnect and reconnect in Tempo. Live HR alone does not confirm pairing."
+          return
+        }
         let delay = link.notificationRetry.nextDelay(channel: channel)
         historyStatus[id] = "History channel \(channel.prefix(8)) failed (\(detail.domain) \(detail.code)) · \(delay == nil ? "reconnect to retry" : "retrying")"
         if let delay {
@@ -848,7 +855,7 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
           Task { [weak self, weak peripheral] in
             try? await Task.sleep(for: .seconds(delay))
             guard let self, let peripheral, self.canUsePeripheral(peripheral),
-              self.historyLinks[id]?.session == session, !characteristic.isNotifying
+              self.historyLinks[id]?.session == session, self.historyLinks[id]?.requiresPairing == false, !characteristic.isNotifying
             else { return }
             peripheral.setNotifyValue(true, for: characteristic)
           }
