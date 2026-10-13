@@ -99,7 +99,7 @@ extension TempoUITests {
     capture("workout-summary-demo")
     app.buttons["Done"].tap()
     app.tabBars.buttons["Trends"].tap()
-    XCTAssertTrue(app.staticTexts["Personal patterns"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Measurement"].waitForExistence(timeout: 5))
     capture("trends-demo")
     app.tabBars.buttons["Today"].tap()
     app.buttons["See inputs and calculation"].tap()
@@ -441,11 +441,19 @@ extension TempoUITests {
     app.tabBars.buttons["Trends"].tap()
     XCTAssertTrue(app.buttons["Measurement"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.staticTexts["Sleep duration"].exists)
-    app.buttons["Daily values and evidence"].tap()
+    XCTAssertTrue(app.staticTexts["trend-period-value"].waitForExistence(timeout: 10))
+    let overview = XCTAttachment(screenshot: app.screenshot())
+    overview.name = "trends-demo"
+    overview.lifetime = .keepAlways
+    add(overview)
+    let daily = app.buttons["Daily values and evidence"]
+    for _ in 0..<5 where !daily.isHittable { app.swipeUp() }
+    daily.tap()
     let day = app.buttons["trend-day-0"]
     XCTAssertTrue(day.waitForExistence(timeout: 5))
     day.tap()
     XCTAssertTrue(app.staticTexts["trend-selected-value"].exists)
+    for _ in 0..<5 where !app.buttons["Measurement"].isHittable { app.swipeDown() }
     app.buttons["Measurement"].tap()
     app.buttons["Sleep duration"].tap()
     XCTAssertTrue(app.staticTexts["Sleep duration"].waitForExistence(timeout: 5))

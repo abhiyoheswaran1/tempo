@@ -2,6 +2,13 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Trends refinement
+
+- 150 core tests passed, including new period-summary cases for missing days, empty ranges and truncation. The new summary API was absent in the initial test build before implementation.
+- Both final-source simulator flows passed: standard Trends metric/day evidence and maximum Dynamic Type/dark Trends-to-Live navigation. An earlier large-text run failed because explanatory headings pushed the metric selector below the fold; the layout was simplified and the unchanged large-text check then passed.
+- Fresh unmodified Trends and sleep-Trends captures were inspected and added to the gallery with updated manifest checksums. Read-only review found and corrected a sleep refresh identity omission; final review found no remaining important changed-line defects.
+- Signed Release build succeeded and installed on the test iPhone. This verifies installation, not physical smoothness or missing history recovery.
+
 ## Integrity audit
 
 - 147 core tests passed in Debug and 147 in Release, including 13 new regression/boundary cases. Reproducers first failed for query filtering/deletion limits, retry state/races, timestamp safety and workout chronology.

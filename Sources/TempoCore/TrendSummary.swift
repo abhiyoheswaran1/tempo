@@ -80,3 +80,31 @@ public struct DailyTrendSummary: Sendable, Identifiable {
     }
   }
 }
+
+/// A descriptive summary of recorded daily values, never an imputed health assessment.
+/// Each day has equal weight. Missing days are excluded, not treated as zero.
+public struct TrendPeriodSummary: Sendable {
+  public let typicalValue: Double?
+  public let range: ClosedRange<Double>?
+  public let recordedDays: Int
+  public let expectedDays: Int
+  public let coveredSeconds: Double?
+  public let incomplete: Bool
+  public init(_ days: [DailyTrendSummary], expectedDays: Int) {
+    let values = days.map(\.value).filter { $0.isFinite }.sorted()
+    recordedDays = values.count
+    self.expectedDays = max(1, expectedDays)
+    incomplete = days.contains { $0.truncated }
+    if values.isEmpty {
+      typicalValue = nil
+      range = nil
+    } else {
+      let middle = values.count / 2
+      typicalValue = values.count.isMultiple(of: 2)
+        ? values[middle - 1] / 2 + values[middle] / 2 : values[middle]
+      range = values.first!...values.last!
+    }
+    let coverage = days.compactMap(\.coveredSeconds).filter { $0.isFinite && $0 >= 0 }
+    coveredSeconds = coverage.isEmpty ? nil : coverage.reduce(0, +)
+  }
+}

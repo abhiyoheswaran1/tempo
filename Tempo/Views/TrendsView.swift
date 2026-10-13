@@ -42,6 +42,14 @@ struct TrendsView: View {
   @State private var loading = false
   @State private var loadError: String?
   @State private var request = UUID()
+  @State private var loadedMetric: TrendMetric?
+  @State private var loadedDays: Int?
+  @State private var loadedDemo: Bool?
+  @State private var loadedStore: TempoStore?
+  private var sameDataset: Bool {
+    loadedMetric == metric && loadedDays == days && loadedDemo == model.demo
+      && loadedStore === model.store
+  }
   private var rangeStart: Date {
     Calendar.current.date(
       byAdding: .day, value: -(days - 1), to: Calendar.current.startOfDay(for: Date()))!
@@ -76,8 +84,11 @@ struct TrendsView: View {
             }.contentShape(Rectangle()).frame(minHeight: 44)
           }.tint(.primary).accessibilityLabel("Measurement").accessibilityValue(metric.title)
           VStack(alignment: .leading, spacing: 14) {
-            Text(metric.method).font(.subheadline).foregroundStyle(.secondary)
+            if metric != .sleep && sameDataset && !summaries.isEmpty {
+              periodOverview
+            }
             if metric == .sleep {
+              Text(metric.method).font(.subheadline).foregroundStyle(.secondary)
               sleepChart
               sleepSelection.id("trend-summary")
               if !sleepSessions.isEmpty {
@@ -93,9 +104,9 @@ struct TrendsView: View {
                   }
                 }.font(.subheadline)
               }
-            } else if loading {
+            } else if loading && (!sameDataset || summaries.isEmpty) {
               ProgressView("Loading history")
-            } else if let loadError {
+            } else if let loadError, !sameDataset || summaries.isEmpty {
               Text(loadError)
               Button("Retry") { Task { await refresh() } }
             } else if summaries.isEmpty {
@@ -106,7 +117,12 @@ struct TrendsView: View {
                 ))
             } else {
               measurementChart
-              Text("\(summaries.count) of \(days) days with data · gaps preserved")
+              Text(metric.method).font(.caption).foregroundStyle(.secondary)
+              if let loadError {
+                Text(loadError).font(.caption).foregroundStyle(.secondary)
+                Button("Retry") { Task { await refresh() } }
+              }
+              Text("Tap or drag on the chart to explore a day.")
                 .font(.caption).foregroundStyle(.secondary)
               measurementSelection.id("trend-summary")
               DisclosureGroup("Daily values and evidence") {
@@ -126,11 +142,12 @@ struct TrendsView: View {
           }.padding(18).background(
             Color(uiColor: .secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 24))
-          DisclosureGroup("Personal patterns") {
-            Text("Keep a journal to build context for your measurements.").font(.subheadline)
-            Text("\(model.journals.count) entries · insights need enough paired observations")
-              .font(.caption).foregroundStyle(.secondary)
-          }.font(.subheadline)
+          DisclosureGroup("About these trends") {
+            Text("Typical recorded day is the median of daily values, with each recorded day weighted equally. Missing days are excluded.")
+            Text("Empty days mean missing qualifying data, not zero. A change in band, wearing placement or recording coverage can change the pattern.")
+            Text("Heart rate describes recorded periods. It is not a resting measurement or a full-day average.")
+            Text("Journal associations are not available yet. Your entries remain saved for future analysis.")
+          }.font(.subheadline).foregroundStyle(.secondary)
         }.padding(20)
       }.background(Color(uiColor: .systemGroupedBackground)).navigationTitle("Trends")
         .refreshable { await refresh() }
@@ -141,6 +158,33 @@ struct TrendsView: View {
         ) {
           await refresh()
         }
+    }
+  }
+  private var periodOverview: some View {
+    let overview = TrendPeriodSummary(summaries, expectedDays: days)
+    return VStack(alignment: .leading, spacing: 12) {
+      Text("Typical recorded day").font(.subheadline).foregroundStyle(.secondary)
+      if let value = overview.typicalValue {
+        Text("\(String(format: "%.1f", value)) \(metric.unit)")
+          .font(.largeTitle.weight(.semibold)).monospacedDigit()
+          .accessibilityIdentifier("trend-period-value")
+      }
+      HStack {
+        Text("\(overview.recordedDays) of \(overview.expectedDays) days recorded")
+        Spacer()
+        Text("\(Int(Double(overview.recordedDays) / Double(overview.expectedDays) * 100))%")
+          .monospacedDigit()
+      }.font(.caption).foregroundStyle(.secondary)
+      ProgressView(value: Double(overview.recordedDays), total: Double(overview.expectedDays))
+        .tint(.teal).accessibilityLabel("Days with qualifying data")
+      if let range = overview.range {
+        Text("Daily values: \(String(format: "%.1f", range.lowerBound))–\(String(format: "%.1f", range.upperBound)) \(metric.unit)")
+          .font(.caption).foregroundStyle(.secondary)
+      }
+      if overview.incomplete {
+        Text("Sample limit reached · incomplete period")
+          .font(.caption).foregroundStyle(.secondary)
+      }
     }
   }
   private var measurementChart: some View {
@@ -303,7 +347,7 @@ struct TrendsView: View {
     request = token
     loading = true
     loadError = nil
-    selectedDate = nil
+    if !sameDataset { selectedDate = nil; summaries = [] }
     let requestedMetric = metric
     let requestedDays = days
     let requestedDemo = model.demo
@@ -311,6 +355,10 @@ struct TrendsView: View {
     let generation = model.historyGeneration
     guard let kind = requestedMetric.kind else {
       summaries = []
+      loadedMetric = requestedMetric
+      loadedDays = requestedDays
+      loadedDemo = requestedDemo
+      loadedStore = requestedStore
       loading = false
       return
     }
@@ -324,13 +372,16 @@ struct TrendsView: View {
         generation == model.historyGeneration
       else { return }
       summaries = values
+      loadedMetric = requestedMetric
+      loadedDays = requestedDays
+      loadedDemo = requestedDemo
+      loadedStore = requestedStore
       loading = false
     } catch {
       guard !Task.isCancelled, request == token, requestedMetric == metric, requestedDays == days,
         requestedDemo == model.demo, model.store === requestedStore,
         generation == model.historyGeneration
       else { return }
-      summaries = []
       loading = false
       loadError = "History couldn't load. Your stored measurements are unchanged."
     }

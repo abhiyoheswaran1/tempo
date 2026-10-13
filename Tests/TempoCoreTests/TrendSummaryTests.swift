@@ -95,3 +95,29 @@ extension TrendSummaryTests {
     XCTAssertEqual(summary.inputDigest, StableID.hash(data.map(\.id).joined(separator: "|")))
   }
 }
+
+extension TrendSummaryTests {
+  func testPeriodSummaryKeepsMissingDaysOutOfMedian() {
+    let a = DailyTrendSummary.calculate(samples(), kind: .heartRate)[0]
+    var b = a
+    b.date = a.date.addingTimeInterval(86400)
+    b.value = 90
+    let overview = TrendPeriodSummary([a, b], expectedDays: 28)
+    XCTAssertEqual(overview.typicalValue, 110)
+    XCTAssertEqual(overview.recordedDays, 2)
+    XCTAssertEqual(overview.expectedDays, 28)
+    XCTAssertEqual(overview.coveredSeconds, 240)
+  }
+  func testEmptyPeriodDoesNotInventValue() {
+    let overview = TrendPeriodSummary([], expectedDays: 7)
+    XCTAssertNil(overview.typicalValue)
+    XCTAssertNil(overview.range)
+    XCTAssertNil(overview.coveredSeconds)
+    XCTAssertEqual(overview.recordedDays, 0)
+  }
+  func testIncompletePeriodDisclosesTruncation() {
+    var a = DailyTrendSummary.calculate(samples(), kind: .heartRate)[0]
+    a.truncated = true
+    XCTAssertTrue(TrendPeriodSummary([a], expectedDays: 7).incomplete)
+  }
+}

@@ -97,10 +97,10 @@
   },
   {
     "file": "sleep-trends-demo.png",
-    "sha256": "3ba77e116062f3c4993302111731c5bac67ccbb2fb72cd5091091e7478f2ad21",
+    "sha256": "2508007c9009d8fa667cf1677f794a0f90dd301c8d0e2499fd37814306f5a439",
     "width": 1206,
     "height": 2622,
-    "captureTimestampUTC": 1791889187.49,
+    "captureTimestampUTC": 1791903020.84,
     "device": "iPhone 18 Pro",
     "sourceTest": "TempoUITests/testTrendsSelectsOneMetricAndAccessibleDayEvidence()",
     "data": "synthetic demo",
@@ -157,12 +157,12 @@
   },
   {
     "file": "trends-demo.png",
-    "sha256": "309a88b0f63ba0e628b6d8f6f5c822b66356063889f4006f6cc126cff1ce1d96",
+    "sha256": "0f404b1af701115b1d8cacfc7a8c6d0ec5e73b8995485b0a6f8934fbd5cda5af",
     "width": 1206,
     "height": 2622,
-    "captureTimestampUTC": 1791888458.353,
+    "captureTimestampUTC": 1791903009.612,
     "device": "iPhone 18 Pro",
-    "sourceTest": "TempoUITests/testCaptureProductScreenshots()",
+    "sourceTest": "TempoUITests/testTrendsSelectsOneMetricAndAccessibleDayEvidence()",
     "data": "synthetic demo",
     "appearance": "light / standard Dynamic Type",
     "postprocessing": "none"
