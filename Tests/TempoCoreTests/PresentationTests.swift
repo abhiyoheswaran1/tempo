@@ -271,3 +271,10 @@ extension PresentationTests {
     XCTAssertNil(SleepPresentation(sessions: [sleep], now: end.addingTimeInterval(36 * 3600 + 1)).readinessSession)
   }
 }
+
+extension PresentationTests {
+  func testLocalRefreshCopyDoesNotClaimDeviceHistoryWasRetrieved() {
+    XCTAssertFalse(ManualRefreshOutcome.localOnly.message.contains("history refreshed"))
+    XCTAssertFalse(ManualRefreshOutcome.needsAttention.message.contains("history refreshed"))
+  }
+}

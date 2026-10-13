@@ -18,7 +18,14 @@ final class BluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate
   var connected: Set<UUID> = []
   var lastSamples: [UUID: TempoCore.Measurement] = [:]
   var battery: [UUID: BatteryReading] = [:]
-  var historyStatus: [UUID: String] = [:]
+  var historyStatus: [UUID: String] = [:] {
+    didSet {
+      guard ProcessInfo.processInfo.arguments.contains("--history-diagnostics") else { return }
+      for (id, message) in historyStatus where oldValue[id] != message {
+        print("[Tempo history] \(message)")
+      }
+    }
+  }
   var lastHistoryCommit: [UUID: Date] = [:]
   var onHistoryChunk: ((UUID, UUID, HistoryChunk) -> Void)?
   private final class HistoryLink {

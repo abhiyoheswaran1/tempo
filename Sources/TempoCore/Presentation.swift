@@ -131,9 +131,9 @@ public enum ManualRefreshOutcome: Equatable, Sendable {
   public var message: String {
     switch self {
     case .demo: "Demo refreshed · real integrations stay off"
-    case .localOnly: "Local history refreshed · iCloud is off"
+    case .localOnly: "Local records loaded · iCloud is off"
     case .cloudRunning: "Collection checked · iCloud sync is still running"
-    case .needsAttention: "Local history refreshed · iCloud needs attention"
+    case .needsAttention: "Local records loaded · iCloud needs attention"
     case .pending: "Collection checked · some uploads await retry"
     case .synced: "Collection checked · iCloud synced"
     case .retryScheduled: "Collection checked · iCloud retry is scheduled"
