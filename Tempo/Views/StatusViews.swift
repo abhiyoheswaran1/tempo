@@ -298,7 +298,7 @@ struct SyncStatusRow: View {
 
 struct LiveDashboardView: View {
   @Environment(AppModel.self) var model
-  @ScaledMetric(relativeTo: .largeTitle) private var readingSize = 60
+  @ScaledMetric(relativeTo: .largeTitle) private var readingSize = 52
   @State private var confirmFinish = false
   var body: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -351,6 +351,11 @@ struct LiveDashboardView: View {
               "Connection",
               value: model.demo ? "Demo · not connected" : model.bluetooth.bandStatus(device.id))
           }
+          if !model.demo, let device = model.collectionDevice {
+            Text(model.bluetooth.historyStatus[device.id] ?? "Band history has not been received")
+              .font(.caption).foregroundStyle(.secondary)
+              .accessibilityIdentifier("live-band-history-status")
+          }
           DisclosureGroup("Source and measurement evidence") {
             if let sample {
               LabeledContent("Origin", value: model.demo ? "Synthetic" : "Direct measurement")
@@ -375,7 +380,7 @@ struct LiveDashboardView: View {
               }
             }
             Text(
-              "Battery, oxygen and temperature remain unavailable until a supported data path is verified."
+              "Only supported measurements appear. Reported battery is available in band status; oxygen and calibrated temperature are unavailable."
             )
             .font(.caption).foregroundStyle(.secondary)
           }
@@ -394,7 +399,8 @@ struct LiveDashboardView: View {
           }
         }
         Section("iCloud") { SyncStatusRow() }
-      }.navigationTitle("Live dashboard")
+      }.refreshable { await model.refreshToday() }
+        .navigationTitle("Live dashboard")
     }.alert("Finish this workout?", isPresented: $confirmFinish) {
       Button("Finish workout", role: .destructive) {
         model.mutate { try await model.finishWorkout() }
@@ -419,7 +425,7 @@ struct LiveHistorySection: View {
   @State private var generation = -1
   @State private var request = UUID()
   var body: some View {
-    Section("Recorded heart rate") {
+    Section("Heart-rate history") {
       Picker("Chart range", selection: $seconds) {
         Text("15 min").tag(900)
         Text("1 hour").tag(3600)
@@ -442,17 +448,19 @@ struct LiveHistorySection: View {
                   "No recorded band heart rate in this range. Your longer history stays in Trends.")
               )
             } else {
+              let segmentCounts = Dictionary(grouping: snapshot.points, by: \.segment).mapValues(\.count)
               Chart(snapshot.points) { point in
                 LineMark(
                   x: .value("Time", point.sample.timestamp),
                   y: .value("Heart rate", point.sample.value),
                   series: .value("Coverage", point.segment)
                 ).foregroundStyle(.teal)
-                PointMark(
-                  x: .value("Time", point.sample.timestamp),
-                  y: .value("Heart rate", point.sample.value)
-                )
-                .symbolSize(8).foregroundStyle(.teal)
+                if snapshot.points.count < 40 || segmentCounts[point.segment] == 1 {
+                  PointMark(
+                    x: .value("Time", point.sample.timestamp),
+                    y: .value("Heart rate", point.sample.value)
+                  ).symbolSize(10).foregroundStyle(.teal)
+                }
               }.chartLegend(.hidden).chartXScale(
                 domain: context.date.addingTimeInterval(Double(-seconds))...context.date
               )
@@ -460,20 +468,31 @@ struct LiveHistorySection: View {
                 domain: max(
                   25, (snapshot.minimum ?? 60) - 8)...min(240, (snapshot.maximum ?? 100) + 8)
               )
-              .chartYAxisLabel("bpm").frame(height: 190)
+              .chartYAxisLabel("bpm").frame(height: 220)
               .accessibilityLabel(
                 "Recorded heart rate over the selected range; gaps are missing readings")
             }
+            VStack(alignment: .leading, spacing: 6) {
+              Text("\(Int(min(1, max(0, snapshot.coveredSeconds / Double(seconds))) * 100))% of this period recorded")
+                .font(.subheadline.weight(.medium))
+                .accessibilityIdentifier("live-history-completeness")
+              ProgressView(value: min(1, max(0, snapshot.coveredSeconds / Double(seconds))))
+                .tint(.teal).accessibilityLabel("Recorded coverage")
+              if snapshot.coveredSeconds < Double(seconds) * 0.95 {
+                Text("Blank areas have no recorded readings. Sync can recover only records the band returns.")
+                  .font(.caption).foregroundStyle(.secondary)
+              }
+            }
             ViewThatFits(in: .horizontal) {
               HStack {
-                statistic("Covered", durationText(snapshot.coveredSeconds))
+                statistic("Recorded", durationText(snapshot.coveredSeconds))
                 Spacer()
                 statistic("Average", snapshot.average.map { "\(Int($0)) bpm" } ?? "—")
                 Spacer()
                 statistic("Range", rangeText(snapshot))
               }
               VStack(alignment: .leading, spacing: 8) {
-                statistic("Covered", durationText(snapshot.coveredSeconds))
+                statistic("Recorded", durationText(snapshot.coveredSeconds))
                 statistic("Average", snapshot.average.map { "\(Int($0)) bpm" } ?? "—")
                 statistic("Range", rangeText(snapshot))
               }
@@ -483,17 +502,19 @@ struct LiveHistorySection: View {
             )
             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier(
               "live-history-coverage")
-            if snapshot.hasUnqualifiedReadings {
-              Text(
-                "Includes experimental historical HR with unresolved quality flags. Chart statistics describe received readings; these records are excluded from readiness, training load and Health export."
-              )
-              .font(.caption).foregroundStyle(.secondary)
-            }
-            if snapshot.sampleCount > snapshot.points.count {
-              Text(
-                "Chart retains recorded highs and lows. Average uses all covered readings, not plotted points."
-              )
-              .font(.caption).foregroundStyle(.secondary)
+            DisclosureGroup("How to read this chart") {
+              if snapshot.hasUnqualifiedReadings {
+                Text(
+                  "Includes experimental historical HR with unresolved quality flags. Chart statistics describe received readings; these records are excluded from readiness, training load and Health export."
+                )
+                .font(.caption).foregroundStyle(.secondary)
+              }
+              if snapshot.sampleCount > snapshot.points.count {
+                Text(
+                  "Chart retains recorded highs and lows. Average uses all covered readings, not plotted points."
+                )
+                .font(.caption).foregroundStyle(.secondary)
+              }
             }
             if truncated {
               Text(

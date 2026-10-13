@@ -257,6 +257,8 @@ extension TempoUITests {
     XCTAssertTrue(app.segmentedControls.buttons["4 hours"].isSelected)
     XCTAssertTrue(app.staticTexts["live-history-coverage"].waitForExistence(timeout: 15))
     XCTAssertTrue(app.staticTexts["live-received-time"].exists)
+    XCTAssertTrue(app.staticTexts["live-history-completeness"].exists)
+    XCTAssertFalse(app.staticTexts["Chart retains recorded highs and lows. Average uses all covered readings, not plotted points."].exists)
     XCTAssertFalse(app.staticTexts["Receiving live heart rate"].exists)
     let live = XCTAttachment(screenshot: app.screenshot())
     live.name = "live-dashboard-demo"

@@ -22,3 +22,7 @@ Reproduce software checks with `swift test` and `swift test -c release`, then bu
 A later on-device diagnostic run completed with 7,284 historical HR readings committed in that attempt. The inspected database contained 11,710 historical HR observations spanning UTC 09:40:13–13:28:55 on 13 October. Two gaps longer than two minutes remain within the returned history; retained R18 frames did not contain timestamps inside those intervals. Overnight records were absent. This distinguishes missing band-returned records from cloud success or a purely live chart. No claim that all gaps are repaired.
 
 The redundant Today header battery line was removed; the percentage remains beside the source band. Its focused UI test and signed Release build passed.
+
+## Live dashboard refinement
+
+Both focused UI tests passed: standard live/band interactions and maximum-text/dark evidence reachability. The new coverage/collapsed-detail assertions first failed before implementation. The final signed Release build succeeded and was installed on the connected test iPhone. The refreshed gallery image is a genuine isolated synthetic simulator capture. This visual refinement does not establish recovery of missing band records or resolve CPU reliability D05.
