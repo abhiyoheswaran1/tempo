@@ -641,3 +641,52 @@ extension TempoUITests {
     XCTAssertTrue(app.navigationBars["Sleep"].waitForExistence(timeout: 5))
   }
 }
+
+extension TempoUITests {
+  @MainActor func testTodaySummaryCardsHaveEqualHeight() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    let sleep = app.buttons["today-sleep-summary"].firstMatch
+    let movement = app.buttons["today-movement-summary"].firstMatch
+    XCTAssertTrue(sleep.waitForExistence(timeout: 5))
+    XCTAssertTrue(movement.exists)
+    XCTAssertEqual(sleep.frame.minY, movement.frame.minY, accuracy: 1)
+    XCTAssertEqual(sleep.frame.height, movement.frame.height, accuracy: 1)
+    sleep.tap()
+    app.buttons["Correct timing"].tap()
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.staticTexts["Manually entered"].waitForExistence(timeout: 10))
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(sleep.waitForExistence(timeout: 5))
+    XCTAssertEqual(sleep.frame.minY, movement.frame.minY, accuracy: 1)
+    XCTAssertEqual(sleep.frame.height, movement.frame.height, accuracy: 1)
+    app.swipeUp()
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "today-equal-cards-demo"
+    shot.lifetime = .keepAlways
+    add(shot)
+  }
+}
+
+extension TempoUITests {
+  @MainActor func testTodayMovementOpensDailyEvidenceInsteadOfWorkouts() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    app.buttons["today-movement-summary"].firstMatch.tap()
+    XCTAssertTrue(app.navigationBars["Today's movement"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Recorded coverage"].exists)
+    XCTAssertFalse(app.buttons["Start Padel"].exists)
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "movement-detail-demo"
+    shot.lifetime = .keepAlways
+    add(shot)
+  }
+}

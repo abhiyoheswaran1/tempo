@@ -59,12 +59,12 @@ struct TodayView: View {
         TodayCollectionPanel()
         if textSize.isAccessibilitySize {
           sleepSummary(latestSleep)
-          movementSummary
+          movementSummary()
         } else {
           HStack(alignment: .top, spacing: 12) {
-            sleepSummary(latestSleep)
-            movementSummary
-          }
+            sleepSummary(latestSleep, fillHeight: true)
+            movementSummary(fillHeight: true)
+          }.fixedSize(horizontal: false, vertical: true)
         }
         if let candidate = model.sleepCandidates.first {
           VStack(alignment: .leading, spacing: 12) {
@@ -116,7 +116,7 @@ struct TodayView: View {
   private var calculationLink: some View {
     NavigationLink("See inputs and calculation") { ReadinessDetailView() }.font(.subheadline)
   }
-  private func sleepSummary(_ value: SleepPresentation) -> some View {
+  private func sleepSummary(_ value: SleepPresentation, fillHeight: Bool = false) -> some View {
     Group {
       if let last = value.session {
         NavigationLink {
@@ -135,7 +135,7 @@ struct TodayView: View {
               "\(last.end.formatted(date: .abbreviated, time: .omitted)) · \(last.origin == .manual ? "Entered" : last.origin.rawValue.capitalized)"
             )
             .font(.caption).foregroundStyle(.secondary)
-          }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+          }.frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading).contentShape(Rectangle())
         }.buttonStyle(.plain).tint(.primary)
       } else {
         VStack(alignment: .leading, spacing: 8) {
@@ -147,12 +147,12 @@ struct TodayView: View {
           Button("Add sleep") { sleep = true }.font(.subheadline)
         }.frame(maxWidth: .infinity, alignment: .leading)
       }
-    }.padding(16).frame(maxWidth: .infinity, alignment: .topLeading).background(
+    }.padding(16).frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading).background(
       cardBackground, in: RoundedRectangle(cornerRadius: 22))
   }
-  private var movementSummary: some View {
+  private func movementSummary(fillHeight: Bool = false) -> some View {
     NavigationLink {
-      ActivityView()
+      TodayMovementDetailView()
     } label: {
       VStack(alignment: .leading, spacing: 8) {
         Image(systemName: "figure.walk").foregroundStyle(.teal).accessibilityHidden(true)
@@ -173,9 +173,10 @@ struct TodayView: View {
         } else {
           Text("More HR needed").font(.caption).foregroundStyle(.secondary)
         }
-      }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-        .padding(16).background(cardBackground, in: RoundedRectangle(cornerRadius: 22))
+      }.frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading).contentShape(Rectangle())
     }.buttonStyle(.plain).tint(.primary)
+      .padding(16).frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
+      .background(cardBackground, in: RoundedRectangle(cornerRadius: 22))
   }
   private func baselineProgress(_ result: ReadinessResult) -> some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -249,5 +250,77 @@ struct ReadinessDetailView: View {
       }
       Section("Algorithm") { Text(readiness.algorithmVersion) }
     }.navigationTitle("Readiness explained")
+  }
+}
+
+
+/// Descriptive daily evidence, separate from the manual workout workflow.
+struct TodayMovementDetailView: View {
+  @Environment(AppModel.self) var model
+  var body: some View {
+    List {
+      if let load = model.todayLoad, load.coveredSeconds > 60 {
+        Section {
+          VStack(alignment: .leading, spacing: 8) {
+            Label("Cardiovascular load", systemImage: "figure.walk")
+              .font(.subheadline).foregroundStyle(.teal)
+            Text(String(format: "%.0f points", load.points))
+              .font(.largeTitle.weight(.semibold)).monospacedDigit()
+            Text("Today's accumulated estimate from recorded heart rate")
+              .font(.subheadline).foregroundStyle(.secondary)
+          }.padding(.vertical, 8)
+          MetricRow(label: "Recorded coverage", value: durationText(load.coveredSeconds))
+          if let average = load.average {
+            MetricRow(label: "Recorded average", value: String(format: "%.0f bpm", average))
+          }
+          if let maximum = load.maximum {
+            MetricRow(label: "Recorded high", value: String(format: "%.0f bpm", maximum))
+          }
+        } footer: {
+          Text("Describes recorded periods, not your entire day. Gaps and unqualified readings do not contribute.")
+        }
+        Section("Recorded intensity") {
+          let below = max(0, load.coveredSeconds - load.zones.reduce(0, +))
+          if below > load.coveredSeconds / 2 {
+            Text("Most covered time was below your training zones.").font(.headline)
+          } else {
+            Text("\(durationText(load.zones.reduce(0, +))) recorded within your training zones.")
+              .font(.headline)
+          }
+          MetricRow(label: "Below 50% of maximum HR", value: durationText(below))
+          MetricRow(label: "At or above 70% of maximum HR",
+            value: durationText(load.zones.dropFirst(2).reduce(0, +)))
+          Text("These are descriptions of the recorded data, not activity classification or training advice.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        Section {
+          ForEach(0..<5, id: \.self) { index in
+            VStack(alignment: .leading, spacing: 6) {
+              MetricRow(label: "Zone \(index + 1) · \(50 + index * 10)–\(index == 4 ? 100 : 60 + index * 10)%",
+                value: durationText(load.zones[index]))
+              ProgressView(value: load.zones[index], total: max(1, load.coveredSeconds))
+                .tint(.teal).accessibilityLabel("Zone \(index + 1) share of covered time")
+            }.padding(.vertical, 4)
+          }
+        } header: { Text("Time in zones") } footer: {
+          Text("Zone 5 includes readings above 100%. Zones use your configured maximum HR of \(Int(model.maxHeartRate)) bpm.")
+        }
+        Section {
+          DisclosureGroup("How load is calculated") {
+            Text("Edwards load: minutes in zones 1–5 weighted by 1–5, then added together. Time below 50% of maximum HR contributes no points.")
+            Text("Only reconciled, quality-eligible HR contributes. Intervals longer than ten seconds are excluded; overlapping sources are not added twice.")
+            Text("Heart rate does not capture muscular load. This is separate from readiness and does not reproduce Whoop's proprietary strain score.")
+          }.font(.subheadline).foregroundStyle(.secondary)
+          NavigationLink("Inspect recorded heart rate") { LiveDashboardView() }
+        }
+      } else {
+        Section {
+          ContentUnavailableView("Building today's picture", systemImage: "figure.walk",
+            description: Text("More than a minute of qualifying heart rate is needed. Unsupported or missing measurements are not treated as zero movement."))
+          NavigationLink("Inspect recorded heart rate") { LiveDashboardView() }
+        }
+      }
+    }.navigationTitle("Today's movement")
+      .refreshable { await model.refreshToday() }
   }
 }

@@ -20,3 +20,5 @@ Screen captures demonstrate software layout and navigation only. They must not b
 The current Trends and sleep-Trends images were refreshed by `testTrendsSelectsOneMetricAndAccessibleDayEvidence`, from its successful final-source simulator run. The Trends overview shows recorded-day coverage and a descriptive median; these remain synthetic examples, not physical sensor validation.
 
 Sleep detail was captured by `testSleepDetailLeadsWithTimingAndUpdatesCorrection` from the successful final-source run. It uses isolated synthetic data and deliberately displays only partial HR coverage. The original PNG was inspected and copied without postprocessing.
+
+Today equal-card capture comes from `testTodaySummaryCardsHaveEqualHeight`, including a manual sleep revision inside the isolated demo dataset. Daily movement evidence comes from `testTodayMovementOpensDailyEvidenceInsteadOfWorkouts`. Empty Today and demo battery captures were also refreshed by their successful tests. These images retain original simulator pixels and disclose synthetic/empty data.

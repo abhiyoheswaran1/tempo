@@ -2,6 +2,13 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Today card sizing and movement details
+
+-150 core tests passed. Card equality first failed for both top alignment and height, then passed after intrinsic-height/layout correction, including a saved manual sleep revision matching the reported case.
+- The dedicated movement route regression first failed against ActivityView, then passed with daily load/coverage/intensity details. Three selected card/movement/large-text-dark Today flows passed; the final card/manual-save and movement rerun passed both tests. Two further empty-data/battery flows passed. This was targeted verification, not a full UI suite.
+- Populated card frame equality is asserted; the empty-data layout was visually inspected with matching card bounds. Accessibility text retains stacked cards; the existing maximum-text-dark Today navigation check passed. The new movement detail does not yet have a dedicated maximum-text test.
+- Signed Release build succeeded and installed. Fresh synthetic Today/manual-sleep, movement, battery and empty captures were inspected and their manifests updated. Read-only review found no important blockers. No load or sleep algorithm changed.
+
 ## Sleep detail refinement
 
 - All150 core tests passed. All three final-source simulator checks passed and cover sleep detail, saved-origin revision refresh, adding another session, and maximum-text dark-mode access to correction controls. The initial new detail test failed before the new headline/latest-revision projection existed. A large-text test initially targeted the child label instead of its accessible button; the corrected button interaction passed.
@@ -26,7 +33,7 @@ Software verification is separate from physical collection acceptance.
 
 ## UI and capture evidence
 
-Seventeen unmodified simulator screenshots use isolated synthetic or empty datasets; checksums/test provenance are in screenshots/capture-manifest.json. The separate Settings gear, source-band percentage, missing-data states, sleep review and Live dashboard have simulator coverage. Live BPM/workout timers are isolated from the dashboard list/history; physical smoothness and CPU profiling remain D05. Synthetic records never enter the normal cloud dataset.
+Eighteen unmodified simulator screenshots use isolated synthetic or empty datasets; checksums/test provenance are in screenshots/capture-manifest.json. The separate Settings gear, source-band percentage, missing-data states, sleep review and Live dashboard have simulator coverage. Live BPM/workout timers are isolated from the dashboard list/history; physical smoothness and CPU profiling remain D05. Synthetic records never enter the normal cloud dataset.
 
 ## Physical collection evidence and remaining gates
 
