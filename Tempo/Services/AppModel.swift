@@ -15,6 +15,7 @@ import WidgetKit
   var lastCloudSync: Date?
   var pendingCloudChanges = 0
   var measurements: [TempoCore.Measurement] = []
+  @ObservationIgnored private var committedPresentation = CommittedMeasurementBuffer()
   private var latestReadings = LatestBandReadings()
   private var displayedReadiness: ReadinessResult?
   private var displayedLoad: LoadResult?
@@ -48,6 +49,9 @@ import WidgetKit
   var selector = SourceSelector()
   private var live = LiveActivityService()
   private var refreshTask: Task<Void, Never>?
+  @ObservationIgnored private var refreshOwner: UUID?
+  @ObservationIgnored private var summaryGeneration = 0
+  @ObservationIgnored private var widgetPublication = WidgetPublicationPolicy()
   private var fallbackTask: Task<Void, Never>?
   private var lastProbe: Date?
   private var collectionTask: Task<Void, Never>?
@@ -73,7 +77,8 @@ import WidgetKit
     {
       return displayedReadiness
     }
-    return readiness
+    // A missing/currently-invalid snapshot is unavailable until its async calculation completes.
+    return Readiness.calculate(current: [:], baseline: [])
   }
   var todayLoad: LoadResult? {
     guard displayedStore == store.map(ObjectIdentifier.init), let displayedDate,
@@ -81,46 +86,39 @@ import WidgetKit
     else { return nil }
     return displayedLoad
   }
-  private func refreshPresentedSummary() {
-    guard let store else { return }
-    displayedReadiness = readiness
-    displayedSleepID = readinessSleep?.id
-    displayedLoad = CardiovascularLoad.calculate(
-      canonical.filter { Calendar.current.isDateInToday($0.timestamp) }, maxHeartRate: maxHeartRate)
-    displayedStore = ObjectIdentifier(store)
-    displayedDate = Date()
+  private func refreshPresentedSummary() async {
+    guard let expectedStore = store else { return }
+    publishCommittedMeasurements()
+    summaryGeneration &+= 1
+    let generation = summaryGeneration
+    let records = measurements, sessions = sleeps, metrics = nightMetrics
+    let segments = sourceSegments, locations = placements
+    let maximum = maxHeartRate, now = Date(), calendar = Calendar.current
+    let calculation = Task.detached(priority: .utility) {
+      try Task.checkCancellation()
+      let result = PresentedHealthSummary.calculate(records: records, sleeps: sessions,
+        nightMetrics: metrics, sourceSegments: segments, placements: locations,
+        maximumHeartRate: maximum, now: now, calendar: calendar)
+      try Task.checkCancellation()
+      return result
+    }
+    do {
+      let result = try await withTaskCancellationHandler {
+        try await calculation.value
+      } onCancel: { calculation.cancel() }
+      guard !Task.isCancelled, summaryGeneration == generation, store === expectedStore else { return }
+      displayedReadiness = result.readiness
+      displayedSleepID = result.sleepID
+      displayedLoad = result.load
+      displayedStore = ObjectIdentifier(expectedStore)
+      displayedDate = now
+    } catch { /* Canceled superseded presentation work leaves durable collection intact. */ }
   }
   var finishedWorkout: Workout?
   var readinessSleep: SleepSession? {
     SleepPresentation(sessions: sleeps, now: Date()).readinessSession
   }
-  var readiness: ReadinessResult {
-    let selectedMeasurements = canonical
-    let nights = sleeps.filter { !$0.isNap && $0.duration >= 4 * 3600 && $0.end <= Date() }.sorted {
-      $0.end < $1.end
-    }
-    let baseline = nights.suffix(29).map { night in
-      PersonalBaseline(
-        date: night.end, values: nightInputs(night),
-        sourceIDs: Array(
-          Set(
-            selectedMeasurements.filter { $0.timestamp >= night.start && $0.timestamp < night.end }
-              .map(
-                \.deviceID))))
-    }
-    let overnightSamples = selectedMeasurements.filter { sample in
-      nights.suffix(29).contains { sample.timestamp >= $0.start && sample.timestamp < $0.end }
-    }
-    let locations = PlacementTimeline.locations(samples: overnightSamples, records: placements)
-      .subtracting([.unknown])
-    let currentSleep = readinessSleep
-    let current = currentSleep.map { nightInputs($0) } ?? [:]
-    return Readiness.calculate(
-      current: current, baseline: currentSleep == nil ? baseline : Array(baseline.dropLast()),
-      deviceChange: Set(
-        sourceSegments.filter { $0.start > Date().addingTimeInterval(-28 * 86400) }.map(\.deviceID)
-      ).count > 1, placementChange: locations.count > 1)
-  }
+  var readiness: ReadinessResult { todayReadiness }
   func nightInputs(_ sleep: SleepSession) -> [String: Double] {
     nightMetrics[sleep.id] ?? ["sleepHours": sleep.duration / 3600]
   }
@@ -228,8 +226,7 @@ import WidgetKit
           deviceID: id, session: session, attemptID: chunk.attemptID, token: chunk.token,
           count: samples.count)
         let cutoff = Date().addingTimeInterval(-2 * 86400)
-        let existing = Set(self.measurements.map(\.id))
-        self.measurements += samples.filter { $0.timestamp >= cutoff && !existing.contains($0.id) }
+        self.queueCommittedPresentation(samples.filter { $0.timestamp >= cutoff })
         self.latestReadings.ingest(samples, now: Date())
         self.scheduleSleepAnalysis()
         self.scheduleSnapshot()
@@ -251,11 +248,8 @@ import WidgetKit
       do {
         try await store.insert([m])
         self.bluetooth.recordStoredSample(m)
-        self.measurements.append(m)
+        self.queueCommittedPresentation([m])
         self.latestReadings.ingest([m], now: Date(), allowSynthetic: self.demo)
-        // Keep only the visible recent window in memory. Older history remains in SQLite.
-        let cutoff = Date().addingTimeInterval(-2 * 86400)
-        self.measurements.removeAll { $0.timestamp < cutoff }
         let evidence = self.devices.map { d in
           let sample = self.bluetooth.lastSamples[d.id]
           return DeviceEvidence(
@@ -311,18 +305,32 @@ import WidgetKit
       self.bluetooth.connect(deviceID: other.id)
     }
   }
+  private func queueCommittedPresentation(_ samples: [TempoCore.Measurement]) {
+    if committedPresentation.append(samples) { publishCommittedMeasurements() }
+  }
+  private func publishCommittedMeasurements() {
+    let published = committedPresentation.publish(at: Date())
+    // Empty timer ticks do not invalidate views with an identical large array.
+    if measurements != published { measurements = published }
+  }
   private func scheduleSnapshot() {
-    guard refreshTask == nil else { return }
+    guard refreshTask == nil, !transitioningDataset, let expectedStore = store else { return }
+    let owner = UUID()
+    refreshOwner = owner
     refreshTask = Task { [weak self] in
-      try? await Task.sleep(for: .seconds(15))
-      guard let self else { return }
+      do { try await Task.sleep(for: .seconds(15)) } catch { return }
+      guard let self, !Task.isCancelled, !self.transitioningDataset, self.store === expectedStore else { return }
+      defer {
+        if self.refreshOwner == owner { self.refreshTask = nil; self.refreshOwner = nil }
+      }
       await self.refreshSyncSummary()
+      guard !Task.isCancelled, !self.transitioningDataset, self.store === expectedStore else { return }
       await self.syncIfNeeded()
-      self.refreshPresentedSummary()
+      guard !Task.isCancelled, !self.transitioningDataset, self.store === expectedStore else { return }
+      await self.refreshPresentedSummary()
       self.bluetooth.refreshBatteryIfNeeded()
       self.bluetooth.refreshHistoryIfNeeded()
       self.writeWidget()
-      self.refreshTask = nil
     }
   }
   func mutate(_ action: @escaping @MainActor () async throws -> Void) {
@@ -341,7 +349,9 @@ import WidgetKit
       from: Date().addingTimeInterval(-2 * 86400), to: Date().addingTimeInterval(300))
     let revisions = try await store.revisions()
     guard generation == loadGeneration, self.store === store else { return }
-    measurements = loadedMeasurements
+    let deletedMeasurements = Set(revisions.filter { $0.kind == "measurementDeletion" }
+      .compactMap { String(data: $0.payload, encoding: .utf8) })
+    measurements = committedPresentation.refresh(loadedMeasurements, excluding: deletedMeasurements, at: Date())
     let parents = Set(revisions.flatMap(\.parentIDs))
     let heads = revisions.filter { !parents.contains($0.id) }
     let groups = Dictionary(grouping: heads, by: \.entityID)
@@ -418,7 +428,7 @@ import WidgetKit
     historyGeneration &+= 1
     latestReadings = LatestBandReadings()
     latestReadings.ingest(measurements, now: Date(), allowSynthetic: demo)
-    refreshPresentedSummary()
+    await refreshPresentedSummary()
     writeWidget()
   }
   private func scheduleSleepAnalysis() {
@@ -427,6 +437,7 @@ import WidgetKit
     sleepAnalysisTask = Task { [weak self] in
       try? await Task.sleep(for: .seconds(2))
       guard !Task.isCancelled, let self, self.store === expectedStore, !self.transitioningDataset else { return }
+      self.publishCommittedMeasurements()
       await self.refreshSleepCandidates()
       guard !Task.isCancelled, !self.transitioningDataset, self.store === expectedStore, let store = expectedStore else { return }
       for sleep in self.sleeps.prefix(29) {
@@ -435,7 +446,7 @@ import WidgetKit
         self.nightMetrics[sleep.id] = inputs
       }
       self.historyGeneration &+= 1
-      self.refreshPresentedSummary()
+      await self.refreshPresentedSummary()
     }
   }
   private func refreshSleepCandidates() async {
@@ -639,7 +650,8 @@ import WidgetKit
       preferred: selector.activeID ?? devices.first(where: { !bluetooth.isPaused($0.id) })?.id)
     bluetooth.refreshBatteryIfNeeded()
     bluetooth.refreshHistoryIfNeeded()
-    refreshPresentedSummary()
+    await refreshPresentedSummary()
+    writeWidget(force: true)
     scheduleFallback(immediate: true)
     await refreshSyncSummary()
     await syncIfNeeded()
@@ -804,12 +816,22 @@ import WidgetKit
     finishedWorkout = nil
     refreshOutcome = nil
     transitioningDataset = true
+    refreshTask?.cancel()
+    refreshTask = nil
+    refreshOwner = nil
+    summaryGeneration &+= 1
+    sleepAnalysisTask?.cancel()
+    committedPresentation.reset()
+    widgetPublication = WidgetPublicationPolicy()
     loadGeneration += 1
     defer { transitioningDataset = false }
     fallbackTask?.cancel()
     bluetooth.suspend()
     await collectionTask?.value
     await mutationTail?.value
+    // Drained old-dataset writes may have queued presentation after the early reset.
+    // Clear again at the ownership boundary before assigning another store.
+    committedPresentation.reset()
     if enabled {
       fallbackTask?.cancel()
       bluetooth.suspend()
@@ -894,14 +916,17 @@ import WidgetKit
       await start()
     }
   }
-  func writeWidget() {
+  func writeWidget(force: Bool = false) {
     guard !demo, let group = Bundle.main.object(forInfoDictionaryKey: "TempoAppGroup") as? String,
       let defaults = UserDefaults(suiteName: group)
     else { return }
-    defaults.set(Date().timeIntervalSince1970, forKey: "updated")
+    let now = Date(), readiness = todayReadiness.score, sleep = sleeps.first?.duration
+    guard widgetPublication.shouldPublish(readiness: readiness, sleepSeconds: sleep,
+      privateDetails: hideWidgetDetails, now: now, force: force) else { return }
+    defaults.set(now.timeIntervalSince1970, forKey: "updated")
     defaults.set(hideWidgetDetails, forKey: "private")
-    defaults.set(readiness.score ?? -1, forKey: "readiness")
-    defaults.set(sleeps.first?.duration ?? -1, forKey: "sleep")
+    defaults.set(readiness ?? -1, forKey: "readiness")
+    defaults.set(sleep ?? -1, forKey: "sleep")
     WidgetCenter.shared.reloadAllTimelines()
   }
   struct PortablePreferences: Codable, Identifiable {

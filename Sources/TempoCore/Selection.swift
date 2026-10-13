@@ -109,23 +109,50 @@ public enum CanonicalTimeline {
     _ samples: [Measurement], sourceSegments: [SourceSegment], overrideID: UUID? = nil,
     binSeconds: Double = 1
   ) -> [Measurement] {
-    let groups = Dictionary(grouping: samples.filter { $0.valid }) {
-      "\($0.kind.rawValue)|\(Int(floor($0.timestamp.timeIntervalSince1970/binSeconds)))"
+    guard binSeconds.isFinite, binSeconds > 0 else { return [] }
+    struct Bucket: Hashable {
+      let kind: MetricKind
+      let time: Int
     }
-    return groups.values.compactMap { group in
-      group.sorted { a, b in
-        func rank(_ m: Measurement) -> Int {
-          let transition = sourceSegments.filter {
-            m.timestamp >= $0.start && m.timestamp < ($0.end ?? .distantFuture)
-          }.max { $0.start < $1.start }
-          let active = transition?.deviceID == m.deviceID
-          return (m.deviceID == overrideID ? 100 : 0) + (active ? 40 : 0)
-            + (m.wear == .onBody ? 20 : 0) + (m.permitsPhysiologicalAnalytics ? 10 : 0)
-            + (m.origin == .measured ? 5 : 0)
+    // Keep a single winner rather than allocating an array and sorting every bucket.
+    // Rank only collisions: the common one-source, one-reading bucket needs no source scan.
+    var winners: [Bucket: Int] = [:]
+    winners.reserveCapacity(samples.count)
+    var selected: [Measurement] = []
+    selected.reserveCapacity(samples.count)
+    var chronological = true
+    func rank(_ m: Measurement) -> Int {
+      let transition = sourceSegments.filter {
+        m.timestamp >= $0.start && m.timestamp < ($0.end ?? .distantFuture)
+      }.max { $0.start < $1.start }
+      return (m.deviceID == overrideID ? 100 : 0)
+        + (transition?.deviceID == m.deviceID ? 40 : 0)
+        + (m.wear == .onBody ? 20 : 0) + (m.permitsPhysiologicalAnalytics ? 10 : 0)
+        + (m.origin == .measured ? 5 : 0)
+    }
+    for sample in samples where sample.valid {
+      guard let time = Int(exactly: floor(sample.timestamp.timeIntervalSince1970 / binSeconds)) else { continue }
+      let key = Bucket(kind: sample.kind, time: time)
+      if let index = winners[key] {
+        let existing = selected[index]
+        let oldRank = rank(existing), newRank = rank(sample)
+        if newRank > oldRank || (newRank == oldRank && sample.id < existing.id) {
+          selected[index] = sample
+          chronological = false
         }
-        return rank(a) == rank(b) ? a.id < b.id : rank(a) > rank(b)
-      }.first
-    }.sorted { $0.timestamp < $1.timestamp }
+      } else {
+        if let previous = selected.last,
+          previous.timestamp > sample.timestamp || (previous.timestamp == sample.timestamp && previous.id > sample.id) {
+          chronological = false
+        }
+        winners[key] = selected.count
+        selected.append(sample)
+      }
+    }
+    if !chronological {
+      selected.sort { $0.timestamp == $1.timestamp ? $0.id < $1.id : $0.timestamp < $1.timestamp }
+    }
+    return selected
   }
 }
 public struct AccountGate: Codable, Sendable {

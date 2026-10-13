@@ -2,6 +2,15 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Production performance and integrity pass
+
+- 177 core tests passed in Debug with the opt-in benchmark skipped, and in Release with the benchmark enabled. Original-ranking parity, stable equal-instant ordering, late/history deduplication, in-flight refresh retention, tombstone replay/reset and widget publication policies are covered.
+- The same-process Release fixture measured five passes over86,400 chronological readings at2.059 seconds for the retained original implementation and0.085 seconds for the indexed-winner path (approximately24 times faster). The isolated buffered receipt loop was slower:0.073 versus0.130 seconds for300 commits, while reducing large publications from300 to20. These are desktop microbenchmarks, not phone CPU/battery measurements.
+- A broad30-test native UI run passed. After final buffer ownership/deletion refinements, four final affected flows passed: day history/rhythm, Live source/sync, stale-night readiness and demo-to-real-to-demo isolation. The new toggle test initially tapped the label portion of the accessible row; targeting the switch control passed. This was a final focused rerun rather than a second full suite.
+- Read-only review caught tombstone replay resurrection; a failing reproducer was added and passed after retaining same-dataset tombstones. A post-drain reset prevents old committed receipts entering another dataset. Final review found no remaining important findings in the scoped changes.
+- Signed Release build succeeded and installed on the test iPhone. A clean public-project snapshot also built the unsigned iPhone app successfully. Private local signing/project changes are excluded from publication. The UI layout is unchanged, so existing gallery images remain representative.
+- Two physical Time Profiler attachment attempts could not locate Tempo. D05/C03 physical CPU, battery and sustained overnight/background acceptance remain open. See [Performance.md](Performance.md) for the reproducible method and actual publication policies.
+
 ## Sleep rhythm discovery and empty Live card
 
 - 165 Debug core tests passed with the Xcode toolchain. Five affected UI flows passed across final runs: standard Trends, Sleep-to-rhythm navigation, maximum-text/dark Trends-to-Live, maximum-text Sleep correction and Live source/sync navigation. This is targeted verification, not a fresh full UI suite.

@@ -348,3 +348,5 @@ These are unmodified simulator captures with clearly labelled isolated synthetic
 Live dashboard source and sync controls, without an empty workout container:
 
 <img src="docs/screenshots/live-source-sync-demo.png" width="240" alt="Synthetic Live dashboard source and sync status" />
+
+Performance work preserves immediate durable collection while coalescing large UI snapshots and calculating daily summaries outside the UI actor. Benchmarks, refresh policies and remaining physical validation are documented in [Performance](docs/Performance.md).

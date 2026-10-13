@@ -30,3 +30,7 @@ Latest run counts and installation results are maintained in [Verification.md](V
 Fixed input-order-dependent sleep overlap and invalid-date projections, globally reconciled corrections before day/night filtering, anchored historical caffeine clock edits to their journal date/timezone, and kept imported HR an explicit reader opt-in. Bounded day queries show truncation, reject stale dataset/day results and stop scheduled refreshes while hidden. The165-test core suite and final feature UI flows verify these contracts; see [DayHistory.md](DayHistory.md) and [Verification.md](Verification.md).
 
 The Live dashboard could render an empty List row from a TimelineView whose inner workout branch was absent. The active-workout condition now surrounds the whole timer-backed child, so idle dashboards have no workout container. The source/sync screenshot and visible-empty-row UI assertion cover the reported layout.
+
+## Production presentation pass
+
+Stable equal-instant canonical ordering, committed-receipt preservation during database refresh, persistent tombstones during history replay and post-drain dataset reset are regression-covered. Delayed tasks check store/generation ownership; stale owners cannot clear replacements. Immutable summaries run outside the UI actor and share reconciliation. Core tests and final affected UI checks passed; physical sustained performance remains D05. See [Performance.md](Performance.md) for benchmarks, overhead and scope.

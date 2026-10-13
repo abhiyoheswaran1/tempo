@@ -33,3 +33,5 @@ The native app workspace references Tempo.xcodeproj; the root Swift package is o
 Stored-band history uses a connection-scoped protocol coordinator, bounded per-channel assembly, actor-owned atomic sample/raw/checkpoint storage and post-commit ordinary receipt ACK. Physical availability is separate from fixture-tested parsing. SQLite schema2 retains raw historical sensor frames for reanalysis/export; backup schema2 accepts legacy schema1 imports. Cloud supported measurements still use existing compressed bounded batches; raw vendor frames are local backup data. [History contract](HistoryRetrieval.md) states all limits.
 
 The [day-history contract](DayHistory.md) documents bounded local readers, recorded-zone sleep rhythm and the versioned daily sleep-duration comparison, including missing-data and correction rules.
+
+[Performance and task ownership](Performance.md) describes immediate durable collection, coalesced committed-data presentation, detached immutable summaries and dataset/tombstone isolation.

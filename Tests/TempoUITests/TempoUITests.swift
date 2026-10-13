@@ -820,4 +820,29 @@ extension TempoUITests {
     XCTAssertTrue(app.staticTexts["sleep-rhythm-coverage"].waitForExistence(timeout: 5))
   }
 
+  @MainActor func testDatasetSwitchClearsSyntheticHistoryAndRestoresDemoCleanly() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    settings.tap()
+    let toggle = app.switches["Simulator demo · synthetic data"]
+    for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
+    XCTAssertTrue(toggle.isHittable)
+    toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+    wait(for: [expectation(for: NSPredicate(format: "value == '0'"), evaluatedWith: toggle)], timeout: 20)
+    app.buttons["Done"].tap()
+    XCTAssertTrue(app.staticTexts["No sleep recorded"].waitForExistence(timeout: 20))
+    XCTAssertFalse(app.staticTexts["Synthetic band"].exists)
+    settings.tap()
+    for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
+    toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+    wait(for: [expectation(for: NSPredicate(format: "value == '1'"), evaluatedWith: toggle)], timeout: 20)
+    app.buttons["Done"].tap()
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    XCTAssertTrue(app.staticTexts["Synthetic band"].waitForExistence(timeout: 10))
+  }
+
 }
