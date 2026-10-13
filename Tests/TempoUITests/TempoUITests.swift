@@ -273,6 +273,15 @@ extension TempoUITests {
     let evidence = app.buttons["Source and measurement evidence"]
     for _ in 0..<4 where !evidence.isHittable { app.swipeUp() }
     XCTAssertTrue(evidence.isHittable)
+    let cloud = app.staticTexts["Demo · iCloud disabled"]
+    for _ in 0..<4 where !cloud.isHittable { app.swipeUp() }
+    XCTAssertTrue(cloud.isHittable)
+    XCTAssertFalse(app.cells.allElementsBoundByIndex.contains {
+      $0.isHittable && $0.staticTexts.count == 0 && $0.buttons.count == 0 && $0.images.count == 0
+    })
+    let lower = XCTAttachment(screenshot: app.screenshot())
+    lower.name = "live-source-sync-demo"; lower.lifetime = .keepAlways; add(lower)
+    for _ in 0..<4 where !evidence.isHittable { app.swipeDown() }
     evidence.tap()
     XCTAssertTrue(app.staticTexts["Intervals are not an overnight HRV result."].exists)
     for _ in 0..<4 where !app.buttons["Manage bands"].isHittable { app.swipeUp() }
@@ -782,4 +791,33 @@ extension TempoUITests {
     XCTAssertTrue(app.navigationBars["Sleep rhythm"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["sleep-rhythm-coverage"].exists)
   }
+  @MainActor func testSleepRhythmIsFeaturedInTrendsAndLinkedFromSleep() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    app.tabBars.buttons["Trends"].tap()
+    let card = app.buttons["trends-sleep-rhythm"]
+    XCTAssertTrue(card.waitForExistence(timeout: 10))
+    XCTAssertTrue(card.isHittable)
+    let trends = XCTAttachment(screenshot: app.screenshot())
+    trends.name = "trends-rhythm-feature-demo"; trends.lifetime = .keepAlways; add(trends)
+    card.tap()
+    XCTAssertTrue(app.staticTexts["sleep-rhythm-coverage"].waitForExistence(timeout: 5))
+    app.navigationBars.buttons.firstMatch.tap()
+    app.tabBars.buttons["Today"].tap()
+    let sleep = app.buttons["today-sleep-summary"]
+    for _ in 0..<4 where !sleep.isHittable { app.swipeUp() }
+    sleep.tap()
+    let link = app.buttons["sleep-detail-rhythm"]
+    if !link.isHittable { app.swipeUp() }
+    XCTAssertTrue(link.waitForExistence(timeout: 5))
+    let detail = XCTAttachment(screenshot: app.screenshot())
+    detail.name = "sleep-detail-rhythm-demo"; detail.lifetime = .keepAlways; add(detail)
+    link.tap()
+    XCTAssertTrue(app.staticTexts["sleep-rhythm-coverage"].waitForExistence(timeout: 5))
+  }
+
 }

@@ -2,6 +2,13 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Sleep rhythm discovery and empty Live card
+
+- 165 Debug core tests passed with the Xcode toolchain. Five affected UI flows passed across final runs: standard Trends, Sleep-to-rhythm navigation, maximum-text/dark Trends-to-Live, maximum-text Sleep correction and Live source/sync navigation. This is targeted verification, not a fresh full UI suite.
+- The new route check failed before the featured card/link existed. Large text exposed an off-screen measurement selector; the final layout keeps that selector ahead of the card at accessibility sizes. The test waits for the isolated demo dataset before navigating.
+- The idle workout TimelineView was producing a blank List container. The whole child is now conditional on an active workout. A final Live test checks visible rows for actual content and the inspected lower-dashboard capture shows Source followed by iCloud without the blank card. The first label-only assertion was overly broad because populated SwiftUI containers can have empty parent labels.
+- Final signed Release build succeeded and installed. Updated Trends, sleep-Trends, Sleep detail and Live images retain original labelled synthetic simulator pixels; the gallery now has22 captures. Physical collection and sleep accuracy gates are unchanged.
+
 ## Day history, sleep context and bug pass
 
 - 165 core tests passed in both Debug and Release. Regressions cover half-open local days and DST, saved-session correction precedence, invalid dates, deterministic overlap, missing baselines, imported/demo isolation and historical caffeine dates.

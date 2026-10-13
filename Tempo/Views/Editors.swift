@@ -196,6 +196,13 @@ struct SleepDetailView: View {
       } footer: {
         Text("Times shown in \(current.timeZoneID). Duration uses elapsed time, including clock changes.")
       }
+      Section {
+        NavigationLink { SleepRhythmView() } label: {
+          Label("Sleep rhythm", systemImage: "moon.zzz.fill")
+        }.accessibilityIdentifier("sleep-detail-rhythm")
+      } footer: {
+        Text("Explore your sleep and wake times across recorded nights.")
+      }
       Section("Heart rate during sleep") {
         if let snapshot, snapshot.sampleCount > 0 {
           MetricRow(label: "Recorded average", value: snapshot.average.map { String(format: "%.0f bpm", $0) } ?? "Insufficient continuous readings")

@@ -388,3 +388,40 @@ struct SleepRhythmView: View {
     to: Calendar.current.startOfDay(for: Date()))!
   return model.sleeps.filter { $0.end >= from }
 }
+
+/// A visible entry into sleep timing, using the same saved-night projection as the detail.
+struct SleepRhythmCard: View {
+  @Environment(AppModel.self) private var model
+  var body: some View {
+    let start = Calendar.current.date(byAdding: .day, value: -13,
+      to: Calendar.current.startOfDay(for: Date()))!
+    let entries = DayHistory.primarySleeps(model.sleeps.filter { $0.end >= start },
+      now: Date(), allowSynthetic: model.demo).compactMap { SleepRhythmEntry(session: $0) }
+    NavigationLink { SleepRhythmView() } label: {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack {
+          Label("Sleep rhythm", systemImage: "moon.zzz.fill")
+            .font(.headline).foregroundStyle(.primary)
+          Spacer()
+          Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        }
+        Text(entries.isEmpty ? "See when you sleep and wake" : "\(entries.count) of 14 nights recorded")
+          .font(.subheadline).foregroundStyle(.secondary)
+        if !entries.isEmpty {
+          Chart(entries) { entry in
+            BarMark(x: .value("Wake date", Calendar.current.startOfDay(for: entry.session.end)),
+              yStart: .value("Bedtime", entry.startHour), yEnd: .value("Wake time", entry.endHour))
+              .foregroundStyle(.indigo).cornerRadius(2)
+          }.chartXScale(domain: start...Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600))
+            .chartXAxis(.hidden).chartYAxis(.hidden).frame(height: 54)
+            .accessibilityHidden(true)
+        } else {
+          Text("Save or confirm a night to build your timing picture.")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        Text("View sleep rhythm").font(.subheadline.weight(.medium)).foregroundStyle(.indigo)
+      }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground),
+        in: RoundedRectangle(cornerRadius: 24)).contentShape(Rectangle())
+    }.buttonStyle(.plain).accessibilityIdentifier("trends-sleep-rhythm")
+  }
+}

@@ -35,6 +35,7 @@ private enum TrendMetric: String, CaseIterable {
 
 struct TrendsView: View {
   @Environment(AppModel.self) var model
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @State private var days = 28
   @State private var metric: TrendMetric = .heartRate
   @State private var selectedDate: Date?
@@ -72,6 +73,7 @@ struct TrendsView: View {
             Text("28 days").tag(28)
             Text("90 days").tag(90)
           }.pickerStyle(.segmented)
+          if !dynamicTypeSize.isAccessibilitySize { SleepRhythmCard() }
           Menu {
             Picker("Measurement", selection: $metric) {
               ForEach(TrendMetric.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -83,6 +85,7 @@ struct TrendsView: View {
               Image(systemName: "chevron.up.chevron.down").font(.subheadline)
             }.contentShape(Rectangle()).frame(minHeight: 44)
           }.tint(.primary).accessibilityLabel("Measurement").accessibilityValue(metric.title)
+          if dynamicTypeSize.isAccessibilitySize { SleepRhythmCard() }
           VStack(alignment: .leading, spacing: 14) {
             if metric != .sleep && sameDataset && !summaries.isEmpty {
               periodOverview
@@ -142,7 +145,6 @@ struct TrendsView: View {
           }.padding(18).background(
             Color(uiColor: .secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 24))
-          NavigationLink("Sleep rhythm") { SleepRhythmView() }.font(.subheadline)
           DisclosureGroup("About these trends") {
             Text("Typical recorded day is the median of daily values, with each recorded day weighted equally. Missing days are excluded.")
             Text("Empty days mean missing qualifying data, not zero. A change in band, wearing placement or recording coverage can change the pattern.")

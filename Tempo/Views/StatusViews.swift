@@ -304,7 +304,9 @@ struct LiveDashboardView: View {
       LiveHeartRateSection()
       LiveHistorySection()
       LiveSourceSection()
-      LiveWorkoutSection(confirmFinish: $confirmFinish)
+      if model.activeWorkout != nil {
+        LiveWorkoutSection(confirmFinish: $confirmFinish)
+      }
       Section("iCloud") { SyncStatusRow() }
     }.refreshable { await model.refreshToday() }
       .navigationTitle("Live dashboard")
