@@ -22,7 +22,7 @@ Manufacturer names identify hardware compatibility only. Tempo is not an officia
 
 | Area | Current implementation | Verification boundary |
 |---|---|---|
-| Native interface | Redesigned Today with native large title, live-reading hero, compact readiness, paired sleep/movement summaries, pull/manual refresh and quiet sync status; four-hour Live history, optional reported battery in the header, freshness/coverage/source evidence, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
+| Native interface | Redesigned Today with native large title, live-reading hero, compact readiness, paired sleep/movement summaries, pull/manual refresh and quiet sync status; four-hour Live history, reported battery beside the source band, freshness/coverage/source evidence, band/placement sheet, cross-tab workout controls, finish summary, journal and sleep editors | Simulator interactions tested; full accessibility audit pending |
 | Bluetooth | Discovery, generation correction, disconnect/remove with history retained, bounded connection retries, foreground silent-stream recovery, receipt/storage diagnostics, standard Heart Rate Service notifications, Core Bluetooth restoration configuration | Neither physical band tested |
 | Protocol | Separate Whoop 4/5 framing, checksums, bounded fragment assembly, HR/RR parsing, firmware-gated Whoop4/Whoop5 history transfer with durable raw frames/checkpoints and ordinary receipt acknowledgements; Whoop5 range preflight | Constructed fixtures; physical transfer/replay unverified; unsupported layouts retained raw |
 | Wearing placement | Per-band wrist, upper-arm/bicep and underwear reports with effective times, corrections and session context | User-reported; no automatic location detection or unverified sensor correction |
@@ -319,6 +319,6 @@ Today distinguishes **Band catch-up stored** from iCloud sync and explains when 
 
 ### Battery and Settings
 
-Settings has a separate gear button. Today displays the reported band battery percentage beneath its header and beside the source band; stale reports are labelled separately. Missing battery reports remain unavailable.
+Settings has a separate gear button. Today displays the reported band battery percentage beside the source band; stale reports are labelled separately. Missing battery reports remain unavailable.
 
-<img src="docs/screenshots/today-battery-demo.png" width="280" alt="Synthetic Today screen with separate Settings gear and visible Band 73 percent" />
+<img src="docs/screenshots/today-battery-demo.png" width="280" alt="Synthetic Today screen with separate Settings gear and visible source-band battery percentage" />

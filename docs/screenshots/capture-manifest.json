@@ -121,10 +121,10 @@
   },
   {
     "file": "today-battery-demo.png",
-    "sha256": "6aed0ebfe00595768e82ebee917c2b4719e64aab4f5601fbe17e49862ac58270",
+    "sha256": "035d40d54e7065c29b61ec8f34e08e3d6851adb315ff9cdeab5413946887132e",
     "width": 1206,
     "height": 2622,
-    "captureTimestampUTC": 1791890647.26,
+    "captureTimestampUTC": 1791898166.69,
     "device": "iPhone 18 Pro",
     "sourceTest": "TempoUITests/testSettingsAndReportedBatteryHaveSeparateMeaning()",
     "data": "synthetic demo",

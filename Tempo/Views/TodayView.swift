@@ -31,14 +31,6 @@ struct TodayView: View {
           Text(Date(), format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
             .font(.subheadline).foregroundStyle(.secondary)
         }
-        if (!model.demo || ProcessInfo.processInfo.arguments.contains("--battery-ui-demo")),
-          let device = model.collectionDevice, let battery = model.bluetooth.battery[device.id],
-          battery.isFresh(at: Date()) {
-          Label("Band \(battery.percent)%", systemImage: "battery.75percent")
-            .font(.subheadline.weight(.medium)).monospacedDigit().foregroundStyle(.teal)
-            .accessibilityIdentifier("today-header-battery-percent")
-            .accessibilityLabel("Reported band battery \(battery.percent) percent")
-        }
         Text(readiness.score == nil ? "Your day, at a glance" : headline(readiness))
           .font(.title2.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
         if let score = readiness.score {

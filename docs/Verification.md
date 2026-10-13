@@ -16,3 +16,9 @@ Tonight’s test remains open: keep Tempo as the band’s collector, reopen it t
 A prior physical CPU resource termination remains D05 in Improvements.md. Coalescing analysis after transfer chunks settle and using an optimised Release build do not establish that this problem is resolved.
 
 Reproduce software checks with `swift test` and `swift test -c release`, then build Tempo.xcworkspace / Tempo for an iPhone. Simulator captures do not prove Bluetooth, background execution or CloudKit restore.
+
+## Follow-up collection check
+
+A later on-device diagnostic run completed with 7,284 historical HR readings committed in that attempt. The inspected database contained 11,710 historical HR observations spanning UTC 09:40:13–13:28:55 on 13 October. Two gaps longer than two minutes remain within the returned history; retained R18 frames did not contain timestamps inside those intervals. Overnight records were absent. This distinguishes missing band-returned records from cloud success or a purely live chart. No claim that all gaps are repaired.
+
+The redundant Today header battery line was removed; the percentage remains beside the source band. Its focused UI test and signed Release build passed.

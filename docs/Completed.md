@@ -34,3 +34,5 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - HIST02 /UX20 · firmware50.42.1.0 positive-backlog-gated WHOOP5 transfer, independently documented R18 primary HR, atomic retention before ordinary ACK, padding/quality handling, per-attempt callback guards and finite deadlines; explicit Settings/device history entry · 85a436e ·122 core tests,19 UI tests plus affected/final capture reruns, unsigned iPhone build and read-only review. Physical catch-up remains C05/C02; no claim of recovered owner gaps.
 
 - UX22 · separate Settings gear, visible Today battery percentage, distinct band-history/cloud status and informative sleep coverage states; coalesced post-transfer analysis and sequence-budget reconnect safeguard · current refinement pass · 134 Debug/Release core tests, two final focused UI regressions, signed Release build and refreshed simulator capture manifest. Overnight collection and CPU reliability remain open hardware gates.
+
+- UX23 · removed redundant standalone Today battery line; retained percentage beside band and separate Settings gear · focused UI regression and signed Release build passed; fresh capture checksummed.
