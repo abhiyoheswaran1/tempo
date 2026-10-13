@@ -593,3 +593,51 @@ extension TempoUITests {
     XCTAssertTrue(app.navigationBars["Band status"].waitForExistence(timeout: 5))
   }
 }
+
+extension TempoUITests {
+  @MainActor func testSleepDetailLeadsWithTimingAndUpdatesCorrection() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    let sleep = app.buttons["today-sleep-summary"]
+    for _ in 0..<4 where !sleep.isHittable { app.swipeUp() }
+    sleep.tap()
+    XCTAssertTrue(app.staticTexts["sleep-duration"].waitForExistence(timeout: 5))
+    wait(for: [expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.staticTexts["Loading measurements"])], timeout: 10)
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "sleep-detail-demo"
+    shot.lifetime = .keepAlways
+    add(shot)
+    app.buttons["Correct timing"].tap()
+    XCTAssertTrue(app.navigationBars["Correct sleep"].waitForExistence(timeout: 5))
+    app.buttons["Save"].tap()
+    XCTAssertTrue(app.staticTexts["Manually entered"].waitForExistence(timeout: 10))
+  }
+}
+
+
+extension TempoUITests {
+  @MainActor func testSleepDetailLargeTextKeepsCorrectionAccessible() {
+    let app = XCUIApplication()
+    app.launchArguments = ["--ui-testing", "--demo", "--large-text", "--dark"]
+    app.launch()
+    let settings = app.buttons["Bands, sync and settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 20))
+    wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: settings)], timeout: 30)
+    let sleep = app.buttons["today-sleep-summary"].firstMatch
+    for _ in 0..<5 where !sleep.isHittable { app.swipeUp() }
+    XCTAssertTrue(sleep.isHittable)
+    sleep.tap()
+    XCTAssertTrue(app.staticTexts["sleep-duration"].waitForExistence(timeout: 5))
+    let correct = app.buttons["Correct timing"]
+    for _ in 0..<5 where !correct.isHittable { app.swipeUp() }
+    XCTAssertTrue(correct.isHittable)
+    correct.tap()
+    XCTAssertTrue(app.navigationBars["Correct sleep"].waitForExistence(timeout: 5))
+    app.buttons["Cancel"].tap()
+    XCTAssertTrue(app.navigationBars["Sleep"].waitForExistence(timeout: 5))
+  }
+}

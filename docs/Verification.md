@@ -2,6 +2,13 @@
 
 Software verification is separate from physical collection acceptance.
 
+## Sleep detail refinement
+
+- All150 core tests passed. All three final-source simulator checks passed and cover sleep detail, saved-origin revision refresh, adding another session, and maximum-text dark-mode access to correction controls. The initial new detail test failed before the new headline/latest-revision projection existed. A large-text test initially targeted the child label instead of its accessible button; the corrected button interaction passed.
+- Review identified sparse-HR omission and inconsistent chart timezone labels; both were corrected. The chart shows isolated readings without inventing continuous coverage and formats times in the recorded timezone. A real changed-time DatePicker interaction remains outside this UI test's coverage; it checks save/projection refresh rather than a duration change.
+- Signed Release build succeeded and installed on the test iPhone.
+- The new sleep-detail image is an unmodified, clearly labelled synthetic simulator capture. No detection or recovery algorithm changed.
+
 ## Trends refinement
 
 - 150 core tests passed, including new period-summary cases for missing days, empty ranges and truncation. The new summary API was absent in the initial test build before implementation.
@@ -19,13 +26,13 @@ Software verification is separate from physical collection acceptance.
 
 ## UI and capture evidence
 
-Sixteen unmodified simulator screenshots use isolated synthetic or empty datasets; checksums/test provenance are in screenshots/capture-manifest.json. The separate Settings gear, source-band percentage, missing-data states, sleep review and Live dashboard have simulator coverage. Live BPM/workout timers are isolated from the dashboard list/history; physical smoothness and CPU profiling remain D05. Synthetic records never enter the normal cloud dataset.
+Seventeen unmodified simulator screenshots use isolated synthetic or empty datasets; checksums/test provenance are in screenshots/capture-manifest.json. The separate Settings gear, source-band percentage, missing-data states, sleep review and Live dashboard have simulator coverage. Live BPM/workout timers are isolated from the dashboard list/history; physical smoothness and CPU profiling remain D05. Synthetic records never enter the normal cloud dataset.
 
 ## Physical collection evidence and remaining gates
 
 On the owned Whoop 5 firmware 50.42.1.0, normal iOS pairing enabled Hello, notifications, range and historical transfer. An earlier private database inspection confirmed 2,632 historical HR observations, 3,067 retained frames and a checkpoint with SQLite integrity OK. A later transfer committed 7,284 readings in that attempt. Its inspected database contained 11,710 historical HR observations spanning UTC 09:40:13–13:28:55 on 13 October.
 
-Two gaps longer than two minutes remained inside the returned history, with no retained R18 timestamps inside those intervals. Overnight records were absent. This proves recent catch-up on that instance, not unlimited retention, overnight recovery or complete gap repair. Personal payloads/screenshots stay private.
+At that earlier inspection, two gaps longer than two minutes remained inside the returned history, with no retained R18 timestamps inside those intervals; overnight records were absent. The owner subsequently reported historical retrieval fixed. These earlier observations are a dated validation boundary, not a claim that the current app still has the same missing history. This proves recent catch-up on that instance, not unlimited retention, overnight recovery or complete gap repair. Personal payloads/screenshots stay private.
 
 Tonight’s test remains open: use Tempo as the collector, reopen it tomorrow and verify actual overnight coverage and any possible-sleep suggestion. HR-only possible sleep is experimental and requires confirmation; it does not reproduce Whoop staging or proprietary algorithms. Unresolved quality flags remain excluded from physiological analytics.
 

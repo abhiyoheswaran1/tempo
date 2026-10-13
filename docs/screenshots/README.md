@@ -18,3 +18,5 @@ xcrun xcresulttool export attachments --path /path/to/results.xcresult --output-
 Screen captures demonstrate software layout and navigation only. They must not be represented as physical-hardware validation.
 
 The current Trends and sleep-Trends images were refreshed by `testTrendsSelectsOneMetricAndAccessibleDayEvidence`, from its successful final-source simulator run. The Trends overview shows recorded-day coverage and a descriptive median; these remain synthetic examples, not physical sensor validation.
+
+Sleep detail was captured by `testSleepDetailLeadsWithTimingAndUpdatesCorrection` from the successful final-source run. It uses isolated synthetic data and deliberately displays only partial HR coverage. The original PNG was inspected and copied without postprocessing.

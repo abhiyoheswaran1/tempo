@@ -190,5 +190,17 @@
     "data": "synthetic demo",
     "appearance": "light / standard Dynamic Type",
     "postprocessing": "none"
+  },
+  {
+    "file": "sleep-detail-demo.png",
+    "sha256": "9e8165225404dae0b0f7c5efe6957fe312df41b4be45599a3c01d800b28c3cb0",
+    "width": 1206,
+    "height": 2622,
+    "captureTimestampUTC": 1791904617.61,
+    "device": "iPhone 18 Pro",
+    "sourceTest": "TempoUITests/testSleepDetailLeadsWithTimingAndUpdatesCorrection()",
+    "data": "synthetic demo",
+    "appearance": "light / standard Dynamic Type",
+    "postprocessing": "none"
   }
 ]

@@ -20,7 +20,7 @@ Band feedback B01–B06 is implemented and software-verified in [Completed.md](C
 | ID | Priority/status | Open outcome / evidence |
 |---|---|---|
 | C01 | P0 awaiting hardware | Validate HR/RR/contact for both generations/firmwares and three placements; [checklist](HardwareValidation.md). |
-| C02 | P0 open | Implement non-destructive firmware-bounded historical transfer/resume/retention behavior; [protocol boundary](ProtocolResearch.md). |
+| C02 | P0 awaiting broader hardware validation | Non-destructive firmware-bounded historical catch-up is implemented and the owner reports retrieval fixed. Validate remaining generation/firmware/resume/retention cases; [protocol boundary](ProtocolResearch.md). |
 | C03 | P0 awaiting hardware | Validate suspension/restoration/restart/permission loss/competing connections and interruption gaps. |
 | C04 | P1 awaiting hardware | Validate sequential switching, on-body versus charging evidence, manual preference and workout continuity. Concurrent connections remain unknown. |
 | S01 | P0 awaiting hardware | Signed two-phone CloudKit restore, account changes, quota/network/deletion/conflict behavior; [sync](CloudKit.md). |

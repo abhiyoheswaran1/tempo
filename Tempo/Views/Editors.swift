@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 import TempoCore
 
@@ -138,53 +139,171 @@ struct SleepEditor: View {
     }
   }
 }
+private struct SleepEvidenceIdentity: Hashable {
+  let id: UUID
+  let start: Date
+  let end: Date
+  let generation: Int
+  let demo: Bool
+  let store: ObjectIdentifier?
+}
+
 struct SleepDetailView: View {
   @Environment(AppModel.self) var model
+  @Environment(\.dismiss) var dismiss
   let sleep: SleepSession
   @State private var edit = false
   @State private var newSleep = false
+  @State private var confirmDelete = false
   @State private var placementDescription = "No band measurements to associate"
+  @State private var snapshot: LiveHistorySnapshot?
+  @State private var coverageIncomplete = false
+  @State private var evidenceError = false
+  private var current: SleepSession { model.sleeps.first { $0.id == sleep.id } ?? sleep }
+  private var identity: SleepEvidenceIdentity {
+    SleepEvidenceIdentity(id: current.id, start: current.start, end: current.end,
+      generation: model.historyGeneration, demo: model.demo,
+      store: model.store.map { ObjectIdentifier($0) })
+  }
+  private var originLabel: String {
+    switch current.origin {
+    case .manual: "Manually entered"
+    case .imported: "Imported measurement"
+    case .derived: "Estimated sleep"
+    case .synthetic: "Synthetic demo"
+    case .measured: "Measured session"
+    }
+  }
   var body: some View {
     List {
       Section {
-        MetricRow(label: "Duration", value: durationText(sleep.duration))
-        Text("\(sleep.start.formatted()) – \(sleep.end.formatted())")
-        Text("Timezone: \(sleep.timeZoneID)")
-        Text("Source: \(sleep.origin.rawValue)")
-        Text("Reported placement: \(placementDescription)")
-      }
-      Section("Overnight evidence") {
-        let inputs = model.nightInputs(sleep)
-        MetricRow(
-          label: "Resting HR estimate",
-          value: inputs["rhr"].map { String(format: "%.0f bpm", $0) } ?? "Insufficient coverage")
-        MetricRow(
-          label: "RMSSD",
-          value: inputs["rmssd"].map { String(format: "%.0f ms", $0) } ?? "Insufficient valid RR")
-        Text(
-          "Sleep staging, respiratory rate and oxygen saturation are unavailable. Sensor presence alone does not establish a measurement."
-        ).font(.caption).foregroundStyle(.secondary)
-      }
-      Section {
+        VStack(alignment: .leading, spacing: 10) {
+          Label(current.isNap ? "Nap" : "Sleep", systemImage: "bed.double.fill")
+            .font(.subheadline).foregroundStyle(.indigo)
+          Text(durationText(current.duration))
+            .font(.largeTitle.weight(.semibold)).monospacedDigit()
+            .accessibilityIdentifier("sleep-duration")
+          Text(originLabel).font(.subheadline).foregroundStyle(.secondary)
+        }.padding(.vertical, 8)
+        MetricRow(label: "Fell asleep", value: timing(current.start))
+        MetricRow(label: "Woke up", value: timing(current.end))
         Button("Correct timing") { edit = true }
-        Button("Add another sleep session") { newSleep = true }
-        Button("Delete sleep", role: .destructive) {
-          model.mutate { try await model.delete(id: sleep.id, kind: "sleep") }
+      } footer: {
+        Text("Times shown in \(current.timeZoneID). Duration uses elapsed time, including clock changes.")
+      }
+      Section("Heart rate during sleep") {
+        if let snapshot, snapshot.sampleCount > 0 {
+          MetricRow(label: "Recorded average", value: snapshot.average.map { String(format: "%.0f bpm", $0) } ?? "Insufficient continuous readings")
+          let segments = Dictionary(grouping: snapshot.points, by: \.segment)
+          Chart(snapshot.points) { point in
+            LineMark(x: .value("Time", point.sample.timestamp),
+              y: .value("Heart rate", point.sample.value),
+              series: .value("Recorded segment", point.segment))
+              .foregroundStyle(.indigo)
+            if segments[point.segment]?.count == 1 {
+              PointMark(x: .value("Time", point.sample.timestamp),
+                y: .value("Heart rate", point.sample.value)).foregroundStyle(.indigo)
+            }
+          }.chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+              AxisGridLine()
+              AxisTick()
+              AxisValueLabel {
+                if let date = value.as(Date.self) { Text(timing(date, includeDate: false)) }
+              }
+            }
+          }.chartLegend(.hidden).chartXScale(domain: current.start...current.end)
+            .chartYScale(domain: max(25, (snapshot.minimum ?? 25) - 10)...max(26, (snapshot.maximum ?? 240) + 10))
+            .chartYAxisLabel("bpm").frame(height: 160)
+            .accessibilityLabel("Heart rate during this sleep session; gaps remain empty")
+          MetricRow(label: "Recorded coverage", value: durationText(snapshot.coveredSeconds))
+          Text("\(snapshot.sampleCount) readings · gaps excluded")
+            .font(.caption).foregroundStyle(.secondary)
+          if coverageIncomplete {
+            Text("Sample limit reached. This view covers only part of the stored readings.")
+              .font(.caption).foregroundStyle(.secondary)
+          }
+          if snapshot.hasUnqualifiedReadings {
+            Text("Some readings have unresolved quality flags. They are shown here but excluded from recovery calculations.")
+              .font(.caption).foregroundStyle(.secondary)
+          }
+        } else {
+          Text(evidenceError ? "Measurements could not load" : snapshot == nil ? "Loading measurements" : "No qualifying heart rate recorded")
+            .foregroundStyle(.secondary)
+          Text("Sleep timing can be recorded even when overnight measurements are unavailable.")
+            .font(.caption).foregroundStyle(.secondary)
         }
       }
-    }.navigationTitle("Sleep").task(id: model.placements) {
-      if let store = model.store,
-        let samples = try? await store.measurements(
-          from: sleep.start, to: sleep.end, kinds: [.heartRate])
-      {
-        placementDescription = PlacementTimeline.description(
-          samples: CanonicalTimeline.select(samples, sourceSegments: model.sourceSegments),
-          records: model.placements)
+      Section("Recovery inputs") {
+        let inputs = model.nightInputs(current)
+        MetricRow(label: "Resting HR estimate",
+          value: inputs["rhr"].map { String(format: "%.0f bpm", $0) } ?? "Insufficient coverage")
+        MetricRow(label: "HRV · RMSSD",
+          value: inputs["rmssd"].map { String(format: "%.0f ms", $0) } ?? "Insufficient valid RR")
+        DisclosureGroup("Source and calculation") {
+          Text("Reported placement: \(placementDescription)")
+          if let snapshot {
+            Text(snapshot.sourceIDs.map { id in
+              model.devices.first { $0.id == id }?.name
+                ?? model.archivedDevices.first { $0.id == id }?.name ?? "Unresolved source"
+            }.joined(separator: " · "))
+          }
+          Text("Recorded average describes available heart rate within these timings; it is separate from the resting HR estimate.")
+          Text("RMSSD requires valid beat-to-beat intervals. Heart rate alone cannot establish HRV.")
+          if let version = current.algorithmVersion { Text("Detection algorithm: \(version)") }
+          Text("Sleep stages, respiratory rate and oxygen saturation are unavailable.")
+        }.font(.caption).foregroundStyle(.secondary)
       }
-    }.sheet(isPresented: $edit) {
-      NavigationStack { SleepEditor(existing: sleep) }
-    }.sheet(isPresented: $newSleep) {
-      NavigationStack { SleepEditor() }
+      Section {
+        Button("Add another sleep session") { newSleep = true }
+        Button("Delete sleep", role: .destructive) { confirmDelete = true }
+      }
+    }.navigationTitle("Sleep")
+      .task(id: identity) { await loadEvidence() }
+      .sheet(isPresented: $edit) {
+        NavigationStack { SleepEditor(existing: current) }
+      }.sheet(isPresented: $newSleep) {
+        NavigationStack { SleepEditor() }
+      }.alert("Delete this sleep session?", isPresented: $confirmDelete) {
+        Button("Delete sleep", role: .destructive) {
+          model.mutate {
+            try await model.delete(id: current.id, kind: "sleep")
+            dismiss()
+          }
+        }
+        Button("Cancel", role: .cancel) {}
+      } message: { Text("The session will be removed. Original band measurements are retained.") }
+  }
+  private func timing(_ date: Date, includeDate: Bool = true) -> String {
+    let formatter = DateFormatter()
+    formatter.timeZone = TimeZone(identifier: current.timeZoneID) ?? .current
+    formatter.dateStyle = includeDate ? .medium : .none
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+  }
+  @MainActor private func loadEvidence() async {
+    let requested = identity
+    let session = current
+    let store = model.store
+    let segments = model.sourceSegments
+    let demo = model.demo
+    snapshot = nil
+    evidenceError = false
+    do {
+      let samples = try await store?.measurements(from: session.start, to: session.end,
+        kinds: [.heartRate], limit: 100_000) ?? []
+      let summary = await Task.detached(priority: .utility) {
+        LiveHistorySnapshot(samples: samples, from: session.start, to: session.end,
+          sourceSegments: segments, maximumHeartRate: 190, allowSynthetic: demo)
+      }.value
+      guard !Task.isCancelled, identity == requested else { return }
+      snapshot = summary
+      coverageIncomplete = samples.count >= 100_000
+      placementDescription = PlacementTimeline.description(
+        samples: CanonicalTimeline.select(samples, sourceSegments: segments), records: model.placements)
+    } catch {
+      guard !Task.isCancelled, identity == requested else { return }
+      evidenceError = true
     }
   }
 }
