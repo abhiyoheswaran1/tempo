@@ -40,3 +40,5 @@ Compact index only: ID · outcome · commit · verification. Remove closed ticke
 - UX24 · refined Live dashboard with larger clean chart, coverage percentage, collapsed methodology, band history status and pull-to-refresh; sparse isolated points retained · focused standard and maximum-text/dark UI tests passed, signed Release build and fresh synthetic capture. Physical historical gaps remain C05/C02.
 
 - UX25 · isolated live BPM/workout timers from dashboard list/history, retained chart during same-context reload · two focused UI tests and signed Release build passed; installed. Physical scrolling/CPU acceptance remains D05.
+
+- AUD01 · fixed metric/tombstone query limits and false live truncation, manifest retry reset/stale-failure race, malformed timestamp trap/atomic rollback, and backward workout source/finish chronology; repaired outdated placement-test scrolling · f5117ca ·147 Debug/Release core tests; broad UI20/21 followed by4 final-source passes and1 Live pass; signed Release build installed, independent rereview clear. Physical/history/Health stage reconciliation gates remain open in BugAudit.md.

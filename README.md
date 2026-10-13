@@ -322,3 +322,5 @@ Today distinguishes **Band catch-up stored** from iCloud sync and explains when 
 Settings has a separate gear button. Today displays the reported band battery percentage beside the source band; stale reports are labelled separately. Missing battery reports remain unavailable.
 
 <img src="docs/screenshots/today-battery-demo.png" width="280" alt="Synthetic Today screen with separate Settings gear and visible source-band battery percentage" />
+
+The latest integrity bug pass and its remaining acceptance gates are recorded in [Bug audit](docs/BugAudit.md) and [Verification](docs/Verification.md). Fixes cover query limits/deletions, cloud retry races, timestamp validation and workout chronology; physical overnight recovery and CPU reliability remain open.
