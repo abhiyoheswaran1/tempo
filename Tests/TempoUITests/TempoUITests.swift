@@ -154,7 +154,10 @@ extension TempoUITests {
     app.buttons["Manage and reconnect bands"].tap()
     app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'registered-band-'")).firstMatch
       .tap()
-    app.buttons["Record wearing placement"].tap()
+    let placement = app.buttons["Record wearing placement"]
+    for _ in 0..<5 where !placement.isHittable { app.swipeUp() }
+    XCTAssertTrue(placement.isHittable)
+    placement.tap()
     XCTAssertTrue(app.navigationBars["Wearing placement"].waitForExistence(timeout: 5))
     app.buttons["Now: Wrist"].tap()
     XCTAssertTrue(app.staticTexts["Wrist"].firstMatch.waitForExistence(timeout: 5))

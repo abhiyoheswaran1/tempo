@@ -43,7 +43,11 @@ public struct Measurement: Codable, Sendable, Identifiable, Equatable {
   public var isBandHistory: Bool {
     transport.hasPrefix("whoop4-history-") || transport.hasPrefix("whoop5-history-")
   }
-  public var valid: Bool { value.isFinite && quality.isEmpty && wear != .offBody }
+  public var valid: Bool {
+    value.isFinite && timestamp.timeIntervalSince1970.isFinite
+      && Int(exactly: floor(timestamp.timeIntervalSince1970)) != nil
+      && quality.isEmpty && wear != .offBody
+  }
   /// Direct experimental readings remain inspectable; opaque signal quality is not an analytical validity claim.
   public var permitsPhysiologicalAnalytics: Bool { valid && qualityContext == nil }
 }
@@ -91,7 +95,9 @@ public struct Workout: Codable, Sendable, Identifiable, Equatable {
     pausedAt = nil
   }
   public mutating func finish(at date: Date) {
-    guard end == nil, date >= start else { return }
+    guard end == nil, date.timeIntervalSince1970.isFinite, date >= start,
+      date >= (pausedAt ?? start), date >= (pauses.last?.end ?? start),
+      date >= (sources.last?.end ?? sources.last?.start ?? start) else { return }
     if let p = pausedAt {
       pauses.append(DateInterval(start: p, end: date))
       pausedAt = nil
@@ -104,7 +110,9 @@ public struct Workout: Codable, Sendable, Identifiable, Equatable {
     sources[sources.count - 1].end = max(date, last.start)
   }
   public mutating func switchSource(to id: UUID, at date: Date) {
-    guard end == nil, !(sources.last?.deviceID == id && sources.last?.end == nil) else { return }
+    guard end == nil, date.timeIntervalSince1970.isFinite, date >= start,
+      date >= (sources.last?.end ?? sources.last?.start ?? start),
+      !(sources.last?.deviceID == id && sources.last?.end == nil) else { return }
     if !sources.isEmpty, sources.last?.end == nil { sources[sources.count - 1].end = date }
     sources.append(SourceSegment(deviceID: id, start: date, end: nil, reason: "workout source"))
   }

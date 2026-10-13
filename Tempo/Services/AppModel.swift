@@ -557,6 +557,10 @@ import WidgetKit
   func finishWorkout() async throws {
     guard var w = activeWorkout else { return }
     w.finish(at: Date())
+    guard w.end != nil else {
+      errorMessage = "The workout clock moved backwards. Check the phone’s date and time before finishing."
+      return
+    }
     try await save(w, kind: "workout")
     finishedWorkout = w
     if !demo { await live.end() }

@@ -79,7 +79,8 @@ private final class ChangePage: @unchecked Sendable {
         } catch {
           let ck = error as? CKError
           try await store.deferChange(
-            p.id, attempt: p.attempts + 1, retryAfter: ck?.retryAfterSeconds)
+            p.id, attempt: p.attempts + 1, retryAfter: ck?.retryAfterSeconds,
+            expectedPayload: p.envelope.payload)
           throw error
         }
       }

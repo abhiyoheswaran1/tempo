@@ -110,11 +110,12 @@ public actor TempoStore {
   }
   private func queue(_ envelope: SyncEnvelope) throws {
     try run(
-      "INSERT INTO outbox(id,kind,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,next=0",
+      "INSERT INTO outbox(id,kind,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,attempts=0,next=0",
       [.text(envelope.id), .text(envelope.kind), .blob(envelope.payload)])
   }
   private func insertOne(_ m: Measurement, enqueue: Bool) throws {
     guard m.value.isFinite, m.timestamp.timeIntervalSince1970.isFinite,
+      Int(exactly: floor(m.timestamp.timeIntervalSince1970)) != nil,
       m.rrMilliseconds.allSatisfy({ $0.isFinite }),
       m.origin != .synthetic || (allowSynthetic && m.transport == "demo")
     else { throw StoreError.invalidSample }
@@ -146,20 +147,34 @@ public actor TempoStore {
   public func measurements(from: Date, to: Date, kinds: [MetricKind]? = nil, limit: Int = 100_000)
     throws -> [Measurement]
   {
-    let data = try rows(
-      "SELECT payload FROM observations WHERE time>=? AND time<? ORDER BY time DESC LIMIT ?",
-      [
-        .number(from.timeIntervalSince1970), .number(to.timeIntervalSince1970),
-        .number(Double(max(1, min(limit, 100_000)))),
-      ])
+    let target = max(1, min(limit, 100_000))
+    if kinds?.isEmpty == true { return [] }
     let deleted = Set(
       try revisions(kind: "measurementDeletion").compactMap {
         String(data: $0.payload, encoding: .utf8)
       })
-    return try data.map { try JSONDecoder().decode(Measurement.self, from: $0) }.filter {
-      !deleted.contains($0.id) && (kinds == nil || kinds!.contains($0.kind))
-    }.sorted { $0.timestamp < $1.timestamp }
+    let kindClause = kinds.map { " AND kind IN (" + Array(repeating: "?", count: $0.count).joined(separator: ",") + ")" } ?? ""
+    let baseValues: [SQLValue] = [.number(from.timeIntervalSince1970), .number(to.timeIntervalSince1970)]
+      + (kinds?.map { .text($0.rawValue) } ?? [])
+    var result: [Measurement] = []
+    var offset = 0
+    let pageSize = min(target, 4096)
+    while result.count < target {
+      let data = try rows(
+        "SELECT payload FROM observations WHERE time>=? AND time<?\(kindClause) ORDER BY time DESC,id LIMIT ? OFFSET ?",
+        baseValues + [.number(Double(pageSize)), .number(Double(offset))])
+      guard !data.isEmpty else { break }
+      for payload in data {
+        let sample = try JSONDecoder().decode(Measurement.self, from: payload)
+        if !deleted.contains(sample.id) { result.append(sample) }
+        if result.count == target { break }
+      }
+      offset += data.count
+      if data.count < pageSize { break }
+    }
+    return result.sorted { $0.timestamp == $1.timestamp ? $0.id < $1.id : $0.timestamp < $1.timestamp }
   }
+
   public func liveHeartRateWindow(from: Date, to: Date, limit: Int = 40_000) async throws
     -> LiveMeasurementWindow
   {
@@ -168,28 +183,29 @@ public actor TempoStore {
     }
     let count = max(1, min(limit, 40_000))
     let origins = allowSynthetic ? "('measured','synthetic')" : "('measured')"
-    let data = try rows(
-      "SELECT payload FROM observations WHERE kind='heartRate' AND time>=? AND time<? AND json_extract(CAST(payload AS TEXT),'$.origin') IN \(origins) ORDER BY time DESC,id LIMIT ?",
-      [
-        .number(from.timeIntervalSince1970), .number(to.timeIntervalSince1970),
-        .number(Double(count + 1)),
-      ])
     let deleted = Set(
       try revisions(kind: "measurementDeletion").compactMap {
         String(data: $0.payload, encoding: .utf8)
       })
+    // Resolve tombstones in the SQLite query before LIMIT. One JSON parameter avoids
+    // variable-count limits; fetch the bounded snapshot before yielding for decoding.
+    let exclusions = String(decoding: try JSONEncoder().encode(Array(deleted)), as: UTF8.self)
+    let data = try rows(
+      "SELECT payload FROM observations WHERE kind='heartRate' AND time>=? AND time<? AND json_extract(CAST(payload AS TEXT),'$.origin') IN \(origins) AND id NOT IN (SELECT value FROM json_each(?)) ORDER BY time DESC,id LIMIT ?",
+      [.number(from.timeIntervalSince1970), .number(to.timeIntervalSince1970),
+       .text(exclusions), .number(Double(count + 1))])
     var samples: [Measurement] = []
     for (index, payload) in data.prefix(count).enumerated() {
       if index % 500 == 0 {
         try Task.checkCancellation()
         await Task.yield()
       }
-      let sample = try JSONDecoder().decode(Measurement.self, from: payload)
-      if !deleted.contains(sample.id) { samples.append(sample) }
+      samples.append(try JSONDecoder().decode(Measurement.self, from: payload))
     }
     return LiveMeasurementWindow(
       samples: samples.sorted { $0.timestamp < $1.timestamp }, truncated: data.count > count)
   }
+
   public func observations(externalID: String) throws -> [Measurement] {
     try rows(
       "SELECT payload FROM observations WHERE json_extract(CAST(payload AS TEXT),'$.externalID')=?",
@@ -464,11 +480,12 @@ public actor TempoStore {
     }
   }
   public func resetRetrySchedule() throws { try run("UPDATE outbox SET next=0") }
-  public func deferChange(_ id: String, attempt: Int, retryAfter: Double? = nil) throws {
+  public func deferChange(_ id: String, attempt: Int, retryAfter: Double? = nil, expectedPayload: Data? = nil) throws {
     let delay = retryAfter ?? min(21600, pow(2, Double(min(attempt, 12))) * 5)
     try run(
-      "UPDATE outbox SET attempts=?,next=? WHERE id=?",
-      [.number(Double(attempt)), .number(Date().timeIntervalSince1970 + delay), .text(id)])
+      "UPDATE outbox SET attempts=?,next=? WHERE id=?" + (expectedPayload == nil ? "" : " AND payload=?"),
+      [.number(Double(attempt)), .number(Date().timeIntervalSince1970 + delay), .text(id)]
+        + (expectedPayload.map { [.blob($0)] } ?? []))
   }
   public func materialize(_ envelope: SyncEnvelope) throws -> SyncEnvelope {
     guard envelope.kind == "batch" else { return envelope }
